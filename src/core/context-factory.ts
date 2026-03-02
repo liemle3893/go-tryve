@@ -79,6 +79,9 @@ export class ContextFactory {
         // Initialize captured values storage
         const captured: Record<string, unknown> = {}
 
+        // Initialize cookie jar for HTTP cookie persistence across steps
+        const cookieJar = new Map<string, string>()
+
         // Create capture function that stores values
         const capture = (name: string, value: unknown): void => {
             captured[name] = value
@@ -98,6 +101,7 @@ export class ContextFactory {
                 baseUrl: this.config.environment.baseUrl,
                 logger: this.logger,
                 capture,
+                cookieJar,
             }
         }
 
@@ -180,6 +184,7 @@ export function createStandaloneContext(
         capture: (name: string, value: unknown) => {
             captured[name] = value
         },
+        cookieJar: new Map<string, string>(),
     }
 }
 
@@ -201,6 +206,7 @@ export function createMinimalContext(baseUrl: string, logger: Logger): AdapterCo
         capture: (name: string, value: unknown) => {
             captured[name] = value
         },
+        cookieJar: new Map<string, string>(),
     }
 }
 

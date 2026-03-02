@@ -177,6 +177,11 @@ export class HTTPAdapter extends BaseAdapter {
         duration,
       };
 
+      // Store cookies from response into the jar for subsequent requests
+      if (ctx.cookieJar) {
+        this.storeCookies(response.headers, ctx.cookieJar);
+      }
+
       // Log HTTP response in debug mode
       this.logHttpResponse(method, url, httpResponse);
 
@@ -302,6 +307,15 @@ export class HTTPAdapter extends BaseAdapter {
   ): Record<string, string> {
     const headers = { ...this.defaultHeaders };
 
+    // Inject cookies from jar
+    if (ctx?.cookieJar && ctx.cookieJar.size > 0) {
+      const cookieString = Array.from(ctx.cookieJar.entries())
+        .map(([name, value]) => `${name}=${value}`)
+        .join('; ');
+      headers['Cookie'] = cookieString;
+    }
+
+    // User-provided headers override jar cookies (user intent wins)
     if (requestHeaders) {
       for (const [key, value] of Object.entries(requestHeaders)) {
         headers[key] = value;
@@ -309,6 +323,26 @@ export class HTTPAdapter extends BaseAdapter {
     }
 
     return headers;
+  }
+
+  /**
+   * Parse Set-Cookie headers and store in the cookie jar
+   */
+  private storeCookies(
+    responseHeaders: Headers,
+    cookieJar: Map<string, string>
+  ): void {
+    const setCookieHeaders = responseHeaders.getSetCookie();
+    for (const header of setCookieHeaders) {
+      // Parse "name=value; Path=/; HttpOnly; ..." — only need name=value
+      const firstPart = header.split(';')[0].trim();
+      const eqIndex = firstPart.indexOf('=');
+      if (eqIndex > 0) {
+        const name = firstPart.substring(0, eqIndex).trim();
+        const value = firstPart.substring(eqIndex + 1).trim();
+        cookieJar.set(name, value);
+      }
+    }
   }
 
   /**

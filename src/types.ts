@@ -174,6 +174,7 @@ export interface AdapterContext {
   capture: (name: string, value: unknown) => void;
   logger: Logger;
   baseUrl: string;
+  cookieJar: Map<string, string>;
 }
 
 export interface AdapterStepResult {

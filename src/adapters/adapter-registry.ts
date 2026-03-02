@@ -271,6 +271,7 @@ export class AdapterRegistry {
       capture: (name: string, value: unknown) => {
         captured[name] = value;
       },
+      cookieJar: new Map<string, string>(),
     };
   }
 }
