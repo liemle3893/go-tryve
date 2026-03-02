@@ -6,7 +6,7 @@
 
 export { BaseAdapter, runAdapterAssertions, captureValues } from './base.adapter';
 export { HTTPAdapter } from './http.adapter';
-export type { HTTPRequestParams, HTTPResponse, HTTPAssertion, JSONPathAssertion } from './http.adapter';
+export type { HTTPRequestParams, HTTPResponse, HTTPAssertion, JSONPathAssertion, MultipartField } from './http.adapter';
 export { PostgreSQLAdapter } from './postgresql.adapter';
 export type { PostgreSQLAssertion } from './postgresql.adapter';
 export { RedisAdapter } from './redis.adapter';

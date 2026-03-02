@@ -1,0 +1,83 @@
+name: TC-LOGIN-TOTP-001
+description: Login with username/password + TOTP 2FA, then verify session via RPC call
+priority: P0
+tags: [auth, login, totp, smoke]
+timeout: 30000
+
+variables:
+  login_username: "ops-admin"
+  login_password: "ChangeMe123!@#"
+  totp_secret: "KZCUEE2KPE3CY3YXGAPGG7IVK5GDQBJ2"
+
+execute:
+  # Step 1: Login with username/password
+  - id: login
+    adapter: http
+    action: request
+    description: "Submit credentials to get temp token"
+    method: POST
+    url: "{{baseUrl}}/api/v1/ops/auth/login"
+    body:
+      username: "{{login_username}}"
+      password: "{{login_password}}"
+    capture:
+      temp_token: "$.tempToken"
+    assert:
+      status: 200
+      json:
+        - path: "$.success"
+          equals: true
+        - path: "$.totpRequired"
+          equals: true
+        - path: "$.tempToken"
+          exists: true
+          notEmpty: true
+
+  # Step 2: Verify TOTP code with temp token
+  - id: verify_totp
+    adapter: http
+    action: request
+    description: "Verify TOTP code to complete authentication"
+    method: POST
+    url: "{{baseUrl}}/api/v1/ops/auth/verify-totp"
+    headers:
+      Authorization: "Bearer {{captured.temp_token}}"
+    body:
+      code: "{{$totp(KZCUEE2KPE3CY3YXGAPGG7IVK5GDQBJ2)}}"
+    capture:
+      access_token: "$.data.accessToken"
+    assert:
+      status: 200
+      json:
+        - path: "$.success"
+          equals: true
+        - path: "$.data.accessToken"
+          exists: true
+          notEmpty: true
+        - path: "$.data.user.username"
+          equals: "ops-admin"
+        - path: "$.data.user.role"
+          equals: "ADMIN"
+
+verify:
+  # Step 3: Verify authenticated RPC call works
+  - id: rpc_status
+    adapter: http
+    action: request
+    description: "Call system.getStatus RPC to verify auth works"
+    method: POST
+    url: "{{baseUrl}}/api/v1/ops/rpc"
+    headers:
+      Authorization: "Bearer {{captured.access_token}}"
+    body:
+      jsonrpc: "2.0"
+      method: "system.getStatus"
+      params: {}
+      id: 1
+    assert:
+      status: 200
+      json:
+        - path: "$.result.overallStatus"
+          equals: "healthy"
+        - path: "$.id"
+          equals: 1

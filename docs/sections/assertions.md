@@ -168,7 +168,7 @@ assert:
 
 Check value type.
 
-Valid types: `string`, `number`, `boolean`, `object`, `array`, `null`, `undefined`
+Valid types: `string`, `number`, `boolean`, `object`, `array`, `function`, `undefined`, `null`, `symbol`, `bigint`
 
 ```yaml
 assert:
@@ -495,7 +495,14 @@ verify:
 When using TypeScript tests, the `expect()` API provides additional matchers:
 
 ```typescript
-import { expect, assert, fail } from '@liemle3893/e2e-runner';
+import {
+  expect,
+  assert,
+  assertFalse,
+  fail,
+  assertThrows,
+  assertThrowsAsync,
+} from '@liemle3893/e2e-runner';
 
 // Basic matchers
 expect(value).toBe(expected);           // Strict equality (===)
@@ -516,6 +523,7 @@ expect(value).toHaveLength(5);
 
 // Strings/Patterns
 expect(string).toMatch(/pattern/);
+expect(string).toMatch('regex-string');
 
 // Numbers
 expect(num).toBeGreaterThan(5);
@@ -539,8 +547,25 @@ assert(condition, 'Error message');
 assertFalse(condition, 'Error message');
 fail('Force failure');
 
-// Async assertions
+// Sync throw assertions
+assertThrows(() => {
+  dangerousFn();
+});
+assertThrows(() => { throw new Error('bad'); }, 'bad');        // Match message substring
+assertThrows(() => { throw new Error('bad'); }, /bad/);        // Match message regex
+assertThrows(() => { throw new TypeError(); }, TypeError);     // Match error class
+
+// Async throw assertions
 await assertThrowsAsync(async () => {
   await someAsyncFn();
-}, 'Expected error');
+});
+await assertThrowsAsync(async () => {
+  await someAsyncFn();
+}, 'Expected error');                                          // Match message substring
+await assertThrowsAsync(async () => {
+  await someAsyncFn();
+}, /expected/i);                                               // Match message regex
+await assertThrowsAsync(async () => {
+  await someAsyncFn();
+}, CustomError);                                               // Match error class
 ```

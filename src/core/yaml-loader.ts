@@ -290,6 +290,27 @@ function validateAdapterStep(step: RawYAMLStep, location: string): string[] {
       if (!step.url) {
         errors.push(`${location}: HTTP steps require "url" field`);
       }
+      // Validate multipart fields
+      if (step.multipart !== undefined) {
+        if (step.body !== undefined) {
+          errors.push(`${location}: "body" and "multipart" are mutually exclusive — use one or the other`);
+        }
+        if (!Array.isArray(step.multipart)) {
+          errors.push(`${location}: "multipart" must be an array`);
+        } else if (step.multipart.length === 0) {
+          errors.push(`${location}: "multipart" must have at least one entry`);
+        } else {
+          for (let i = 0; i < step.multipart.length; i++) {
+            const entry = step.multipart[i] as Record<string, unknown>;
+            if (!entry.name || typeof entry.name !== 'string') {
+              errors.push(`${location}: multipart[${i}] requires a "name" field (string)`);
+            }
+            if (entry.file === undefined && entry.value === undefined) {
+              errors.push(`${location}: multipart[${i}] must have either "file" or "value"`);
+            }
+          }
+        }
+      }
       break;
   }
 

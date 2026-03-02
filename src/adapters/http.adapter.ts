@@ -4,6 +4,9 @@
  * HTTP client for REST API testing
  */
 
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+
 import { AdapterError, AssertionError } from '../errors';
 import type { AdapterConfig, AdapterContext, AdapterStepResult } from '../types';
 import { BaseAdapter } from './base.adapter';
@@ -13,6 +16,19 @@ import { runAssertion, type BaseAssertion } from '../assertions/assertion-runner
 // ============================================================================
 // Types
 // ============================================================================
+
+export interface MultipartField {
+  /** Field name (required). */
+  name: string;
+  /** File path to read and attach as a binary upload. */
+  file?: string;
+  /** Text field value. */
+  value?: string;
+  /** Override for the uploaded filename (defaults to basename of file path). */
+  filename?: string;
+  /** MIME type override for file uploads. */
+  contentType?: string;
+}
 
 export interface HTTPRequestParams {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS';
@@ -24,6 +40,8 @@ export interface HTTPRequestParams {
   followRedirects?: boolean;
   capture?: Record<string, string>;
   assert?: HTTPAssertion;
+  /** Multipart/form-data fields. Mutually exclusive with body. */
+  multipart?: MultipartField[];
 }
 
 export interface HTTPResponse {
@@ -144,8 +162,12 @@ export class HTTPAdapter extends BaseAdapter {
         redirect: params.followRedirects === false ? 'manual' : 'follow',
       };
 
-      // Add body for non-GET requests
-      if (params.body && method !== 'GET' && method !== 'HEAD') {
+      // Build request body: multipart/form-data or JSON
+      if (params.multipart && params.multipart.length > 0 && method !== 'GET' && method !== 'HEAD') {
+        fetchOptions.body = await this.buildMultipartBody(params.multipart);
+        // Delete Content-Type in-place so fetch auto-sets multipart/form-data with boundary
+        delete headers['Content-Type'];
+      } else if (params.body && method !== 'GET' && method !== 'HEAD') {
         fetchOptions.body =
           typeof params.body === 'string'
             ? params.body
@@ -251,6 +273,50 @@ export class HTTPAdapter extends BaseAdapter {
     }
 
     return url.toString();
+  }
+
+  /**
+   * Build a FormData body from multipart field definitions.
+   *
+   * Each entry must have `name` and either `file` (path) or `value` (text).
+   * File entries are read from disk and appended as Blob with optional
+   * custom filename and content type.
+   */
+  private async buildMultipartBody(fields: MultipartField[]): Promise<FormData> {
+    const formData = new FormData();
+
+    for (const entry of fields) {
+      if (entry.file) {
+        let fileBuffer: Buffer;
+        try {
+          fileBuffer = await fs.promises.readFile(entry.file);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          throw new AdapterError(
+            'http',
+            'request',
+            `Multipart entry "${entry.name}": failed to read file "${entry.file}": ${msg}`
+          );
+        }
+        const blobOptions: { type?: string } = {};
+        if (entry.contentType) {
+          blobOptions.type = entry.contentType;
+        }
+        const blob = new Blob([fileBuffer], blobOptions);
+        const filename = entry.filename || path.basename(entry.file);
+        formData.append(entry.name, blob, filename);
+      } else if (entry.value !== undefined) {
+        formData.append(entry.name, entry.value);
+      } else {
+        throw new AdapterError(
+          'http',
+          'request',
+          `Multipart entry "${entry.name}" must have either "file" or "value"`
+        );
+      }
+    }
+
+    return formData;
   }
 
   /**

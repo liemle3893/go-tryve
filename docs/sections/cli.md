@@ -20,10 +20,11 @@ npm install -g @liemle3893/e2e-runner
 | `e2e validate` | Validate test files without execution |
 | `e2e list` | List discovered tests |
 | `e2e health` | Check adapter connectivity |
-| `e2e init` | Initialize configuration file |
+| `e2e init` | Initialize project structure and config |
 | `e2e test create <name>` | Create test from template |
-| `e2e doc <section>` | Show documentation for a section |
-| `e2e install <adapter>` | Install adapter peer dependencies |
+| `e2e test list-templates` | List available test templates |
+| `e2e doc [section]` | Show bundled documentation |
+| `e2e install --skills` | Install Claude Code skill bundle |
 
 ---
 
@@ -32,7 +33,7 @@ npm install -g @liemle3893/e2e-runner
 Execute E2E tests with filtering and execution options.
 
 ```bash
-e2e run [options]
+e2e run [options] [patterns...]
 ```
 
 ### Options
@@ -41,11 +42,13 @@ e2e run [options]
 |--------|-------------|---------|
 | `-c, --config <path>` | Config file path | `e2e.config.yaml` |
 | `-e, --env <name>` | Environment name | `local` |
-| `-d, --test-dir <path>` | Test directory | Current directory |
+| `-d, --test-dir <path>` | Test directory | Config `testDir` or `.` |
+| `--report-dir <path>` | Report output directory | `./reports` |
 | `-p, --parallel <n>` | Parallel test count | `1` |
 | `-t, --timeout <ms>` | Test timeout | `30000` |
 | `-r, --retries <n>` | Retry failed tests | `0` |
 | `--bail` | Stop on first failure | `false` |
+| `--watch` | Watch mode | `false` |
 | `-g, --grep <pattern>` | Filter by name regex | |
 | `--tag <tag>` | Filter by tag (repeatable) | |
 | `--priority <level>` | Filter by priority (repeatable) | |
@@ -55,6 +58,8 @@ e2e run [options]
 | `--reporter <type>` | Reporter type (repeatable) | `console` |
 | `-o, --output <path>` | Report output path | |
 | `--debug` | Enable debug logging | `false` |
+| `--step-by-step` | Step-by-step execution mode | `false` |
+| `--capture-traffic` | Capture network traffic | `false` |
 | `-v, --verbose` | Verbose output | `false` |
 | `-q, --quiet` | Errors only | `false` |
 | `--no-color` | Disable colors | `false` |
@@ -120,6 +125,9 @@ e2e run --reporter console --reporter junit --reporter html
 # Specify output paths
 e2e run --reporter junit -o ./reports/results.xml
 
+# Custom report directory
+e2e run --report-dir ./test-reports
+
 # Debug mode
 e2e run --debug --verbose
 ```
@@ -151,7 +159,7 @@ E2E_TEST_DIR=./tests/e2e e2e run
 Validate test files and configuration without executing tests.
 
 ```bash
-e2e validate [options]
+e2e validate [options] [patterns...]
 ```
 
 ### Options
@@ -160,7 +168,7 @@ e2e validate [options]
 |--------|-------------|---------|
 | `-c, --config <path>` | Config file path | `e2e.config.yaml` |
 | `-e, --env <name>` | Environment name | `local` |
-| `-d, --test-dir <path>` | Test directory | Current directory |
+| `-d, --test-dir <path>` | Test directory | Config `testDir` or `.` |
 | `-v, --verbose` | Verbose output | `false` |
 | `-q, --quiet` | Errors only | `false` |
 | `--no-color` | Disable colors | `false` |
@@ -181,11 +189,10 @@ e2e validate --verbose
 ### What it validates:
 
 - Configuration file syntax and structure
-- YAML test file syntax
+- YAML test file syntax and schema
+- TypeScript test file syntax and exports
 - Required fields (name, execute)
 - Adapter action validity
-- Variable references
-- JSONPath syntax
 
 ---
 
@@ -194,7 +201,7 @@ e2e validate --verbose
 List discovered tests with metadata.
 
 ```bash
-e2e list [options]
+e2e list [options] [patterns...]
 ```
 
 ### Options
@@ -203,10 +210,11 @@ e2e list [options]
 |--------|-------------|---------|
 | `-c, --config <path>` | Config file path | `e2e.config.yaml` |
 | `-e, --env <name>` | Environment name | `local` |
-| `-d, --test-dir <path>` | Test directory | Current directory |
+| `-d, --test-dir <path>` | Test directory | Config `testDir` or `.` |
 | `-g, --grep <pattern>` | Filter by name regex | |
 | `--tag <tag>` | Filter by tag (repeatable) | |
 | `--priority <level>` | Filter by priority (repeatable) | |
+| `-o, --output <format>` | Output format (`json` for JSON) | table |
 | `-v, --verbose` | Verbose output | `false` |
 | `-q, --quiet` | Errors only | `false` |
 | `--no-color` | Disable colors | `false` |
@@ -221,20 +229,38 @@ e2e list
 e2e list --tag smoke
 e2e list --priority P0
 
-# Verbose output (shows tags, priority, file path)
+# Verbose output (shows file path, skip reasons)
 e2e list --verbose
+
+# JSON output (for scripting)
+e2e list --output json
 ```
 
 ### Output
 
 ```
-Tests found: 5
+Discovered E2E Tests
+================================================================================
 
-  TC-USER-001       User CRUD operations           [P0] [user, crud]
-  TC-ORDER-001      Order creation flow            [P1] [order, e2e]
-  TC-CACHE-001      Redis cache test               [P0] [redis, cache]
-  TC-HEALTH-001     Health check                   [P0] [smoke]
-  TC-INT-001        Integration test               [P1] [integration]
+  Name                                    Type        Priority  Tags
+  ------------------------------------------------------------------------------
+  TC-USER-001                             YAML        P0        user, crud
+  TC-ORDER-001                            YAML        P1        order, e2e
+  TC-CACHE-001                            YAML        P0        redis, cache
+  TC-HEALTH-001                           TypeScript  P0        smoke
+  TC-INT-001                              YAML        P1        integration
+
+Summary
+----------------------------------------
+  Total tests:      5
+  YAML tests:       4
+  TypeScript tests: 1
+
+  By Priority:
+    P0 (Critical):  3
+    P1 (High):      2
+    P2 (Medium):    0
+    P3 (Low):       0
 ```
 
 ---
@@ -272,22 +298,33 @@ e2e health --env staging --adapter redis
 ### Output
 
 ```
-Checking adapter health for environment: local
+E2E Adapter Health Check
+==================================================
 
-  ✓ HTTP          http://localhost:3000           12ms
-  ✓ PostgreSQL    localhost:5432/mydb             45ms
-  ✓ Redis         localhost:6379                   8ms
-  ✓ MongoDB       localhost:27017/mydb            23ms
-  ✗ EventHub      localhost (emulator)            TIMEOUT
+Environment: local
 
-4/5 adapters healthy
+Checking adapters...
+
+  ✓ HTTP            HEALTHY (12ms)
+  ✓ PostgreSQL      HEALTHY (45ms)
+  ✓ Redis           HEALTHY (8ms)
+  ✓ MongoDB         HEALTHY (23ms)
+  ✗ EventHub        UNHEALTHY
+    Error: Connection timed out
+
+Summary
+----------------------------------------
+  Total adapters: 5
+  Healthy:        4
+  Unhealthy:      1
+  Avg latency:    22ms
 ```
 
 ---
 
 ## `e2e init`
 
-Initialize configuration file template.
+Initialize E2E test project structure with configuration, example tests, schemas, and environment template.
 
 ```bash
 e2e init [options]
@@ -297,52 +334,67 @@ e2e init [options]
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--force` | Overwrite existing config | `false` |
+| `-v, --verbose` | Verbose output | `false` |
+| `-q, --quiet` | Errors only | `false` |
+| `--no-color` | Disable colors | `false` |
 
 ### Examples
 
 ```bash
-# Create e2e.config.yaml
+# Initialize project structure
 e2e init
-
-# Overwrite existing
-e2e init --force
 ```
 
-### Generated Template
+### What it creates:
+
+**Directories:**
+- `tests/e2e/` — Main test directory
+- `tests/e2e/schemas/` — JSON schema files for validation
+- `tests/e2e/examples/` — Example test files
+- `tests/e2e/reports/` — Report output directory
+- `tests/e2e/fixtures/` — Test fixture data
+
+**Files:**
+- `tests/e2e/e2e.config.yaml` — Configuration file
+- `tests/e2e/examples/TC-EXAMPLE-001.test.yaml` — Example YAML test
+- `tests/e2e/examples/TC-EXAMPLE-002.test.ts` — Example TypeScript test
+- `tests/e2e/schemas/e2e-config.schema.json` — Config JSON schema
+- `tests/e2e/schemas/e2e-test.schema.json` — Test file JSON schema
+- `.env.e2e.example` — Environment variable template
+
+Existing files are not overwritten. The command will skip files that already exist.
+
+### Generated Config Template
 
 ```yaml
+# E2E Test Runner Configuration
 version: "1.0"
 
 environments:
   local:
     baseUrl: "http://localhost:3000"
     adapters:
-      # postgresql:
-      #   connectionString: "postgresql://user:pass@localhost:5432/db"
-      # redis:
-      #   connectionString: "redis://localhost:6379"
-      # mongodb:
-      #   connectionString: "mongodb://localhost:27017"
-      #   database: "mydb"
+      postgresql:
+        connectionString: "${POSTGRESQL_CONNECTION_STRING}"
+      redis:
+        connectionString: "${REDIS_CONNECTION_STRING}"
+      mongodb:
+        connectionString: "${MONGODB_CONNECTION_STRING}"
 
 defaults:
   timeout: 30000
-  retries: 2
+  retries: 1
   retryDelay: 1000
   parallel: 4
 
 variables:
-  # Define global variables here
-  # apiKey: "${API_KEY}"
+  testPrefix: "e2e_test_"
 
 reporters:
   - type: console
     verbose: true
   - type: junit
     output: "./reports/junit.xml"
-  - type: html
-    output: "./reports/report.html"
 ```
 
 ---
@@ -355,33 +407,85 @@ Create a new test file from a template.
 e2e test create <name> [options]
 ```
 
+### Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--template <type>`, `-T` | Template type | `api` |
+| `--description <text>`, `-D` | Test description | `E2E test for <name>` |
+| `-o, --output <path>` | Output directory | Config `testDir` or `.` |
+| `--test-priority <level>` | Priority: P0, P1, P2, P3 | `P0` |
+| `--test-tags <tags>` | Comma-separated tags | `e2e` |
+
+### Templates
+
+| Template | Description |
+|----------|-------------|
+| `api` | Simple API test (GET/POST with assertions) |
+| `crud` | Full CRUD operations with DB verification |
+| `integration` | Multi-adapter test (HTTP + PostgreSQL + Redis + MongoDB) |
+| `event-driven` | EventHub publish/consume pattern |
+| `db-verification` | Direct database assertion patterns |
+
 ### Examples
 
 ```bash
-# Create a new test file
+# Create a basic API test (default template)
 e2e test create user-crud
 
-# Creates: ./user-crud.test.yaml
+# Create with specific template
+e2e test create order-flow --template crud
+e2e test create user-sync -T integration
+
+# Specify description and tags
+e2e test create login-flow --template api --description "Login authentication flow" --test-tags "auth,smoke"
+
+# Output to specific directory
+e2e test create TC-PAYMENT-001 --template crud -o ./tests/e2e/payments
+
+# Creates: ./tests/e2e/payments/TC-PAYMENT-001.test.yaml
 ```
 
 ---
 
-## `e2e doc <section>`
+## `e2e test list-templates`
 
-Show documentation for a specific section in the terminal.
+List all available test templates.
+
+```bash
+e2e test list-templates
+```
+
+### Output
+
+```
+Available templates:
+
+  api             Simple API test (GET/POST with assertions)
+  crud            Full CRUD operations with DB verification
+  integration     Multi-adapter test (HTTP + PostgreSQL + Redis + MongoDB)
+  event-driven    EventHub publish/consume pattern
+  db-verification Direct database assertion patterns
+```
+
+---
+
+## `e2e doc`
+
+Display bundled documentation sections. When invoked without arguments, lists all available sections. When a section name is provided, prints the full content of that section to stdout.
 
 ```bash
 e2e doc [section]
 ```
 
-### Sections
+### Available Sections
 
 | Section | Description |
 |---------|-------------|
 | `yaml-test` | YAML test file syntax and structure |
 | `assertions` | Assertion operators and JSONPath syntax |
-| `built-in-functions` | Built-in functions ($uuid, $timestamp, etc.) |
-| `config` | e2e.config.yaml configuration reference |
+| `built-in-functions` | Built-in functions (`$uuid`, `$timestamp`, etc.) |
+| `config` | `e2e.config.yaml` configuration reference |
 | `cli` | CLI commands and options |
 | `examples` | Common test patterns and recipes |
 | `adapters` | Adapter overview and comparison |
@@ -394,45 +498,47 @@ e2e doc [section]
 ### Examples
 
 ```bash
-# List available sections
+# List all available documentation sections
 e2e doc
 
-# Show specific section
-e2e doc yaml-test
+# View a specific section
 e2e doc assertions
 e2e doc adapters.http
+e2e doc yaml-test
 ```
 
 ---
 
-## `e2e install <adapter>`
+## `e2e install`
 
-Install peer dependencies for a specific adapter.
+Install bundled assets into the current project. Currently supports installing the Claude Code skill bundle.
 
 ```bash
-e2e install <adapter>
+e2e install --skills
 ```
 
-### Adapters
+### Options
 
-| Adapter | Package |
-|---------|---------|
-| `postgresql` | `pg` |
-| `mongodb` | `mongodb` |
-| `redis` | `ioredis` |
-| `eventhub` | `@azure/event-hubs` |
+| Option | Description |
+|--------|-------------|
+| `--skills` | Install Claude Code skills to `.claude/skills/e2e-runner/` |
+
+When invoked without `--skills`, the command prints usage help.
+
+### What it installs
+
+Running `e2e install --skills` copies the following into your project:
+
+- `.claude/skills/e2e-runner/SKILL.md` -- The main skill bundle file
+- `.claude/skills/e2e-runner/references/` -- All documentation section files (mirrors `docs/sections/`)
+
+The `references/` directory contains the same markdown files available via `e2e doc`, allowing Claude Code to reference them directly as skill context.
 
 ### Examples
 
 ```bash
-# Install PostgreSQL driver
-e2e install postgresql
-
-# Install Redis driver
-e2e install redis
-
-# Install all adapter dependencies
-e2e install all
+# Install Claude Code skills to the current project
+e2e install --skills
 ```
 
 ---
@@ -443,10 +549,11 @@ e2e install all
 |------|------|-------------|
 | `0` | SUCCESS | All tests passed |
 | `1` | TEST_FAILURE | One or more tests failed |
-| `2` | VALIDATION_ERROR | Configuration or test validation failed |
+| `2` | CONFIG_ERROR | Configuration file error (missing, invalid, or parse error) |
 | `3` | CONNECTION_ERROR | Adapter connection failed |
-| `4` | EXECUTION_ERROR | Test execution error |
-| `5` | FATAL | Unexpected fatal error |
+| `4` | VALIDATION_ERROR | Test file validation error |
+| `5` | TIMEOUT | Test or operation timed out |
+| `127` | FATAL | Unexpected fatal error or unknown command |
 
 ### Usage in CI/CD
 
@@ -459,9 +566,11 @@ e2e run --env staging
 case $? in
   0) echo "All tests passed" ;;
   1) echo "Tests failed" ;;
-  2) echo "Validation error" ;;
+  2) echo "Configuration error" ;;
   3) echo "Connection error" ;;
-  *) echo "Execution error" ;;
+  4) echo "Validation error" ;;
+  5) echo "Timeout" ;;
+  *) echo "Fatal error" ;;
 esac
 ```
 
@@ -476,13 +585,15 @@ The CLI respects these environment variables:
 | `E2E_CONFIG` | Default config file path |
 | `E2E_ENV` | Default environment name |
 | `E2E_TEST_DIR` | Default test directory |
-| `E2E_DEBUG` | Enable debug mode (`true`/`false`) |
-| `NO_COLOR` | Disable colored output |
+| `E2E_REPORT_DIR` | Default report output directory |
+| `E2E_VERBOSE` | Enable verbose output (`true` or `1`) |
+| `NO_COLOR` | Disable colored output (`true` or `1`) |
 
 ```bash
 # Set defaults
 export E2E_CONFIG=./config/e2e.yaml
 export E2E_ENV=staging
+export E2E_REPORT_DIR=./test-reports
 
 # Now runs with these defaults
 e2e run

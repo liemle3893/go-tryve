@@ -30,21 +30,19 @@ Publish message(s) to EventHub.
 ```yaml
 - adapter: eventhub
   action: publish
-  topic: "events"
   message:
     type: "user.created"
     data:
       userId: "{{captured.user_id}}"
       email: "{{user_email}}"
-  partitionKey: "user-partition"
+  partitionKey: "user-partition"      # Optional: partition key for ordering
 ```
 
-Publish multiple messages:
+Publish multiple messages in a single batch:
 
 ```yaml
 - adapter: eventhub
   action: publish
-  topic: "events"
   messages:
     - type: "event.one"
       data: { id: 1 }
@@ -54,27 +52,23 @@ Publish multiple messages:
 
 ## Action: `consume`
 
-Consume N messages from EventHub.
+Consume N messages from EventHub. Resolves when `count` messages are received or `timeout` is reached (returns whatever was collected).
 
 ```yaml
 - adapter: eventhub
   action: consume
-  topic: "events"
-  count: 5                           # Number of messages to consume
-  timeout: 10000                     # Timeout in ms
-  capture:
-    messages: "result"
+  count: 5                           # Number of messages to consume (default: 1)
+  timeout: 10000                     # Timeout in ms (default: 10000)
 ```
 
 ## Action: `waitFor`
 
-Wait for message matching filter.
+Wait for a single message matching a filter. Fails with `TimeoutError` if no match is found within the timeout.
 
 ```yaml
 - adapter: eventhub
   action: waitFor
-  topic: "events"
-  timeout: 30000
+  timeout: 30000                     # Timeout in ms (default: 30000)
   filter:
     type: "user.created"
     data.userId: "{{captured.user_id}}"
@@ -85,24 +79,29 @@ Wait for message matching filter.
       equals: "user.created"
 ```
 
+Filter uses dot-notation for nested matching. All filter fields must match exactly.
+
 ## Action: `clear`
 
-Clear received messages buffer.
+Clear the internal received-events buffer.
 
 ```yaml
 - adapter: eventhub
   action: clear
-  topic: "events"
 ```
 
 ## EventHub Assertions
 
+Assertions use dot-notation paths on the matched event body. Supported operators:
+
 ```yaml
 assert:
   - path: "type"
-    equals: "user.created"
+    equals: "user.created"           # Exact equality
   - path: "data.userId"
-    exists: true
+    exists: true                     # Field must exist (not undefined)
   - path: "data.email"
-    contains: "@example.com"
+    contains: "@example.com"         # Substring match
+  - path: "data.status"
+    matches: "^(active|pending)$"    # Regex match
 ```

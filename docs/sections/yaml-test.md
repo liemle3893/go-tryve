@@ -15,6 +15,7 @@ skip: boolean                        # Optional: skip this test
 skipReason: string                   # Optional: reason for skipping
 timeout: number                      # Optional: test timeout (ms)
 retries: number                      # Optional: retry count
+depends: [string]                    # Optional: test names this test depends on
 
 variables:                           # Optional: test-scoped variables
   key: value
@@ -68,6 +69,16 @@ Skip test with optional reason:
 skip: true
 skipReason: "Feature not implemented yet"
 ```
+
+### Depends
+
+Declare dependencies on other tests. Dependent tests run after their dependencies:
+
+```yaml
+depends: [TC-USER-001, TC-AUTH-001]
+```
+
+This ensures that the current test only runs after `TC-USER-001` and `TC-AUTH-001` have completed successfully.
 
 ### Timeout
 
@@ -212,10 +223,11 @@ Each step has common fields plus adapter-specific parameters:
   retry: 3                       # Optional: step retry count
   delay: 1000                    # Optional: delay before execution (ms)
 
-  # Adapter-specific parameters
+  # Adapter-specific parameters (HTTP example)
   method: POST
   url: "{{baseUrl}}/users"
-  body: { ... }
+  body: { ... }                    # JSON body (mutually exclusive with multipart)
+  multipart: [...]                 # Multipart/form-data file uploads (see HTTP adapter docs)
 
   capture:                       # Optional: capture values from result
     key: "$.path"
@@ -371,7 +383,10 @@ variables:
   unique_id: "{{$uuid()}}"
   now: "{{$isoDate()}}"
   random: "{{$random(1, 100)}}"
+  otp_code: "{{$totp(JBSWY3DPEHPK3PXP)}}"
 ```
+
+See [Built-in Functions Reference](./built-in-functions.md) for the full list of available functions.
 
 ## Complete Example
 

@@ -10,9 +10,14 @@ environments:
     adapters:
       redis:
         connectionString: "redis://user:password@host:port"
-        db: 0                 # Database number (0-15)
-        keyPrefix: "test:"    # Prefix added to all keys
+        keyPrefix: "test:"    # Prefix added to all keys (optional)
 ```
+
+To select a specific Redis database, include it in the connection string: `redis://user:password@host:port/2`.
+
+Connection settings (fixed, not configurable):
+- `maxRetriesPerRequest`: 3
+- `retryStrategy`: exponential backoff (200ms, 400ms, 600ms), stops after 3 attempts
 
 **Peer dependency:** `npm install ioredis`
 

@@ -7,6 +7,8 @@ The E2E Test Runner is configured via `e2e.config.yaml` in your project root.
 ```yaml
 version: "1.0"                    # Required: config version
 
+testDir: "tests/e2e"              # Optional: test directory (default: ".")
+
 environments:                     # Required: at least one environment
   local:                          # Environment name
     baseUrl: "http://localhost:3000"  # Required: base URL for HTTP adapter
@@ -14,8 +16,7 @@ environments:                     # Required: at least one environment
       postgresql:
         connectionString: "postgresql://user:pass@localhost:5432/db"
         schema: "public"          # Default schema
-        poolMin: 1                # Min pool connections
-        poolMax: 10               # Max pool connections
+        poolSize: 10              # Connection pool size
 
       redis:
         connectionString: "redis://localhost:6379"
@@ -29,6 +30,7 @@ environments:                     # Required: at least one environment
       eventhub:
         connectionString: "Endpoint=sb://...;EntityPath=events"
         consumerGroup: "$Default" # Consumer group name
+        checkpointStore: ""       # Optional: checkpoint store connection
 
   staging:
     baseUrl: "https://staging.example.com"
@@ -42,14 +44,20 @@ environments:                     # Required: at least one environment
 
 defaults:                         # Optional: default settings
   timeout: 30000                  # Default test timeout (ms)
-  retries: 2                      # Default retry count
+  retries: 0                      # Default retry count
   retryDelay: 1000                # Delay between retries (ms)
-  parallel: 4                     # Parallel test count
+  parallel: 1                     # Parallel test count
 
 variables:                        # Optional: global variables
   testPrefix: "e2e_"
   defaultUserId: "test-user"
   apiVersion: "v1"
+
+hooks:                            # Optional: lifecycle hooks
+  beforeAll: "npm run seed"       # Shell command before all tests
+  afterAll: "npm run cleanup"     # Shell command after all tests
+  beforeEach: ""                  # Shell command before each test
+  afterEach: ""                   # Shell command after each test
 
 reporters:                        # Optional: report configuration
   - type: console
@@ -64,6 +72,18 @@ reporters:                        # Optional: report configuration
   - type: json
     output: "./reports/results.json"
 ```
+
+## Top-Level Options
+
+| Option        | Type                          | Default | Description                              |
+|---------------|-------------------------------|---------|------------------------------------------|
+| `version`     | `"1.0"`                       | —       | Required. Config schema version.         |
+| `testDir`     | `string`                      | `"."`   | Directory to discover test files in.     |
+| `environments`| `Record<string, Environment>` | —       | Required. At least one environment.      |
+| `defaults`    | `DefaultsConfig`              | —       | Default timeout, retries, parallelism.   |
+| `variables`   | `Record<string, string\|number\|boolean>` | — | Global variables for all tests. |
+| `hooks`       | `HooksConfig`                 | —       | Lifecycle shell commands.                |
+| `reporters`   | `ReporterConfig[]`            | `[{type:"console"}]` | Output format configuration. |
 
 ## Environment Configuration
 
@@ -91,15 +111,26 @@ Each adapter has specific configuration options:
 
 #### PostgreSQL
 
+| Option             | Type     | Default    | Description                   |
+|--------------------|----------|------------|-------------------------------|
+| `connectionString` | `string` | —          | Required. PostgreSQL URI.     |
+| `schema`           | `string` | `"public"` | Default schema for queries.   |
+| `poolSize`         | `number` | —          | Connection pool size.         |
+
 ```yaml
 postgresql:
   connectionString: "postgresql://user:password@host:port/database"
   schema: "public"      # Default schema for queries
-  poolMin: 1            # Minimum connection pool size
-  poolMax: 10           # Maximum connection pool size
+  poolSize: 10          # Connection pool size
 ```
 
 #### Redis
+
+| Option             | Type     | Default | Description                   |
+|--------------------|----------|---------|-------------------------------|
+| `connectionString` | `string` | —       | Required. Redis URI.          |
+| `db`               | `number` | `0`     | Database number (0-15).       |
+| `keyPrefix`        | `string` | `""`    | Prefix added to all keys.     |
 
 ```yaml
 redis:
@@ -110,6 +141,11 @@ redis:
 
 #### MongoDB
 
+| Option             | Type     | Default | Description                   |
+|--------------------|----------|---------|-------------------------------|
+| `connectionString` | `string` | —       | Required. MongoDB URI.        |
+| `database`         | `string` | —       | Database name.                |
+
 ```yaml
 mongodb:
   connectionString: "mongodb://user:password@host:port"
@@ -117,6 +153,12 @@ mongodb:
 ```
 
 #### EventHub
+
+| Option             | Type     | Default      | Description                        |
+|--------------------|----------|--------------|------------------------------------|
+| `connectionString` | `string` | —            | Required. EventHub connection.     |
+| `consumerGroup`    | `string` | `"$Default"` | Consumer group name.               |
+| `checkpointStore`  | `string` | —            | Checkpoint store connection string.|
 
 ```yaml
 eventhub:
@@ -181,12 +223,19 @@ execute:
 
 Configure defaults applied to all tests:
 
+| Option       | Type     | Default | Description                     |
+|--------------|----------|---------|---------------------------------|
+| `timeout`    | `number` | `30000` | Test timeout in ms.             |
+| `retries`    | `number` | `0`     | Retry count for failed tests.   |
+| `retryDelay` | `number` | `1000`  | Delay between retries in ms.    |
+| `parallel`   | `number` | `1`     | Number of tests to run concurrently. |
+
 ```yaml
 defaults:
   timeout: 30000    # 30 second timeout
-  retries: 2        # Retry failed tests twice
+  retries: 0        # No retries by default
   retryDelay: 1000  # 1 second between retries
-  parallel: 4       # Run 4 tests concurrently
+  parallel: 1       # Sequential execution by default
 ```
 
 Override in individual tests:
@@ -202,9 +251,36 @@ execute:
     url: "{{baseUrl}}/slow-endpoint"
 ```
 
+## Hooks
+
+Run shell commands at specific points in the test lifecycle:
+
+| Hook         | Type     | Description                          |
+|--------------|----------|--------------------------------------|
+| `beforeAll`  | `string` | Runs once before all tests start.    |
+| `afterAll`   | `string` | Runs once after all tests complete.  |
+| `beforeEach` | `string` | Runs before each individual test.    |
+| `afterEach`  | `string` | Runs after each individual test.     |
+
+```yaml
+hooks:
+  beforeAll: "npm run db:seed"
+  afterAll: "npm run db:cleanup"
+  beforeEach: "echo 'Starting test...'"
+  afterEach: "echo 'Test complete.'"
+```
+
 ## Reporters
 
-Configure multiple reporters for different output formats:
+Configure multiple reporters for different output formats.
+
+Each reporter has these fields:
+
+| Field     | Type                                    | Default | Description                          |
+|-----------|-----------------------------------------|---------|--------------------------------------|
+| `type`    | `"console" \| "junit" \| "html" \| "json"` | —   | Required. Reporter type.             |
+| `output`  | `string`                                | —       | Output file path (required for non-console). |
+| `verbose` | `boolean`                               | —       | Show detailed step output.           |
 
 ### Console Reporter
 

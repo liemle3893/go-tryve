@@ -77,12 +77,15 @@ Formatted current date/time.
 
 | Format | Output |
 |--------|--------|
-| `iso` | `2024-12-21T10:30:00.000Z` |
+| `iso` (default) | `2024-12-21T10:30:00.000Z` |
 | `date` | `2024-12-21` |
 | `time` | `10:30:00` |
 | `datetime` | `2024-12-21 10:30:00` |
 | `unix` | `1703145600` |
-| Custom | Uses date-fns format |
+| `YYYY-MM-DD` | `2024-12-21` (alias for `date`) |
+| `HH:mm:ss` | `10:30:00` (alias for `time`) |
+
+Unrecognized format strings fall back to ISO 8601 output.
 
 ```yaml
 variables:
@@ -91,7 +94,6 @@ variables:
   time: "{{$now(time)}}"         # 10:30:00
   datetime: "{{$now(datetime)}}" # 2024-12-21 10:30:00
   unix: "{{$now(unix)}}"         # 1703145600
-  custom: "{{$now(YYYY/MM/DD)}}" # 2024/12/21
 ```
 
 ### `$dateAdd(amount, unit)`
@@ -263,6 +265,72 @@ variables:
 
 ---
 
+## TOTP Function
+
+### `$totp(secret)`
+
+Generate a 6-digit TOTP code per RFC 6238 (HMAC-SHA1, 30-second period). Useful for testing 2FA/MFA login flows.
+
+The `secret` argument must be a base32-encoded string (RFC 4648), which is the standard format provided by authenticator app setup flows (e.g., Google Authenticator, Authy).
+
+```yaml
+variables:
+  otp_code: "{{$totp(JBSWY3DPEHPK3PXP)}}"
+  # → "482931" (changes every 30 seconds)
+```
+
+**Example: 2FA Login Flow**
+
+```yaml
+name: TC-LOGIN-TOTP-001
+description: Login with TOTP two-factor authentication
+
+execute:
+  # Step 1: Login with credentials
+  - adapter: http
+    action: request
+    method: POST
+    url: "{{baseUrl}}/auth/login"
+    body:
+      email: "user@example.com"
+      password: "{{$env(TEST_PASSWORD)}}"
+    capture:
+      mfa_token: "$.mfa_token"
+    assert:
+      status: 200
+
+  # Step 2: Submit TOTP code
+  - adapter: http
+    action: request
+    method: POST
+    url: "{{baseUrl}}/auth/verify-totp"
+    body:
+      mfa_token: "{{captured.mfa_token}}"
+      totp_code: "{{$totp(JBSWY3DPEHPK3PXP)}}"
+    assert:
+      status: 200
+      json:
+        - path: "$.access_token"
+          exists: true
+```
+
+**Using secrets from environment variables:**
+
+```yaml
+variables:
+  totp_secret: "{{$env(TOTP_SECRET)}}"
+
+execute:
+  - adapter: http
+    action: request
+    method: POST
+    url: "{{baseUrl}}/auth/verify-totp"
+    body:
+      totp_code: "{{$totp({{$env(TOTP_SECRET)}})}}"
+```
+
+---
+
 ## Usage Examples
 
 ### Dynamic Test Data
@@ -388,3 +456,4 @@ execute:
 | `$upper(value)` | string | Uppercase | `HELLO` |
 | `$trim(value)` | string | Trimmed | `hello` |
 | `$jsonStringify(value)` | any | JSON string | `{"key":"value"}` |
+| `$totp(secret)` | base32 string | TOTP 6-digit code (RFC 6238) | `482931` |

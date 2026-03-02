@@ -722,6 +722,234 @@ execute:
 
 ---
 
+## Cookie Jar (Session Persistence)
+
+The HTTP adapter includes an automatic cookie jar that persists cookies across steps within a test. Cookies from `Set-Cookie` response headers are stored and automatically sent in subsequent requests via the `Cookie` header.
+
+### Login and Use Session Cookie
+
+```yaml
+name: TC-SESSION-001
+description: Login with cookies and access protected resource
+priority: P0
+tags: [auth, cookie, session]
+
+variables:
+  email: "session-test-{{$uuid}}@example.com"
+  password: "SecurePass123!"
+
+setup:
+  - adapter: http
+    action: request
+    method: POST
+    url: "{{baseUrl}}/users/register"
+    body:
+      email: "{{email}}"
+      password: "{{password}}"
+    capture:
+      user_id: "$.id"
+    assert:
+      status: 201
+
+execute:
+  # Step 1: Login — server returns Set-Cookie header
+  - adapter: http
+    action: request
+    description: "Login to get session cookie"
+    method: POST
+    url: "{{baseUrl}}/auth/login"
+    body:
+      email: "{{email}}"
+      password: "{{password}}"
+    assert:
+      status: 200
+
+  # Step 2: Access protected resource — cookie is sent automatically
+  - adapter: http
+    action: request
+    description: "Access profile using session cookie"
+    method: GET
+    url: "{{baseUrl}}/users/me"
+    assert:
+      status: 200
+      json:
+        - path: "$.email"
+          equals: "{{email}}"
+
+  # Step 3: Logout — cookie is still sent
+  - adapter: http
+    action: request
+    description: "Logout using session cookie"
+    method: POST
+    url: "{{baseUrl}}/auth/logout"
+    assert:
+      status: 200
+
+teardown:
+  - adapter: http
+    action: request
+    method: DELETE
+    url: "{{baseUrl}}/users/{{captured.user_id}}"
+    continueOnError: true
+```
+
+---
+
+## TOTP (Two-Factor Authentication)
+
+Use the `$totp()` built-in function to generate time-based one-time passwords (RFC 6238, 6-digit, 30s period, HMAC-SHA1). Pass a base32-encoded secret as the argument.
+
+### Login with TOTP
+
+```yaml
+name: TC-LOGIN-TOTP-001
+description: Login with email, password, and TOTP code
+priority: P0
+tags: [auth, totp, mfa]
+
+variables:
+  email: "totp-user@example.com"
+  password: "SecurePass123!"
+  totp_secret: "JBSWY3DPEHPK3PXP"
+
+execute:
+  # Step 1: Initial login
+  - adapter: http
+    action: request
+    method: POST
+    url: "{{baseUrl}}/auth/login"
+    body:
+      email: "{{email}}"
+      password: "{{password}}"
+    capture:
+      mfa_token: "$.mfaToken"
+    assert:
+      status: 200
+      json:
+        - path: "$.mfaRequired"
+          equals: true
+
+  # Step 2: Submit TOTP code
+  - adapter: http
+    action: request
+    method: POST
+    url: "{{baseUrl}}/auth/mfa/verify"
+    body:
+      mfaToken: "{{captured.mfa_token}}"
+      code: "{{$totp(JBSWY3DPEHPK3PXP)}}"
+    capture:
+      access_token: "$.accessToken"
+    assert:
+      status: 200
+      json:
+        - path: "$.accessToken"
+          exists: true
+
+  # Step 3: Access protected resource with token
+  - adapter: http
+    action: request
+    method: GET
+    url: "{{baseUrl}}/users/me"
+    headers:
+      Authorization: "Bearer {{captured.access_token}}"
+    assert:
+      status: 200
+      json:
+        - path: "$.email"
+          equals: "{{email}}"
+```
+
+---
+
+## File Upload
+
+### Multipart/Form-Data Upload
+
+Upload a file with metadata fields using the HTTP adapter's `multipart` support:
+
+```yaml
+name: TC-UPLOAD-001
+description: Upload a document with metadata
+priority: P1
+tags: [upload, file]
+
+execute:
+  # Upload file with text fields
+  - adapter: http
+    action: request
+    method: POST
+    url: "{{baseUrl}}/documents/upload"
+    multipart:
+      - name: "file"
+        file: "./fixtures/sample-report.pdf"
+        filename: "report.pdf"
+        contentType: "application/pdf"
+      - name: "title"
+        value: "Monthly Report"
+      - name: "category"
+        value: "reports"
+    capture:
+      document_id: "$.id"
+    assert:
+      status: 201
+      json:
+        - path: "$.id"
+          exists: true
+        - path: "$.filename"
+          equals: "report.pdf"
+
+  # Verify the upload by fetching the document metadata
+  - adapter: http
+    action: request
+    method: GET
+    url: "{{baseUrl}}/documents/{{captured.document_id}}"
+    assert:
+      status: 200
+      json:
+        - path: "$.title"
+          equals: "Monthly Report"
+        - path: "$.category"
+          equals: "reports"
+
+teardown:
+  - adapter: http
+    action: request
+    method: DELETE
+    url: "{{baseUrl}}/documents/{{captured.document_id}}"
+    continueOnError: true
+```
+
+### Multiple File Upload
+
+Upload multiple files in a single request:
+
+```yaml
+name: TC-UPLOAD-MULTI-001
+description: Upload multiple files at once
+priority: P2
+tags: [upload, file]
+
+execute:
+  - adapter: http
+    action: request
+    method: POST
+    url: "{{baseUrl}}/gallery/upload"
+    multipart:
+      - name: "images"
+        file: "./fixtures/photo1.jpg"
+      - name: "images"
+        file: "./fixtures/photo2.jpg"
+      - name: "album"
+        value: "vacation"
+    assert:
+      status: 200
+      json:
+        - path: "$.uploaded"
+          equals: 2
+```
+
+---
+
 ## Smoke Test Pattern
 
 A minimal test that verifies basic connectivity:

@@ -2,6 +2,60 @@
 
 For testing REST APIs and HTTP endpoints.
 
+## Configuration
+
+```yaml
+environments:
+  local:
+    baseUrl: "http://localhost:3000"   # Base URL for relative paths
+    adapters:
+      http:
+        baseUrl: "http://localhost:3000"  # Adapter-level base URL (overrides environment baseUrl)
+        defaultHeaders:                    # Default headers for all requests
+          Content-Type: "application/json"
+          X-Api-Key: "my-key"
+        timeout: 30000                     # Default request timeout in ms (default: 30000)
+```
+
+The HTTP adapter uses the built-in `fetch` API and has no peer dependencies.
+
+## Cookie Jar (Automatic Cookie Persistence)
+
+The HTTP adapter automatically manages cookies across steps within a test:
+
+1. **Capture:** After each response, all `Set-Cookie` headers are parsed and stored in a per-test cookie jar.
+2. **Inject:** On every subsequent request, stored cookies are sent as a `Cookie` header automatically.
+3. **Override:** If you explicitly set a `Cookie` header in `headers`, your value takes precedence over the jar.
+
+This enables testing login flows and session-based APIs without manual cookie management:
+
+```yaml
+steps:
+  # Step 1: Login — server returns Set-Cookie: session=abc123
+  - adapter: http
+    action: request
+    method: POST
+    url: "{{baseUrl}}/auth/login"
+    body:
+      email: "user@example.com"
+      password: "secret"
+    assert:
+      status: 200
+
+  # Step 2: Access protected route — Cookie: session=abc123 is sent automatically
+  - adapter: http
+    action: request
+    method: GET
+    url: "{{baseUrl}}/profile"
+    assert:
+      status: 200
+      json:
+        - path: "$.email"
+          equals: "user@example.com"
+```
+
+The cookie jar is scoped to a single test execution. Each test starts with an empty jar.
+
 ## Action: `request`
 
 Execute HTTP request with full REST support.
@@ -13,9 +67,79 @@ Execute HTTP request with full REST support.
   url: string                        # Full URL or relative to baseUrl
   headers?: Record<string, string>   # Request headers
   body?: any                         # Request body (auto-JSON stringified)
+  multipart?: MultipartField[]       # Multipart/form-data fields (mutually exclusive with body)
   query?: Record<string, string>     # Query parameters
-  timeout?: number                   # Request timeout (ms)
+  timeout?: number                   # Request timeout in ms (default: 30000)
   followRedirects?: boolean          # Follow redirects (default: true)
+```
+
+## Multipart/Form-Data Uploads
+
+Upload files and send mixed text/file fields using `multipart`. When `multipart` is used, the adapter builds a `FormData` body and lets `fetch` set the `Content-Type` header with the correct multipart boundary automatically.
+
+> **`multipart` and `body` are mutually exclusive.** Use one or the other, not both.
+
+### Multipart Field Schema
+
+Each entry in the `multipart` array accepts:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Form field name |
+| `file` | string | No* | Path to the file to upload |
+| `value` | string | No* | Text field value |
+| `filename` | string | No | Override the uploaded filename (defaults to basename of `file`) |
+| `contentType` | string | No | MIME type override for file uploads |
+
+\* Each entry must have either `file` or `value` (but not both).
+
+### Examples
+
+**Simple file upload:**
+```yaml
+- adapter: http
+  action: request
+  method: POST
+  url: "{{baseUrl}}/upload"
+  multipart:
+    - name: "file"
+      file: "./fixtures/test-image.png"
+  assert:
+    status: 200
+```
+
+**File upload with text fields:**
+```yaml
+- adapter: http
+  action: request
+  method: POST
+  url: "{{baseUrl}}/upload"
+  multipart:
+    - name: "file"
+      file: "./fixtures/test-image.png"
+    - name: "description"
+      value: "Profile picture"
+  assert:
+    status: 200
+```
+
+**Custom filename and content type:**
+```yaml
+- adapter: http
+  action: request
+  method: POST
+  url: "{{baseUrl}}/documents"
+  multipart:
+    - name: "document"
+      file: "./fixtures/report.pdf"
+      filename: "quarterly-report.pdf"
+      contentType: "application/pdf"
+    - name: "title"
+      value: "Q4 Financial Report"
+    - name: "category"
+      value: "finance"
+  assert:
+    status: 201
 ```
 
 ## Examples

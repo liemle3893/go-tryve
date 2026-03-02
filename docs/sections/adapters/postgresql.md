@@ -10,10 +10,13 @@ environments:
     adapters:
       postgresql:
         connectionString: "postgresql://user:password@host:port/database"
-        schema: "public"      # Default schema for queries
-        poolMin: 1            # Minimum connection pool size
-        poolMax: 10           # Maximum connection pool size
+        poolMin: 2            # Minimum connection pool size (default: 2)
+        poolMax: 5            # Maximum connection pool size (default: 5)
 ```
+
+Connection pool settings:
+- `idleTimeoutMillis`: 30000 (fixed, not configurable)
+- `connectionTimeoutMillis`: 10000 (fixed, not configurable)
 
 **Peer dependency:** `npm install pg`
 
@@ -64,17 +67,16 @@ Execute SQL and return exactly one row.
 
 ## Action: `count`
 
-Count rows matching query.
+Count rows matching a query. The SQL must return a `count` column (e.g., via `SELECT COUNT(*)`). Returns the parsed integer count.
 
 ```yaml
 - adapter: postgresql
   action: count
   sql: "SELECT COUNT(*) FROM users WHERE status = $1"
   params: ["active"]
-  assert:
-    - column: count
-      greaterThan: 0
 ```
+
+Note: The `count` action does not support `capture` or `assert`. Use the `query` action with assertions if you need to validate the count value.
 
 ## PostgreSQL Assertions
 

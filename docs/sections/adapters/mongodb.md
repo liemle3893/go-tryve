@@ -138,7 +138,7 @@ Delete multiple documents.
 
 ## Action: `count`
 
-Count documents.
+Count documents. Returns the count as a raw number.
 
 ```yaml
 - adapter: mongodb
@@ -146,9 +146,8 @@ Count documents.
   collection: "users"
   filter:
     status: "active"
-  assert:
-    - path: "count"
-      greaterThan: 0
+  capture:
+    active_count: ""               # Capture the raw count value (empty path = root)
 ```
 
 ## Action: `aggregate`
@@ -169,7 +168,30 @@ Run aggregation pipeline.
     totals: "result"
 ```
 
+## Filter `_id` Handling
+
+The MongoDB adapter automatically converts `_id` string values to `ObjectId` in filters. Both plain strings and `$oid` notation are supported:
+
+```yaml
+# Plain string — auto-converted to ObjectId
+- adapter: mongodb
+  action: findOne
+  collection: "users"
+  filter:
+    _id: "507f1f77bcf86cd799439011"
+
+# $oid notation (from YAML)
+- adapter: mongodb
+  action: findOne
+  collection: "users"
+  filter:
+    _id:
+      $oid: "507f1f77bcf86cd799439011"
+```
+
 ## MongoDB Assertions
+
+Assertions use dot-notation paths to access nested fields in the result:
 
 ```yaml
 assert:
