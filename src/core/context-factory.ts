@@ -12,7 +12,7 @@ import type {
     Logger,
     UnifiedTestDefinition,
 } from '../types'
-import { createInterpolationContext } from './variable-interpolator'
+import { createInterpolationContext, resolveVariableValues } from './variable-interpolator'
 
 // ============================================================================
 // Test Context
@@ -75,6 +75,9 @@ export class ContextFactory {
             ...this.config.variables,
             ...test.variables,
         }
+
+        // Resolve variable cross-references (e.g. run_id: "{{base_id}}_RUN")
+        resolveVariableValues(variables, this.config.environment.baseUrl)
 
         // Initialize captured values storage
         const captured: Record<string, unknown> = {}

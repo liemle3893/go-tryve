@@ -119,6 +119,14 @@ Each phase contains an array of steps:
 "{{$file(./fixtures/data.json)}}"  # File contents
 "{{$lower(value)}}"                # Lowercase
 "{{$upper(value)}}"                # Uppercase
+
+# Variable cross-references (resolved in dependency order)
+base_id: "TEST"
+run_id: "{{base_id}}_RUN"          # → "TEST_RUN"
+full_id: "{{run_id}}_{{$uuid()}}"  # → "TEST_RUN_<uuid>"
+# Circular references are detected and throw errors
+# Max nesting depth: 10 levels
+# {{baseUrl}} and {{captured.*}} refs are deferred to step time
 ```
 
 ## Assertion Operators

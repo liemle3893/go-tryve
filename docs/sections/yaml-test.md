@@ -130,6 +130,41 @@ variables:
   random_id: "{{$random(1000, 9999)}}"
 ```
 
+### Variable Cross-References
+
+Variables can reference other variables. The runner resolves cross-references automatically using dependency order:
+
+```yaml
+variables:
+  base_id: "TEST"
+  run_id: "{{base_id}}_RUN"           # → "TEST_RUN"
+  full_id: "{{run_id}}_{{$uuid()}}"   # → "TEST_RUN_<uuid>"
+```
+
+Multi-level chains are supported:
+
+```yaml
+variables:
+  env: "staging"
+  prefix: "{{env}}-api"               # → "staging-api"
+  endpoint: "{{prefix}}/v1/users"     # → "staging-api/v1/users"
+```
+
+**Resolution order:** Test variables override global variables, then all cross-references are resolved before the first step executes.
+
+**Circular reference detection:** The runner detects circular references and throws an error:
+
+```yaml
+# ERROR: Circular variable reference detected
+variables:
+  a: "{{b}}"
+  b: "{{a}}"
+```
+
+**Depth limit:** Nested references are resolved up to 10 levels deep. Deeper nesting throws an error.
+
+**Deferred references:** Variables that only reference `{{baseUrl}}` or `{{captured.*}}` are not resolved at definition time — they are resolved at step execution time when those values are available.
+
 ## Test Phases
 
 ### Setup Phase

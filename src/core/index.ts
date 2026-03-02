@@ -36,6 +36,8 @@ export {
     hasInterpolation,
     interpolate,
     interpolateObject,
+    MAX_INTERPOLATION_DEPTH,
+    resolveVariableValues,
     setNestedValue,
 } from './variable-interpolator'
 

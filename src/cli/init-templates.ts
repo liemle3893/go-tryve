@@ -274,7 +274,7 @@ export const TEST_SCHEMA = {
             properties: {
                 adapter: {
                     type: 'string',
-                    enum: ['http', 'postgresql', 'redis', 'mongodb', 'eventhub'],
+                    enum: ['http', 'postgresql', 'redis', 'mongodb', 'eventhub', 'shell'],
                 },
                 action: { type: 'string' },
                 description: { type: 'string' },

@@ -254,8 +254,16 @@ function addToDate(date: Date, amount: number, unit: string): void {
 // Interpolation Functions
 // ============================================================================
 
+/** Maximum number of interpolation passes before aborting */
+export const MAX_INTERPOLATION_DEPTH = 10;
+
 /**
  * Interpolate variables and functions in a template string
+ *
+ * Performs multi-pass resolution: after each replacement pass, checks whether
+ * the result still contains {{...}} patterns. Loops until stable (no more
+ * patterns) or until MAX_INTERPOLATION_DEPTH is reached. Detects cycles by
+ * comparing each pass result to the previous one.
  *
  * Supports:
  * - Variable references: {{varName}}
@@ -271,7 +279,42 @@ export function interpolate(
     return template;
   }
 
-  // Pattern for {{...}}
+  let result = template;
+  let prev: string | undefined;
+
+  for (let depth = 0; depth < MAX_INTERPOLATION_DEPTH; depth++) {
+    if (!hasInterpolation(result)) {
+      return result;
+    }
+
+    if (result === prev) {
+      throw new InterpolationError(
+        `Circular variable reference detected during interpolation: "${result}"`,
+        result
+      );
+    }
+    prev = result;
+
+    result = singlePassInterpolate(result, context);
+  }
+
+  if (hasInterpolation(result)) {
+    throw new InterpolationError(
+      `Max interpolation depth (${MAX_INTERPOLATION_DEPTH}) exceeded. Possible circular reference in: "${template}"`,
+      template
+    );
+  }
+
+  return result;
+}
+
+/**
+ * Perform a single replacement pass over a template string
+ */
+function singlePassInterpolate(
+  template: string,
+  context: InterpolationContext
+): string {
   const pattern = /\{\{([^}]+)\}\}/g;
 
   return template.replace(pattern, (match, expression) => {
@@ -353,6 +396,136 @@ export function interpolateObject<T>(
   }
 
   return obj;
+}
+
+// ============================================================================
+// Variable Cross-Reference Resolution
+// ============================================================================
+
+/** Patterns that should be deferred (only available at step execution time) */
+const DEFERRED_PATTERNS = ['baseUrl', 'captured.'];
+
+/**
+ * Check whether a variable value references only deferred runtime patterns
+ *
+ * Returns true if every {{...}} token in the value references baseUrl or
+ * captured.*, meaning it cannot be resolved at definition time.
+ */
+function isDeferredOnly(value: string): boolean {
+  const pattern = /\{\{([^}]+)\}\}/g;
+  let match;
+  while ((match = pattern.exec(value)) !== null) {
+    const expr = match[1].trim();
+    const isDeferred = DEFERRED_PATTERNS.some(
+      (p) => expr === p || expr.startsWith(p)
+    );
+    if (!isDeferred) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Resolve cross-references between variables using topological sort
+ *
+ * Scans variable values for {{...}} references to other variables, builds a
+ * dependency graph, and resolves them in dependency order using Kahn's
+ * algorithm. Variables that only reference runtime values (baseUrl,
+ * captured.*) are skipped.
+ *
+ * @param variables - Mutable variables object; values are resolved in-place
+ * @param baseUrl - Base URL for interpolation context
+ * @returns The same variables object with cross-references resolved
+ * @throws InterpolationError on circular references
+ */
+export function resolveVariableValues(
+  variables: Record<string, unknown>,
+  baseUrl: string = ''
+): Record<string, unknown> {
+  // Identify which variables contain interpolation references to other variables
+  const varNamesSet = new Set(Object.keys(variables));
+  const deps: Record<string, string[]> = {};
+  const resolvable = new Set<string>();
+
+  for (const name of varNamesSet) {
+    const value = variables[name];
+    if (typeof value !== 'string' || !hasInterpolation(value)) {
+      continue; // No interpolation needed — skip
+    }
+
+    if (isDeferredOnly(value)) {
+      continue; // Only references runtime values — defer
+    }
+
+    resolvable.add(name);
+
+    // Extract variable references (non-function, non-deferred)
+    const refs = extractVariableNames(value).filter(
+      (ref) =>
+        !DEFERRED_PATTERNS.some((p) => ref === p || ref.startsWith(p)) &&
+        varNamesSet.has(ref)
+    );
+    deps[name] = refs;
+  }
+
+  // Kahn's algorithm for topological sort — O(V+E)
+  const inDegree: Record<string, number> = {};
+  const dependents: Record<string, string[]> = {};
+  for (const name of resolvable) {
+    inDegree[name] = 0;
+    dependents[name] = [];
+  }
+  for (const name of resolvable) {
+    for (const dep of deps[name] || []) {
+      if (resolvable.has(dep)) {
+        inDegree[name]++;
+        dependents[dep].push(name);
+      }
+    }
+  }
+
+  const queue: string[] = [];
+  for (const name of resolvable) {
+    if (inDegree[name] === 0) {
+      queue.push(name);
+    }
+  }
+
+  const sorted: string[] = [];
+  let head = 0;
+  while (head < queue.length) {
+    const current = queue[head++];
+    sorted.push(current);
+
+    for (const dependent of dependents[current]) {
+      inDegree[dependent]--;
+      if (inDegree[dependent] === 0) {
+        queue.push(dependent);
+      }
+    }
+  }
+
+  if (sorted.length !== resolvable.size) {
+    const sortedSet = new Set(sorted);
+    const unresolved = [...resolvable].filter((n) => !sortedSet.has(n));
+    throw new InterpolationError(
+      `Circular variable reference detected among: ${unresolved.join(', ')}`,
+      unresolved.join(', ')
+    );
+  }
+
+  // Resolve in dependency order
+  const context = createInterpolationContext(variables, {}, baseUrl);
+
+  for (const name of sorted) {
+    const raw = variables[name];
+    if (typeof raw === 'string') {
+      variables[name] = interpolate(raw, context);
+    }
+  }
+
+  return variables;
 }
 
 /**

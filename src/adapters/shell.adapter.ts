@@ -161,6 +161,13 @@ export class ShellAdapter extends BaseAdapter {
 
     const response: ShellResponse = { exitCode, stdout, stderr, duration };
 
+    // Log stderr on non-zero exit for debugging
+    if (exitCode !== 0) {
+      this.logger.warn(`[shell] Command exited with code ${exitCode}`);
+      if (stderr) this.logger.warn(`[shell] stderr: ${stderr.substring(0, 1000)}`);
+      if (stdout) this.logger.info(`[shell] stdout: ${stdout.substring(0, 500)}`);
+    }
+
     // Run assertions if provided
     if (shellParams.assert) {
       this.runAssertions(shellParams.assert, response);
