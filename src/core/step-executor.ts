@@ -140,7 +140,7 @@ export class StepExecutor {
                 )
                 return this.createStepResult(
                     step,
-                    'passed',
+                    'warned',
                     duration,
                     undefined,
                     retryCount,

@@ -122,7 +122,7 @@ export interface UnifiedStep {
 
 export type TestStatus = 'passed' | 'failed' | 'skipped' | 'error';
 export type PhaseStatus = 'passed' | 'failed' | 'skipped';
-export type StepStatus = 'passed' | 'failed' | 'skipped';
+export type StepStatus = 'passed' | 'failed' | 'skipped' | 'warned';
 
 export interface TestExecutionResult {
   name: string;

@@ -64,6 +64,7 @@ export class HTMLReporter extends BaseReporter {
     --color-pass: #22c55e;
     --color-fail: #ef4444;
     --color-skip: #f59e0b;
+    --color-warn: #eab308;
     --color-bg: #f8fafc;
     --color-card: #ffffff;
     --color-text: #1e293b;
@@ -114,6 +115,7 @@ export class HTMLReporter extends BaseReporter {
 
   .status-badge.pass { background: var(--color-pass); color: white; }
   .status-badge.fail { background: var(--color-fail); color: white; }
+  .status-badge.warn { background: var(--color-warn); color: white; }
 
   .dashboard {
     display: grid;
@@ -145,6 +147,7 @@ export class HTMLReporter extends BaseReporter {
   .stat-card.passed .value { color: var(--color-pass); }
   .stat-card.failed .value { color: var(--color-fail); }
   .stat-card.skipped .value { color: var(--color-skip); }
+  .stat-card.warned .value { color: var(--color-warn); }
 
   .charts {
     display: grid;
@@ -182,6 +185,7 @@ export class HTMLReporter extends BaseReporter {
   .progress-bar .passed { background: var(--color-pass); }
   .progress-bar .failed { background: var(--color-fail); }
   .progress-bar .skipped { background: var(--color-skip); }
+  .progress-bar .warned { background: var(--color-warn); }
 
   .legend {
     display: flex;
@@ -206,6 +210,7 @@ export class HTMLReporter extends BaseReporter {
   .legend-dot.passed { background: var(--color-pass); }
   .legend-dot.failed { background: var(--color-fail); }
   .legend-dot.skipped { background: var(--color-skip); }
+  .legend-dot.warned { background: var(--color-warn); }
 
   .test-list {
     background: var(--color-card);
@@ -253,6 +258,7 @@ export class HTMLReporter extends BaseReporter {
   .test-status.passed { background: var(--color-pass); }
   .test-status.failed { background: var(--color-fail); }
   .test-status.skipped { background: var(--color-skip); }
+  .test-status.warned { background: var(--color-warn); }
   .test-status.error { background: var(--color-fail); }
 
   .test-name {
@@ -308,6 +314,7 @@ export class HTMLReporter extends BaseReporter {
   .phase-status.passed { background: var(--color-pass); }
   .phase-status.failed { background: var(--color-fail); }
   .phase-status.skipped { background: var(--color-skip); }
+  .phase-status.warned { background: var(--color-warn); }
 
   .steps {
     margin-left: 1rem;
@@ -334,6 +341,7 @@ export class HTMLReporter extends BaseReporter {
   .step-status.passed { background: var(--color-pass); }
   .step-status.failed { background: var(--color-fail); }
   .step-status.skipped { background: var(--color-skip); }
+  .step-status.warned { background: var(--color-warn); }
 
   .step-info {
     flex: 1;
@@ -1009,6 +1017,8 @@ export class HTMLReporter extends BaseReporter {
         return '&#10007;'; // X
       case 'skipped':
         return '&#8211;'; // dash
+      case 'warned':
+        return '&#9888;'; // warning
       default:
         return '?';
     }
