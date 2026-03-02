@@ -4,11 +4,73 @@
  * Handles {{variable}} interpolation and built-in functions
  */
 
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash, createHmac, randomUUID } from 'node:crypto';
 import * as fs from 'node:fs';
 
 import { InterpolationError } from '../errors';
 import type { InterpolationContext, BuiltInFunction } from '../types';
+
+// ============================================================================
+// TOTP Helpers
+// ============================================================================
+
+/**
+ * Decode a base32-encoded string (RFC 4648) to a Buffer
+ */
+function base32Decode(encoded: string): Buffer {
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+    const stripped = encoded.replace(/=+$/, '').toUpperCase();
+
+    let bits = 0;
+    let value = 0;
+    const output: number[] = [];
+
+    for (const char of stripped) {
+        const idx = alphabet.indexOf(char);
+        if (idx === -1) {
+            throw new InterpolationError(
+                `Invalid base32 character in TOTP secret: ${char}`,
+                '$totp()'
+            );
+        }
+        value = (value << 5) | idx;
+        bits += 5;
+        if (bits >= 8) {
+            bits -= 8;
+            output.push((value >>> bits) & 0xff);
+        }
+    }
+
+    return Buffer.from(output);
+}
+
+/**
+ * Generate a TOTP code per RFC 6238 (6 digits, 30s period, HMAC-SHA1)
+ */
+function generateTOTP(secret: string): string {
+    const key = base32Decode(secret);
+    const epoch = Math.floor(Date.now() / 1000);
+    const counter = Math.floor(epoch / 30);
+
+    // Encode counter as 8-byte big-endian buffer
+    const counterBuf = Buffer.alloc(8);
+    counterBuf.writeUInt32BE(Math.floor(counter / 0x100000000), 0);
+    counterBuf.writeUInt32BE(counter & 0xffffffff, 4);
+
+    // HMAC-SHA1
+    const hmac = createHmac('sha1', key).update(counterBuf).digest();
+
+    // Dynamic truncation
+    const offset = hmac[hmac.length - 1] & 0x0f;
+    const code =
+        ((hmac[offset] & 0x7f) << 24) |
+        ((hmac[offset + 1] & 0xff) << 16) |
+        ((hmac[offset + 2] & 0xff) << 8) |
+        (hmac[offset + 3] & 0xff);
+
+    // 6-digit zero-padded string
+    return (code % 1000000).toString().padStart(6, '0');
+}
 
 // ============================================================================
 // Built-in Functions
@@ -104,6 +166,14 @@ export const BUILT_IN_FUNCTIONS: Record<string, BuiltInFunction> = {
   $lower: (value: string) => value.toLowerCase(),
   $upper: (value: string) => value.toUpperCase(),
   $trim: (value: string) => value.trim(),
+
+  // TOTP
+  $totp: (secret: string) => {
+    if (!secret) {
+      throw new InterpolationError('TOTP secret is required', '$totp()');
+    }
+    return generateTOTP(secret);
+  },
 };
 
 // ============================================================================
