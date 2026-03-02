@@ -13,12 +13,15 @@
   "files": [
     "dist",
     "bin",
+    "docs/sections",
+    "skills",
     "README.md"
   ],
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist",
     "prepublishOnly": "npm run clean && npm run build",
+    "local:install": "npm run build && npm install --global --prefix ~/.local .",
     "test": "echo \"No tests yet\""
   },
   "keywords": [

@@ -6,8 +6,10 @@
  */
 
 import { parseArgs, printError, printHelp, validateArgs } from './cli'
+import { docCommand } from './cli/doc.command'
 import { healthCommand } from './cli/health.command'
 import { initCommand } from './cli/init.command'
+import { installCommand } from './cli/install.command'
 import { listCommand } from './cli/list.command'
 import { runCommand } from './cli/run.command'
 import { listTemplates, testCreateCommand, type TemplateType } from './cli/test.command'
@@ -86,6 +88,16 @@ async function routeCommand(args: CLIArgs): Promise<number> {
 
         case 'test': {
             return await handleTestCommand(args)
+        }
+
+        case 'doc': {
+            const result = await docCommand(args)
+            return result.exitCode
+        }
+
+        case 'install': {
+            const result = await installCommand(args)
+            return result.exitCode
         }
 
         default: {

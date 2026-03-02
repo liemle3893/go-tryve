@@ -13,7 +13,7 @@ import { DEFAULT_CLI_OPTIONS } from '../types'
 
 const VERSION = '1.0.0'
 
-const VALID_COMMANDS: CLICommand[] = ['run', 'validate', 'list', 'health', 'init', 'test']
+const VALID_COMMANDS: CLICommand[] = ['run', 'validate', 'list', 'health', 'init', 'test', 'doc', 'install']
 
 const HELP_TEXT = `E2E Test Runner - End-to-End Testing Framework
 
@@ -23,6 +23,7 @@ COMMANDS:
   run         Run E2E tests (default)    validate    Validate test files
   list        List discovered tests      health      Check adapter connectivity
   init        Initialize config files    test        Create test files
+  doc         Show documentation         install     Install skill bundles
 
 TEST SUBCOMMANDS:
   test create <name>                Create new test from template
@@ -32,6 +33,13 @@ TEST SUBCOMMANDS:
     --priority <level>              Priority: P0|P1|P2|P3 (default: P0)
     --tags <tags>                   Comma-separated tags (default: e2e)
   test list-templates               List available templates
+
+DOC USAGE:
+  doc                               List available documentation sections
+  doc <section>                     Show a specific documentation section
+
+INSTALL USAGE:
+  install --skills                  Install Claude Code skills to .claude/skills/e2e-runner/
 
 OPTIONS:
   -c, --config <path>    Config file path (default: e2e.config.yaml)
@@ -231,6 +239,7 @@ function parseLongOption(
         'captureTraffic',
         'help',
         'version',
+        'skills',
     ]
 
     if (booleanOptions.includes(key)) {
@@ -287,6 +296,7 @@ function normalizeLongOption(arg: string): string | null {
         'test-description': 'testDescription',
         'test-priority': 'testPriority',
         'test-tags': 'testTags',
+        skills: 'skills',
     }
 
     return keyMap[optionName] || null
@@ -309,6 +319,7 @@ function applyOption(options: CLIOptions, key: string, value: string | boolean):
         'debug',
         'stepByStep',
         'captureTraffic',
+        'skills',
     ]
 
     if (STRING_OPTS.includes(key)) opts[key] = value

@@ -199,7 +199,7 @@ export interface Logger {
 // CLI Types
 // ============================================================================
 
-export type CLICommand = 'run' | 'validate' | 'list' | 'health' | 'init' | 'test';
+export type CLICommand = 'run' | 'validate' | 'list' | 'health' | 'init' | 'test' | 'doc' | 'install';
 
 export interface CLIArgs {
   command: CLICommand;
