@@ -53,7 +53,7 @@ interface RawYAMLStep {
 // Schema Definition (inline for validation)
 // ============================================================================
 
-const VALID_ADAPTERS: AdapterType[] = ['postgresql', 'redis', 'mongodb', 'eventhub', 'http'];
+const VALID_ADAPTERS: AdapterType[] = ['postgresql', 'redis', 'mongodb', 'eventhub', 'http', 'shell'];
 const VALID_PRIORITIES: TestPriority[] = ['P0', 'P1', 'P2', 'P3'];
 
 // ============================================================================
@@ -310,6 +310,15 @@ function validateAdapterStep(step: RawYAMLStep, location: string): string[] {
             }
           }
         }
+      }
+      break;
+
+    case 'shell':
+      if (step.action !== 'exec') {
+        errors.push(`${location}: Invalid shell action "${step.action}". Must be "exec"`);
+      }
+      if (!step.command || typeof step.command !== 'string') {
+        errors.push(`${location}: Shell steps require "command" field (string)`);
       }
       break;
   }

@@ -1,6 +1,6 @@
 ---
 name: e2e-runner
-description: This skill should be used when writing E2E tests for APIs and databases using the @liemle3893/e2e-runner framework. Use when creating YAML test files, configuring adapters (HTTP, PostgreSQL, MongoDB, Redis, EventHub), writing assertions, or running tests. Provides complete syntax reference for YAML tests, assertion operators, variable interpolation, and built-in functions.
+description: This skill should be used when writing E2E tests for APIs and databases using the @liemle3893/e2e-runner framework. Use when creating YAML test files, configuring adapters (HTTP, Shell, PostgreSQL, MongoDB, Redis, EventHub), writing assertions, or running tests. Provides complete syntax reference for YAML tests, assertion operators, variable interpolation, and built-in functions.
 ---
 
 # E2E Test Runner
@@ -69,7 +69,7 @@ Each phase contains an array of steps:
 
 ```yaml
 - id: create_user                   # Step identifier
-  adapter: http                     # http|postgresql|mongodb|redis|eventhub
+  adapter: http                     # http|postgresql|mongodb|redis|eventhub|shell
   action: request                   # Adapter-specific action
   description: "Create a user"      # Optional
   continueOnError: false            # Continue on failure
@@ -159,6 +159,34 @@ assert:
     lessThan: 1000                  # Response time (ms)
 ```
 
+## Shell Commands
+
+Execute shell commands and scripts as test steps:
+
+```yaml
+- adapter: shell
+  action: exec
+  command: "echo 'hello world'"
+  assert:
+    exitCode: 0
+    stdout:
+      contains: "hello"
+```
+
+Capture command output for later steps:
+
+```yaml
+- adapter: shell
+  action: exec
+  command: "./scripts/get-version.sh"
+  cwd: "/app"
+  timeout: 30000
+  env:
+    NODE_ENV: "test"
+  capture:
+    version: "stdout"
+```
+
 ## Database Assertions
 
 **PostgreSQL** -- assert on columns and rows:
@@ -205,3 +233,4 @@ assert:
 * **MongoDB Adapter** [references/adapters/mongodb.md](references/adapters/mongodb.md)
 * **Redis Adapter** [references/adapters/redis.md](references/adapters/redis.md)
 * **EventHub Adapter** [references/adapters/eventhub.md](references/adapters/eventhub.md)
+* **Shell Adapter** [references/adapters/shell.md](references/adapters/shell.md)

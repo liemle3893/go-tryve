@@ -15,6 +15,8 @@ export { MongoDBAdapter } from './mongodb.adapter';
 export type { MongoDBAssertion } from './mongodb.adapter';
 export { EventHubAdapter } from './eventhub.adapter';
 export type { EventHubAssertion } from './eventhub.adapter';
+export { ShellAdapter } from './shell.adapter';
+export type { ShellRequestParams, ShellResponse, ShellAssertion } from './shell.adapter';
 export {
   AdapterRegistry,
   createAdapterRegistry,

@@ -7,6 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 npm run build          # Compile TypeScript to dist/
 npm run clean          # Remove dist/
+npm test               # Run unit tests (vitest)
 npm run prepublishOnly # Clean + build (for publishing)
 npm run local:install  # Local installation
 ```
@@ -34,50 +35,54 @@ npm run local:install  # Local installation
 ./bin/e2e.js install --skills             # Install Claude Code skills to project
 ```
 
-## Architecture
+## Shared Utilities (use these, don't reimplement)
 
-### Directory Structure
+New adapters and features **must** reuse these shared utilities:
 
-```
-src/
-├── index.ts              # CLI entry point + programmatic API exports
-├── types.ts              # All TypeScript interfaces and types
-├── errors.ts             # Custom error classes (E2ERunnerError, AdapterError, etc.)
-├── cli/                  # Command handlers (run, validate, list, health, init, test)
-├── core/                 # Test execution engine
-│   ├── test-orchestrator.ts  # Manages test lifecycle: setup → execute → verify → teardown
-│   ├── step-executor.ts      # Executes individual steps with retry logic
-│   ├── context-factory.ts    # Creates test execution contexts
-│   ├── variable-interpolator.ts  # Handles ${...} variable substitution
-│   └── test-discovery.ts     # Finds *.test.yaml and *.test.ts files
-├── adapters/             # Database/service connectors
-│   ├── base.adapter.ts       # Abstract BaseAdapter class
-│   ├── http.adapter.ts       # REST API testing (fetch-based)
-│   ├── postgresql.adapter.ts # PostgreSQL via 'pg'
-│   ├── mongodb.adapter.ts    # MongoDB via 'mongodb'
-│   ├── redis.adapter.ts      # Redis via 'ioredis'
-│   └── eventhub.adapter.ts   # Azure EventHub
-├── assertions/           # Test assertion system
-│   ├── matchers.ts           # Matcher implementations (toBe, toEqual, toContain, etc.)
-│   ├── assertion-runner.ts   # Runs assertions with operator dispatch
-│   └── jsonpath.ts           # JSONPath evaluation ($.body.data[0].id)
-├── reporters/            # Output formatters
-│   ├── console.reporter.ts   # Terminal output with colors
-│   ├── junit.reporter.ts     # XML for CI/CD
-│   ├── html.reporter.ts      # Interactive HTML reports
-│   └── json.reporter.ts      # Machine-readable JSON
-└── utils/                # Helpers (logger, retry, exit-codes)
-```
+- **`base.adapter.ts`** — `measureDuration()` for timing, `captureValues()` for capture loops, `successResult()`/`failResult()` for return values, `logAction()`/`logResult()` for logging
+- **`assertion-runner.ts`** — `runAssertion(value, assertion, path)` handles `equals`, `contains`, `matches`, `exists`, `type`, `length`, `greaterThan`, `lessThan`, `isNull`, `isNotNull`. Use this instead of hand-rolling assertion logic.
 
 ## Documentation Sync Rule
 
-Every change to CLI commands, adapters, configuration, assertions, built-in functions, or YAML test syntax **must** also be reflected in the corresponding files under `docs/sections/`. Keep documentation in sync with code at all times.
+Every change to CLI commands, adapters, configuration, assertions, built-in functions, or YAML test syntax **must** also be reflected in **all three** of these locations:
+
+1. **Docs** — `docs/sections/` markdown files
+2. **CLI doc registry** — `docs/sections/index.json` (maps section names to files for `e2e doc <section>`)
+3. **Skill template** — `skills/e2e-runner/SKILL.md` (the source skill file shipped with the package)
+
+### How Skills Are Installed
+
+`e2e install --skills` (see `src/cli/install.command.ts`) copies files to the user's project:
+- `skills/e2e-runner/SKILL.md` → `.claude/skills/e2e-runner/SKILL.md`
+- `docs/sections/**` → `.claude/skills/e2e-runner/references/**`
+
+**Always edit `skills/e2e-runner/SKILL.md`** — this is the source of truth. Never edit `.claude/skills/` directly; those are generated output. The reference files under `.claude/skills/e2e-runner/references/` come from `docs/sections/` automatically at install time, so updating docs is sufficient for references.
 
 Relevant doc files:
 - `docs/sections/cli.md` — CLI commands and flags
-- `docs/sections/adapters/` — Adapter reference (HTTP, PostgreSQL, MongoDB, Redis, EventHub)
+- `docs/sections/adapters/` — Per-adapter reference docs
+- `docs/sections/index.json` — CLI `doc` command section registry (must list every adapter)
 - `docs/sections/config.md` — Configuration (`e2e.config.yaml`) reference
 - `docs/sections/assertions.md` — Assertion operators and JSONPath syntax
 - `docs/sections/built-in-functions.md` — Built-in functions (`$uuid`, `$now`, `$totp`, etc.)
 - `docs/sections/yaml-test.md` — YAML test file syntax and structure
 - `docs/sections/examples.md` — Usage examples
+
+## Adding a New Adapter — Checklist
+
+When adding a new adapter, **all** of these files must be created or updated:
+
+| File | Action |
+|------|--------|
+| `src/adapters/<name>.adapter.ts` | Create adapter extending `BaseAdapter` |
+| `src/adapters/index.ts` | Export the adapter class and types |
+| `src/adapters/adapter-registry.ts` | Register adapter in `initializeAdapters()`, add `get<Name>()`, update `parseAdapterType()` |
+| `src/types.ts` | Add config interface, add to `AdapterType` union, add to `EnvironmentConfig.adapters` |
+| `src/core/yaml-loader.ts` | Add to `VALID_ADAPTERS`, add validation case in `validateAdapterStep()` |
+| `src/cli/health.command.ts` | Add display name to `formatAdapterName()` |
+| `docs/sections/adapters/<name>.md` | Create full adapter documentation |
+| `docs/sections/adapters/index.md` | Add to adapter table and peer deps section |
+| `docs/sections/index.json` | Register `adapters.<name>` section for CLI `doc` command |
+| `skills/e2e-runner/SKILL.md` | Add adapter to syntax reference and links (source template) |
+| `tests/unit/<name>-adapter.test.ts` | Unit tests |
+| `tests/e2e/adapters/TC-<NAME>-001.test.yaml` | E2E integration test |

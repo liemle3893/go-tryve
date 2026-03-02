@@ -23,6 +23,7 @@ export interface EnvironmentConfig {
     redis?: RedisAdapterConfig;
     mongodb?: MongoDBAdapterConfig;
     eventhub?: EventHubAdapterConfig;
+    shell?: ShellAdapterConfig;
   };
 }
 
@@ -47,6 +48,12 @@ export interface EventHubAdapterConfig {
   connectionString: string;
   consumerGroup?: string;
   checkpointStore?: string;
+}
+
+export interface ShellAdapterConfig {
+  defaultTimeout?: number;
+  defaultCwd?: string;
+  defaultEnv?: Record<string, string>;
 }
 
 export interface DefaultsConfig {
@@ -74,7 +81,7 @@ export interface ReporterConfig {
 // ============================================================================
 
 export type TestPriority = 'P0' | 'P1' | 'P2' | 'P3';
-export type AdapterType = 'postgresql' | 'redis' | 'mongodb' | 'eventhub' | 'http';
+export type AdapterType = 'postgresql' | 'redis' | 'mongodb' | 'eventhub' | 'http' | 'shell';
 export type TestPhase = 'setup' | 'execute' | 'verify' | 'teardown';
 
 export interface UnifiedTestDefinition {

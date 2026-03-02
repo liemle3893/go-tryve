@@ -11,6 +11,7 @@ Adapters provide connectivity to different services and databases for E2E testin
 | Adapter | Purpose | Peer Dependency |
 |---------|---------|-----------------|
 | [HTTP](http.md) | REST API testing | None (built-in) |
+| [Shell](shell.md) | Shell/CLI command execution | None (built-in) |
 | [PostgreSQL](postgresql.md) | PostgreSQL database testing | `pg` |
 | [MongoDB](mongodb.md) | MongoDB document testing | `mongodb` |
 | [Redis](redis.md) | Redis cache testing | `ioredis` |
@@ -39,7 +40,9 @@ environments:
 
 ## Peer Dependencies
 
-Database adapters are optional peer dependencies. Install only what you need:
+The HTTP and Shell adapters use built-in Node.js APIs and require no additional dependencies.
+
+Database and messaging adapters are optional peer dependencies. Install only what you need:
 
 ```bash
 # PostgreSQL

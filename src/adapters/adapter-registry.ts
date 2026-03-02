@@ -18,6 +18,7 @@ import { PostgreSQLAdapter } from './postgresql.adapter';
 import { RedisAdapter } from './redis.adapter';
 import { MongoDBAdapter } from './mongodb.adapter';
 import { EventHubAdapter } from './eventhub.adapter';
+import { ShellAdapter } from './shell.adapter';
 
 // ============================================================================
 // Types
@@ -123,6 +124,22 @@ export class AdapterRegistry {
         )
       );
     }
+
+    // Create Shell adapter if required (no connection cost, like HTTP)
+    if (this.isRequired('shell')) {
+      const shellConfig = this.config.adapters?.shell;
+      this.adapters.set(
+        'shell',
+        new ShellAdapter(
+          {
+            defaultTimeout: shellConfig?.defaultTimeout,
+            defaultCwd: shellConfig?.defaultCwd,
+            defaultEnv: shellConfig?.defaultEnv,
+          },
+          this.logger
+        )
+      );
+    }
   }
 
   /**
@@ -210,6 +227,13 @@ export class AdapterRegistry {
    */
   getEventHub(): EventHubAdapter {
     return this.get('eventhub') as EventHubAdapter;
+  }
+
+  /**
+   * Get Shell adapter
+   */
+  getShell(): ShellAdapter {
+    return this.get('shell') as ShellAdapter;
   }
 
   /**
@@ -325,6 +349,7 @@ export function parseAdapterType(type: string): AdapterType {
     'mongodb',
     'eventhub',
     'http',
+    'shell',
   ];
 
   if (validTypes.includes(type as AdapterType)) {

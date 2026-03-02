@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-03-02)
 Phase: 1 of 5 (Foundation Fixes)
 Plan: 0 of TBD in current phase
 Status: Ready to plan
-Last activity: 2026-03-02 - Completed quick task 1: Add support for file upload/multipart upload
+Last activity: 2026-03-03 - Completed quick task 2: Add support for shell/CLI adapter
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -49,6 +49,9 @@ Recent decisions affecting current work:
 - [Quick-1]: Used Node.js built-in FormData/Blob APIs for multipart — no external library needed
 - [Quick-1]: Delete Content-Type header for multipart so fetch auto-sets boundary
 - [Quick-1]: Added vitest as test framework per earlier decision (v3.2.4)
+- [Quick-2]: Used Node.js child_process for full shell features (same trust model as CI/CD)
+- [Quick-2]: Non-zero exit codes returned as data, not errors, to enable exit code assertions
+- [Quick-2]: Followed existing adapter pattern (BaseAdapter extension, registry integration)
 
 ### Pending Todos
 
@@ -64,9 +67,10 @@ None yet.
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
 | 1 | Add support for file upload/multipart upload | 2026-03-02 | 30bb563 | Verified | [1-add-support-for-file-upload-multipart-up](./quick/1-add-support-for-file-upload-multipart-up/) |
+| 2 | Add support for shell/CLI adapter | 2026-03-03 | 8b70bdd | Verified | [2-add-support-for-shell-cli-adaptor](./quick/2-add-support-for-shell-cli-adaptor/) |
 
 ## Session Continuity
 
 Last session: 2026-03-03
-Stopped at: Completed quick-1-PLAN.md (multipart/form-data file upload support in HTTP adapter)
+Stopped at: Completed quick-2-PLAN.md (shell/CLI adapter with exec action)
 Resume file: None

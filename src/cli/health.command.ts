@@ -246,6 +246,7 @@ function formatAdapterName(adapter: AdapterType): string {
         redis: 'Redis',
         mongodb: 'MongoDB',
         eventhub: 'EventHub',
+        shell: 'Shell',
     }
 
     return names[adapter] || adapter

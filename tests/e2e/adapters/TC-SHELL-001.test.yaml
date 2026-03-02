@@ -1,0 +1,92 @@
+name: TC-SHELL-001
+description: Shell adapter test - command execution, assertions, captures, and env vars
+priority: P0
+tags: [shell, adapter, e2e]
+timeout: 30000
+
+execute:
+  # Step 1: Basic echo with exitCode and stdout assertions
+  - id: basic_echo
+    adapter: shell
+    action: exec
+    command: "echo 'hello world'"
+    assert:
+      exitCode: 0
+      stdout:
+        contains: "hello"
+        equals: "hello world"
+
+  # Step 2: Capture stdout for use in a later step
+  - id: capture_version
+    adapter: shell
+    action: exec
+    command: "echo 'v1.2.3'"
+    capture:
+      version: "stdout"
+    assert:
+      exitCode: 0
+
+  # Step 3: Use captured value in assertion
+  - id: use_captured
+    adapter: shell
+    action: exec
+    command: "echo '{{captured.version}}'"
+    assert:
+      exitCode: 0
+      stdout:
+        contains: "v1.2.3"
+
+  # Step 4: Environment variable injection
+  - id: env_injection
+    adapter: shell
+    action: exec
+    command: "echo $GREETING"
+    env:
+      GREETING: "hello from env"
+    assert:
+      exitCode: 0
+      stdout:
+        contains: "hello from env"
+
+  # Step 5: Non-zero exit code returned as data, not error
+  - id: nonzero_exit
+    adapter: shell
+    action: exec
+    command: "exit 2"
+    capture:
+      exit_code: "exitCode"
+    assert:
+      exitCode: 2
+
+  # Step 6: Regex match on stdout
+  - id: regex_match
+    adapter: shell
+    action: exec
+    command: "echo 'build-20240101-abc123'"
+    assert:
+      exitCode: 0
+      stdout:
+        matches: "build-\\d{8}-[a-f0-9]+"
+
+  # Step 7: Stderr capture and assertion
+  - id: stderr_capture
+    adapter: shell
+    action: exec
+    command: "echo 'error details' >&2"
+    capture:
+      error_output: "stderr"
+    assert:
+      exitCode: 0
+      stderr:
+        contains: "error details"
+
+  # Step 8: Working directory override
+  - id: cwd_override
+    adapter: shell
+    action: exec
+    command: "pwd"
+    cwd: "/tmp"
+    assert:
+      exitCode: 0
+      stdout:
+        matches: "(tmp|private/tmp)$"

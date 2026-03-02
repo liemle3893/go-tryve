@@ -7,6 +7,7 @@
   "examples": { "file": "examples.md", "description": "Common test patterns and recipes" },
   "adapters": { "file": "adapters/index.md", "description": "Adapter overview and comparison" },
   "adapters.http": { "file": "adapters/http.md", "description": "HTTP adapter for REST API testing" },
+  "adapters.shell": { "file": "adapters/shell.md", "description": "Shell/CLI adapter for command execution" },
   "adapters.postgresql": { "file": "adapters/postgresql.md", "description": "PostgreSQL adapter" },
   "adapters.mongodb": { "file": "adapters/mongodb.md", "description": "MongoDB adapter" },
   "adapters.redis": { "file": "adapters/redis.md", "description": "Redis adapter" },
