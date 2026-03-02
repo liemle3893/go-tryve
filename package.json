@@ -22,7 +22,8 @@
     "clean": "rm -rf dist",
     "prepublishOnly": "npm run clean && npm run build",
     "local:install": "npm run build && npm install --global --prefix ~/.local .",
-    "test": "echo \"No tests yet\""
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [
     "e2e",
@@ -75,7 +76,8 @@
     "ioredis": "^5.8.2",
     "mongodb": "^7.0.0",
     "ts-node": "^10.9.2",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^3.2.4"
   },
   "repository": {
     "type": "git",
