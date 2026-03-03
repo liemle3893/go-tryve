@@ -53,7 +53,7 @@ interface RawYAMLStep {
 // Schema Definition (inline for validation)
 // ============================================================================
 
-const VALID_ADAPTERS: AdapterType[] = ['postgresql', 'redis', 'mongodb', 'eventhub', 'http', 'shell'];
+const VALID_ADAPTERS: AdapterType[] = ['postgresql', 'redis', 'mongodb', 'eventhub', 'http', 'shell', 'typescript'];
 const VALID_PRIORITIES: TestPriority[] = ['P0', 'P1', 'P2', 'P3'];
 
 // ============================================================================
@@ -320,6 +320,12 @@ function validateAdapterStep(step: RawYAMLStep, location: string): string[] {
       if (!step.command || typeof step.command !== 'string') {
         errors.push(`${location}: Shell steps require "command" field (string)`);
       }
+      break;
+
+    case 'typescript':
+      // TypeScript function steps are loaded from .test.ts files, not YAML.
+      // If someone mistakenly writes adapter: typescript in YAML, we accept it
+      // to allow forward-compatible test files.
       break;
   }
 
