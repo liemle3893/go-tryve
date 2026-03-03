@@ -81,7 +81,7 @@ export interface ReporterConfig {
 // ============================================================================
 
 export type TestPriority = 'P0' | 'P1' | 'P2' | 'P3';
-export type AdapterType = 'postgresql' | 'redis' | 'mongodb' | 'eventhub' | 'http' | 'shell';
+export type AdapterType = 'postgresql' | 'redis' | 'mongodb' | 'eventhub' | 'http' | 'shell' | 'typescript';
 export type TestPhase = 'setup' | 'execute' | 'verify' | 'teardown';
 
 export interface UnifiedTestDefinition {

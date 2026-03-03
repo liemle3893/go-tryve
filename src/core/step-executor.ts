@@ -381,7 +381,7 @@ export function createFunctionStep(
 ): UnifiedStep {
     return {
         id,
-        adapter: 'http' as AdapterType, // Default adapter for function steps
+        adapter: 'typescript' as AdapterType,
         action: TYPESCRIPT_FUNCTION_ACTION,
         params: { __function: fn },
         ...options,
