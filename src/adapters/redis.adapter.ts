@@ -199,11 +199,18 @@ export class RedisAdapter extends BaseAdapter {
    * Delete all keys matching a pattern
    */
   private async flushPattern(pattern: string): Promise<number> {
-    const keys = await this.client!.keys(pattern);
-    if (keys.length === 0) {
-      return 0;
-    }
-    return await this.client!.del(...keys);
+    let cursor = '0';
+    let totalDeleted = 0;
+
+    do {
+      const [nextCursor, keys] = await this.client!.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
+      cursor = nextCursor;
+      if (keys.length > 0) {
+        totalDeleted += await this.client!.del(...keys);
+      }
+    } while (cursor !== '0');
+
+    return totalDeleted;
   }
 
   /**
