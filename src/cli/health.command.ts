@@ -247,6 +247,7 @@ function formatAdapterName(adapter: AdapterType): string {
         mongodb: 'MongoDB',
         eventhub: 'EventHub',
         shell: 'Shell',
+        typescript: 'TypeScript',
     }
 
     return names[adapter] || adapter
