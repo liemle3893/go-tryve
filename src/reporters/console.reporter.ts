@@ -1,3 +1,4 @@
+/**
  * E2E Test Runner - Console Reporter
  *
  * Real-time terminal output with colors and progress indicators
