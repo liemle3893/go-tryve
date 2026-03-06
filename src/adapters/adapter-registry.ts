@@ -350,6 +350,7 @@ export function parseAdapterType(type: string): AdapterType {
     'eventhub',
     'http',
     'shell',
+    'kafka',
   ];
 
   if (validTypes.includes(type as AdapterType)) {
