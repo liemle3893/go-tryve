@@ -41,7 +41,7 @@ Run with: `e2e run --env local`
 | `e2e doc <section>` | Show documentation for a section |
 | `e2e install <adapter>` | Install adapter peer dependencies |
 
-Common options: `--env <name>`, `--tag <tag>`, `--priority <level>`, `--parallel <n>`, `--bail`, `--dry-run`
+Common options: `--env <name>`, `--tag <tag>`, `--priority <level>`, `--parallel <n>`, `--bail`, `--watch`, `--dry-run`
 
 ## Test File Structure
 
@@ -69,7 +69,7 @@ Each phase contains an array of steps:
 
 ```yaml
 - id: create_user                   # Step identifier
-  adapter: http                     # http|postgresql|mongodb|redis|eventhub|shell
+  adapter: http                     # http|postgresql|mongodb|redis|eventhub|kafka|shell
   action: request                   # Adapter-specific action
   description: "Create a user"      # Optional
   continueOnError: false            # Continue on failure
@@ -195,6 +195,42 @@ Capture command output for later steps:
     version: "stdout"
 ```
 
+## Kafka Messaging
+
+Produce and consume messages from Apache Kafka topics:
+
+```yaml
+# Produce a message
+- adapter: kafka
+  action: produce
+  topic: "user-events"
+  message:
+    key: "user-123"
+    value:
+      type: "user.created"
+      userId: "{{captured.user_id}}"
+
+# Wait for a specific message
+- adapter: kafka
+  action: waitFor
+  topic: "user-events"
+  timeout: 30000
+  filter:
+    type: "user.created"
+  capture:
+    event_data: "data"
+  assert:
+    - path: "type"
+      equals: "user.created"
+
+# Consume multiple messages
+- adapter: kafka
+  action: consume
+  topic: "events"
+  count: 5
+  timeout: 10000
+```
+
 ## Database Assertions
 
 **PostgreSQL** -- assert on columns and rows:
@@ -241,4 +277,5 @@ assert:
 * **MongoDB Adapter** [references/adapters/mongodb.md](references/adapters/mongodb.md)
 * **Redis Adapter** [references/adapters/redis.md](references/adapters/redis.md)
 * **EventHub Adapter** [references/adapters/eventhub.md](references/adapters/eventhub.md)
+* **Kafka Adapter** [references/adapters/kafka.md](references/adapters/kafka.md)
 * **Shell Adapter** [references/adapters/shell.md](references/adapters/shell.md)

@@ -13,7 +13,7 @@ describe('TypeScript DSL Builder', () => {
       expect(definition.name).toBe('my-test')
       expect(definition.execute).toHaveLength(1)
       expect(definition.execute[0].adapter).toBe('http')
-      expect(definition.execute[0].action).toBe('GET')
+      expect(definition.execute[0].action).toBe('request')
     })
 
     it('adds optional description', () => {
@@ -83,7 +83,8 @@ describe('TypeScript DSL Builder', () => {
       const s = http.get('/api/users').expectStatus(200).build()
 
       expect(s.adapter).toBe('http')
-      expect(s.action).toBe('GET')
+      expect(s.action).toBe('request')
+      expect(s.params.method).toBe('GET')
       expect(s.params.url).toBe('/api/users')
       expect(s.assert).toEqual({ status: 200 })
     })
@@ -94,7 +95,8 @@ describe('TypeScript DSL Builder', () => {
         .expectStatus(201)
         .build()
 
-      expect(s.action).toBe('POST')
+      expect(s.action).toBe('request')
+      expect(s.params.method).toBe('POST')
       expect(s.params.body).toEqual({ name: 'John' })
     })
 

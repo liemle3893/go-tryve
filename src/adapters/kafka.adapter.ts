@@ -5,21 +5,13 @@
  */
 
 import { AdapterError, AssertionError, TimeoutError } from '../errors';
+import { runAssertion, type BaseAssertion } from '../assertions/assertion-runner';
 import type { AdapterConfig, AdapterContext, AdapterStepResult, Logger } from '../types';
 import { BaseAdapter } from './base.adapter';
-
-export interface KafkaAssertion {
-  path: string;
-  equals?: unknown;
-  contains?: string;
-  matches?: string;
-  exists?: boolean;
-}
 
 export class KafkaAdapter extends BaseAdapter {
   private kafka: import('kafkajs').Kafka | null = null;
   private producer: import('kafkajs').Producer | null = null;
-  private consumer: import('kafkajs').Consumer | null = null;
 
   constructor(config: AdapterConfig, logger: Logger) {
     super(config, logger);
@@ -66,10 +58,6 @@ export class KafkaAdapter extends BaseAdapter {
     if (this.producer) {
       await this.producer.disconnect();
       this.producer = null;
-    }
-    if (this.consumer) {
-      await this.consumer.disconnect();
-      this.consumer = null;
     }
     this.connected = false;
     this.logger.info('Kafka disconnected');
@@ -158,38 +146,55 @@ export class KafkaAdapter extends BaseAdapter {
     const count = (params.count as number) || 1;
     const timeout = (params.timeout as number) || 10000;
     const messages: unknown[] = [];
+    let resolved = false;
 
-    if (!this.consumer) {
-      this.consumer = this.kafka!.consumer({ groupId: 'e2e-runner-consumer' });
-      await this.consumer.connect();
-    }
-
-    await this.consumer.subscribe({ topic, fromBeginning: false });
-
-    return new Promise<AdapterStepResult>((resolve, reject) => {
-      const timeoutId = setTimeout(async () => {
-        await this.consumer!.stop();
-        resolve(this.successResult(messages, Date.now() - start));
-      }, timeout);
-
-      this.consumer!.run({
-        eachMessage: async ({ message }) => {
-          try {
-            const value = JSON.parse(message.value?.toString() || '{}');
-            messages.push(value);
-
-            if (messages.length >= count) {
-              clearTimeout(timeoutId);
-              await this.consumer!.stop();
-              resolve(this.successResult(messages, Date.now() - start));
-            }
-          } catch (error) {
-            clearTimeout(timeoutId);
-            reject(error);
-          }
-        },
-      }).catch(reject);
+    const consumer = this.kafka!.consumer({
+      groupId: `e2e-runner-consumer-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     });
+    await consumer.connect();
+    await consumer.subscribe({ topic, fromBeginning: false });
+
+    try {
+      return await new Promise<AdapterStepResult>((resolve, reject) => {
+        const timeoutId = setTimeout(async () => {
+          if (resolved) return;
+          resolved = true;
+          await consumer.disconnect();
+          resolve(this.successResult(messages, Date.now() - start));
+        }, timeout);
+
+        consumer.run({
+          eachMessage: async ({ message }) => {
+            try {
+              if (resolved) return;
+              const value = JSON.parse(message.value?.toString() || '{}');
+              messages.push(value);
+
+              if (messages.length >= count) {
+                if (resolved) return;
+                resolved = true;
+                clearTimeout(timeoutId);
+                await consumer.disconnect();
+                resolve(this.successResult(messages, Date.now() - start));
+              }
+            } catch (error) {
+              if (resolved) return;
+              resolved = true;
+              clearTimeout(timeoutId);
+              reject(error);
+            }
+          },
+        }).catch((error) => {
+          if (resolved) return;
+          resolved = true;
+          clearTimeout(timeoutId);
+          reject(error);
+        });
+      });
+    } catch (error) {
+      await consumer.disconnect().catch(() => {});
+      throw error;
+    }
   }
 
   private async waitForMessage(
@@ -200,61 +205,76 @@ export class KafkaAdapter extends BaseAdapter {
     const topic = params.topic as string;
     const timeout = (params.timeout as number) || 30000;
     const filter = params.filter as Record<string, unknown>;
+    let resolved = false;
 
-    if (!this.consumer) {
-      this.consumer = this.kafka!.consumer({ groupId: 'e2e-runner-consumer' });
-      await this.consumer.connect();
-    }
-
-    await this.consumer.subscribe({ topic, fromBeginning: false });
-
-    return new Promise<AdapterStepResult>((resolve, reject) => {
-      const timeoutId = setTimeout(async () => {
-        await this.consumer!.stop();
-        resolve(
-          this.failResult(
-            new TimeoutError(
-              `Waiting for message matching filter: ${JSON.stringify(filter)}`,
-              timeout
-            ),
-            Date.now() - start
-          )
-        );
-      }, timeout);
-
-      this.consumer!.run({
-        eachMessage: async ({ message }) => {
-          try {
-            const body = JSON.parse(message.value?.toString() || '{}');
-
-            if (this.matchesFilter(body, filter)) {
-              clearTimeout(timeoutId);
-              await this.consumer!.stop();
-
-              if (params.capture) {
-                for (const [varName, path] of Object.entries(params.capture as Record<string, string>)) {
-                  ctx.capture(varName, this.getNestedValue(body, path));
-                }
-              }
-
-              if (params.assert) {
-                try {
-                  this.runAssertions(body, params.assert as KafkaAssertion[]);
-                } catch (error) {
-                  resolve(this.failResult(error as Error, Date.now() - start));
-                  return;
-                }
-              }
-
-              resolve(this.successResult(body, Date.now() - start));
-            }
-          } catch (error) {
-            clearTimeout(timeoutId);
-            reject(error);
-          }
-        },
-      }).catch(reject);
+    const consumer = this.kafka!.consumer({
+      groupId: `e2e-runner-consumer-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     });
+    await consumer.connect();
+    await consumer.subscribe({ topic, fromBeginning: false });
+
+    try {
+      return await new Promise<AdapterStepResult>((resolve, reject) => {
+        const timeoutId = setTimeout(async () => {
+          if (resolved) return;
+          resolved = true;
+          await consumer.disconnect();
+          resolve(
+            this.failResult(
+              new TimeoutError(
+                `Waiting for message matching filter: ${JSON.stringify(filter)}`,
+                timeout
+              ),
+              Date.now() - start
+            )
+          );
+        }, timeout);
+
+        consumer.run({
+          eachMessage: async ({ message }) => {
+            try {
+              if (resolved) return;
+              const body = JSON.parse(message.value?.toString() || '{}');
+
+              if (this.matchesFilter(body, filter)) {
+                if (resolved) return;
+                resolved = true;
+                clearTimeout(timeoutId);
+                await consumer.disconnect();
+
+                if (params.capture) {
+                  for (const [varName, path] of Object.entries(params.capture as Record<string, string>)) {
+                    ctx.capture(varName, this.getNestedValue(body, path));
+                  }
+                }
+
+                if (params.assert) {
+                  const assertions = Array.isArray(params.assert) ? params.assert : [params.assert];
+                  for (const assertion of assertions as BaseAssertion[]) {
+                    runAssertion(body, assertion);
+                  }
+                }
+
+                resolve(this.successResult(body, Date.now() - start));
+              }
+            } catch (error) {
+              if (resolved) return;
+              resolved = true;
+              clearTimeout(timeoutId);
+              reject(error);
+            }
+          },
+        }).catch((error) => {
+          if (resolved) return;
+          resolved = true;
+          clearTimeout(timeoutId);
+          reject(error);
+        });
+      });
+    } catch (error) {
+      await consumer.disconnect().catch(() => {});
+      throw error;
+    }
   }
 
   private matchesFilter(message: Record<string, unknown>, filter: Record<string, unknown>): boolean {
@@ -276,35 +296,4 @@ export class KafkaAdapter extends BaseAdapter {
     }, obj);
   }
 
-  private runAssertions(data: unknown, assertions: KafkaAssertion[]): void {
-    for (const assertion of assertions) {
-      const value = this.getNestedValue(data, assertion.path);
-
-      if (assertion.exists === true && value === undefined) {
-        throw new AssertionError(`${assertion.path} does not exist`, {
-          path: assertion.path,
-          operator: 'exists',
-        });
-      }
-
-      if (assertion.equals !== undefined && value !== assertion.equals) {
-        throw new AssertionError(
-          `${assertion.path} = ${JSON.stringify(value)}, expected ${JSON.stringify(assertion.equals)}`,
-          { path: assertion.path, expected: assertion.equals, actual: value, operator: 'equals' }
-        );
-      }
-
-      if (assertion.contains && !String(value).includes(assertion.contains)) {
-        throw new AssertionError(`${assertion.path} does not contain "${assertion.contains}"`, {
-          path: assertion.path, expected: assertion.contains, actual: value, operator: 'contains',
-        });
-      }
-
-      if (assertion.matches && !new RegExp(assertion.matches).test(String(value))) {
-        throw new AssertionError(`${assertion.path} does not match /${assertion.matches}/`, {
-          path: assertion.path, expected: assertion.matches, actual: value, operator: 'matches',
-        });
-      }
-    }
-  }
 }

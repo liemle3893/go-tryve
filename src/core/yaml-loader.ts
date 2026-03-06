@@ -53,7 +53,7 @@ interface RawYAMLStep {
 // Schema Definition (inline for validation)
 // ============================================================================
 
-const VALID_ADAPTERS: AdapterType[] = ['postgresql', 'redis', 'mongodb', 'eventhub', 'http', 'shell', 'typescript'];
+const VALID_ADAPTERS: AdapterType[] = ['postgresql', 'redis', 'mongodb', 'eventhub', 'kafka', 'http', 'shell', 'typescript'];
 const VALID_PRIORITIES: TestPriority[] = ['P0', 'P1', 'P2', 'P3'];
 
 // ============================================================================
@@ -319,6 +319,15 @@ function validateAdapterStep(step: RawYAMLStep, location: string): string[] {
       }
       if (!step.command || typeof step.command !== 'string') {
         errors.push(`${location}: Shell steps require "command" field (string)`);
+      }
+      break;
+
+    case 'kafka':
+      if (!['produce', 'consume', 'waitFor', 'clear'].includes(step.action)) {
+        errors.push(`${location}: Invalid Kafka action "${step.action}". Must be: produce, consume, waitFor, clear`);
+      }
+      if (['produce', 'consume', 'waitFor'].includes(step.action) && !step.topic) {
+        errors.push(`${location}: Kafka action "${step.action}" requires "topic" field`);
       }
       break;
 

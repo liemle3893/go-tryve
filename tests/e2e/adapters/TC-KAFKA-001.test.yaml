@@ -1,0 +1,54 @@
+name: TC-KAFKA-001
+description: Verify Kafka adapter produce and consume operations
+priority: P1
+tags: [kafka, messaging, e2e]
+timeout: 60000
+
+variables:
+  topic: "e2e-test-topic"
+  event_type: "test.event.{{$uuid()}}"
+
+setup:
+  - adapter: kafka
+    action: clear
+    description: "Reset Kafka test state"
+
+execute:
+  - adapter: kafka
+    action: produce
+    description: "Produce test message to topic"
+    topic: "{{topic}}"
+    message:
+      key: "test-key"
+      value:
+        type: "{{event_type}}"
+        data:
+          message: "hello from e2e"
+          timestamp: "{{$timestamp()}}"
+
+  - adapter: kafka
+    action: waitFor
+    description: "Wait for the produced message"
+    topic: "{{topic}}"
+    timeout: 30000
+    filter:
+      type: "{{event_type}}"
+    capture:
+      received_message: "data.message"
+    assert:
+      - path: "type"
+        equals: "{{event_type}}"
+      - path: "data.message"
+        equals: "hello from e2e"
+      - path: "data.timestamp"
+        exists: true
+
+verify:
+  - adapter: shell
+    action: exec
+    description: "Verify captured message value"
+    command: "echo '{{captured.received_message}}'"
+    assert:
+      exitCode: 0
+      stdout:
+        contains: "hello from e2e"

@@ -18,7 +18,6 @@ export type { EventHubAssertion } from './eventhub.adapter';
 export { ShellAdapter } from './shell.adapter';
 export type { ShellRequestParams, ShellResponse, ShellAssertion } from './shell.adapter';
 export { KafkaAdapter } from './kafka.adapter';
-export type { KafkaAssertion } from './kafka.adapter';
 export {
   AdapterRegistry,
   createAdapterRegistry,

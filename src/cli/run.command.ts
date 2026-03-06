@@ -48,9 +48,6 @@ export interface RunCommandResult {
 /**
  * Execute the run command
  */
-/**
- * Execute the run command
- */
 export async function runCommand(args: CLIArgs): Promise<RunCommandResult> {
     const { options, patterns } = args
 

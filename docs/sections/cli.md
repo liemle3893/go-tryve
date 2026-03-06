@@ -494,6 +494,7 @@ e2e doc [section]
 | `adapters.mongodb` | MongoDB adapter |
 | `adapters.redis` | Redis adapter |
 | `adapters.eventhub` | Azure EventHub adapter |
+| `adapters.kafka` | Apache Kafka adapter |
 
 ### Examples
 

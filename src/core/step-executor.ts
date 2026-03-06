@@ -134,11 +134,6 @@ export class StepExecutor {
             const duration = Date.now() - startTime
             const errorObj = error instanceof Error ? error : new Error(String(error))
 
-            // Re-throw AssertionError so it propagates through withRetry and marks the step as failed
-            if (errorObj.name === 'AssertionError') {
-                throw errorObj
-            }
-
             // Check if we should continue on error
             if (step.continueOnError) {
                 this.logger.warn(
@@ -241,7 +236,6 @@ export class StepExecutor {
 
     /**
      * Validate assertions against step result data
-     * Note: Full assertion engine will be integrated in Phase 5
      */
     private validateAssertions(assertions: unknown, data: unknown, stepId: string): void {
         this.logger.debug(`Step ${stepId} validating assertions against data`)

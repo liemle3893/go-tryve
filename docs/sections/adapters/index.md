@@ -16,6 +16,7 @@ Adapters provide connectivity to different services and databases for E2E testin
 | [MongoDB](mongodb.md) | MongoDB document testing | `mongodb` |
 | [Redis](redis.md) | Redis cache testing | `ioredis` |
 | [EventHub](eventhub.md) | Azure EventHub messaging | `@azure/event-hubs` |
+| [Kafka](kafka.md) | Apache Kafka messaging | `kafkajs` |
 
 ## Adapter Configuration
 
@@ -36,6 +37,10 @@ environments:
       eventhub:
         connectionString: "Endpoint=sb://...;EntityPath=events"
         consumerGroup: "$Default"
+      kafka:
+        brokers:
+          - "localhost:9092"
+        clientId: "e2e-runner"
 ```
 
 ## Peer Dependencies
@@ -56,6 +61,9 @@ npm install ioredis
 
 # Azure EventHub
 npm install @azure/event-hubs
+
+# Apache Kafka
+npm install kafkajs
 ```
 
 ## Common Step Fields

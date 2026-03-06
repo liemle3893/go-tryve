@@ -120,10 +120,11 @@ class HttpStepBuilderImpl implements HttpStepBuilder {
 
   build(): UnifiedStep {
     return {
-      id: `http-${Date.now()}`,
+      id: `http-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       adapter: 'http',
-      action: this._method.toUpperCase(),
+      action: 'request',
       params: {
+        method: this._method.toUpperCase(),
         url: this._url,
         headers: this._headers,
         body: this._body,
@@ -160,7 +161,7 @@ class ShellStepBuilderImpl implements ShellStepBuilder {
 
   build(): UnifiedStep {
     return {
-      id: `shell-${Date.now()}`,
+      id: `shell-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       adapter: 'shell',
       action: 'execute',
       params: {

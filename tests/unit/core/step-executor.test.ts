@@ -24,7 +24,7 @@ function makeInterpolationContext(): InterpolationContext {
 }
 
 describe('StepExecutor.validateAssertions', () => {
-  it('throws AssertionError when assert.equals does not match adapter result', async () => {
+  it('returns failed status when assert.equals does not match adapter result', async () => {
     const logger = makeLogger()
     const registry = new AdapterRegistry({ baseUrl: 'http://localhost' }, logger)
     const httpAdapter = registry.get('http')
@@ -47,9 +47,9 @@ describe('StepExecutor.validateAssertions', () => {
       assert: { equals: 'expected' },  // value is 'actual', so this should fail
     }
 
-    await expect(
-      executor.executeStep(step, makeContext(), makeInterpolationContext())
-    ).rejects.toThrow()
+    const result = await executor.executeStep(step, makeContext(), makeInterpolationContext())
+    expect(result.status).toBe('failed')
+    expect(result.error).toBeDefined()
 
     executeSpy.mockRestore()
   })

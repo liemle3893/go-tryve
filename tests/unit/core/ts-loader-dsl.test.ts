@@ -40,7 +40,7 @@ export default test('Health Check')
     expect(Array.isArray(definition.execute)).toBe(true)
     expect(definition.execute.length).toBeGreaterThan(0)
     expect(definition.execute[0].adapter).toBe('http')
-    expect(definition.execute[0].action).toBe('GET')
+    expect(definition.execute[0].action).toBe('request')
   })
 
   it('preserves DSL test tags and priority', async () => {
@@ -92,7 +92,7 @@ export default test('Full E2E Test')
 
     expect(definition.execute).toBeDefined()
     expect(definition.execute[0].adapter).toBe('http')
-    expect(definition.execute[0].action).toBe('POST')
+    expect(definition.execute[0].action).toBe('request')
 
     expect(definition.verify).toBeDefined()
     expect(definition.verify!.length).toBe(1)
