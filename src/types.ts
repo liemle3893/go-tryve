@@ -24,6 +24,7 @@ export interface EnvironmentConfig {
     mongodb?: MongoDBAdapterConfig;
     eventhub?: EventHubAdapterConfig;
     shell?: ShellAdapterConfig;
+    kafka?: KafkaAdapterConfig;
   };
 }
 
@@ -56,6 +57,19 @@ export interface ShellAdapterConfig {
   defaultEnv?: Record<string, string>;
 }
 
+export interface KafkaAdapterConfig {
+  brokers: string | string[];
+  clientId?: string;
+  ssl?: boolean;
+  sasl?: {
+    mechanism: 'plain' | 'scram-sha-256' | 'scram-sha-512';
+    username: string;
+    password: string;
+  };
+  connectionTimeout?: number;
+  requestTimeout?: number;
+}
+
 export interface DefaultsConfig {
   timeout?: number;
   retries?: number;
@@ -81,7 +95,7 @@ export interface ReporterConfig {
 // ============================================================================
 
 export type TestPriority = 'P0' | 'P1' | 'P2' | 'P3';
-export type AdapterType = 'postgresql' | 'redis' | 'mongodb' | 'eventhub' | 'http' | 'shell' | 'typescript';
+export type AdapterType = 'postgresql' | 'redis' | 'mongodb' | 'eventhub' | 'http' | 'shell' | 'typescript' | 'kafka';
 export type TestPhase = 'setup' | 'execute' | 'verify' | 'teardown';
 
 export interface UnifiedTestDefinition {

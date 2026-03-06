@@ -248,6 +248,7 @@ function formatAdapterName(adapter: AdapterType): string {
         eventhub: 'EventHub',
         shell: 'Shell',
         typescript: 'TypeScript',
+        kafka: 'Kafka',
     }
 
     return names[adapter] || adapter
