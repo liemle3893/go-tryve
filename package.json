@@ -38,6 +38,7 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
+    "chokidar": "^5.0.0",
     "p-limit": "^3.1.0",
     "yaml": "^2.7.0"
   },
@@ -75,6 +76,7 @@
   },
   "devDependencies": {
     "@azure/event-hubs": "^6.0.0",
+    "@types/chokidar": "^1.7.5",
     "@types/node": "^20.0.0",
     "@types/pg": "^8.16.0",
     "ioredis": "^5.8.2",
