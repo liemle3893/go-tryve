@@ -4,24 +4,26 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+// Mock kafkajs at module scope (required by Vitest)
+vi.mock('kafkajs', () => ({
+  Kafka: vi.fn().mockImplementation(() => ({
+    producer: vi.fn().mockReturnValue({
+      connect: vi.fn().mockResolvedValue(undefined),
+      disconnect: vi.fn().mockResolvedValue(undefined),
+      send: vi.fn().mockResolvedValue(undefined),
+    }),
+    consumer: vi.fn().mockReturnValue({
+      connect: vi.fn().mockResolvedValue(undefined),
+      disconnect: vi.fn().mockResolvedValue(undefined),
+      subscribe: vi.fn().mockResolvedValue(undefined),
+      run: vi.fn().mockResolvedValue(undefined),
+      stop: vi.fn().mockResolvedValue(undefined),
+    }),
+  })),
+}));
+
 describe('Kafka adapter', () => {
   it('should create Kafka adapter when configured', async () => {
-    vi.mock('kafkajs', () => ({
-      Kafka: vi.fn().mockImplementation(() => ({
-        producer: vi.fn().mockReturnValue({
-          connect: vi.fn().mockResolvedValue(undefined),
-          disconnect: vi.fn().mockResolvedValue(undefined),
-          send: vi.fn().mockResolvedValue(undefined),
-        }),
-        consumer: vi.fn().mockReturnValue({
-          connect: vi.fn().mockResolvedValue(undefined),
-          disconnect: vi.fn().mockResolvedValue(undefined),
-          subscribe: vi.fn().mockResolvedValue(undefined),
-          run: vi.fn().mockResolvedValue(undefined),
-          stop: vi.fn().mockResolvedValue(undefined),
-        }),
-      })),
-    }));
 
     const mockLogger = {
       debug: vi.fn(),
