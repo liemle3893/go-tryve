@@ -563,7 +563,7 @@ describe('TypeScript DSL Builder', () => {
     it('adds optional description', () => {
       const definition = test('my-test')
         .description('A sample test')
-        .execute([])
+        .execute([http.get('/api/ping').expectStatus(200)])
         .build()
 
       expect(definition.description).toBe('A sample test')
@@ -572,7 +572,7 @@ describe('TypeScript DSL Builder', () => {
     it('adds optional tags', () => {
       const definition = test('my-test')
         .tags('smoke', 'api')
-        .execute([])
+        .execute([http.get('/api/ping').expectStatus(200)])
         .build()
 
       expect(definition.tags).toEqual(['smoke', 'api'])
@@ -581,7 +581,7 @@ describe('TypeScript DSL Builder', () => {
     it('adds optional priority', () => {
       const definition = test('my-test')
         .priority('P0')
-        .execute([])
+        .execute([http.get('/api/ping').expectStatus(200)])
         .build()
 
       expect(definition.priority).toBe('P0')
@@ -592,7 +592,7 @@ describe('TypeScript DSL Builder', () => {
         .setup([
           shell.run('npm run seed')
         ])
-        .execute([])
+        .execute([http.get('/api/ping').expectStatus(200)])
         .build()
 
       expect(definition.setup).toHaveLength(1)
@@ -601,7 +601,7 @@ describe('TypeScript DSL Builder', () => {
 
     it('adds verify phase', () => {
       const definition = test('my-test')
-        .execute([])
+        .execute([http.get('/api/ping').expectStatus(200)])
         .verify([
           http.get('/api/users').expectStatus(200)
         ])
@@ -612,7 +612,7 @@ describe('TypeScript DSL Builder', () => {
 
     it('adds teardown phase', () => {
       const definition = test('my-test')
-        .execute([])
+        .execute([http.get('/api/ping').expectStatus(200)])
         .teardown([
           shell.run('npm run cleanup')
         ])
@@ -954,7 +954,9 @@ export type { TestBuilder, StepBuilder, HttpStepBuilder, ShellStepBuilder } from
 ### Step 4: Run test to verify it passes
 
 Run: `npm test -- tests/unit/dsl/builder.test.ts`
-Expected: `15 tests PASS`
+Expected: `13 tests PASS`
+
+**Note:** The tests now include meaningful execute steps, The validation is preserved.
 
 ### Step 5: Commit
 
