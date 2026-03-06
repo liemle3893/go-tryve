@@ -18,6 +18,7 @@ import {
     mergeConfigWithOptions,
     validateAdapterConnectionStrings,
 } from '../core'
+import { createWatcher } from '../core/watcher'
 import { isE2ERunnerError, wrapError } from '../errors'
 import { createReporterManager } from '../reporters'
 import type {
@@ -47,6 +48,9 @@ export interface RunCommandResult {
 /**
  * Execute the run command
  */
+/**
+ * Execute the run command
+ */
 export async function runCommand(args: CLIArgs): Promise<RunCommandResult> {
     const { options, patterns } = args
 
@@ -67,6 +71,68 @@ export async function runCommand(args: CLIArgs): Promise<RunCommandResult> {
 
     logger.info('Starting E2E test run')
 
+    // For watch mode, run once then setup watcher
+    if (options.watch) {
+        const result = await runTestsOnce(args, logger)
+        if (!result.result?.success) {
+            logger.warn('Initial run had failures. Watch mode will re-run on changes.')
+        }
+
+        const testDir = args.options.testDir || '.'
+        logger.info('Watch mode enabled. Press Ctrl+C to exit.')
+
+        return new Promise((resolve) => {
+            const watcher = createWatcher({
+                paths: [testDir],
+                patterns: ['**/*.test.yaml', '**/*.test.ts'],
+                debounceMs: 300,
+                onChange: async (changedPath: string) => {
+                    console.clear()
+                    logger.info(`File changed: ${changedPath}`)
+                    logger.info('Re-running tests...')
+
+                    try {
+                        const rerunResult = await runTestsOnce(args, logger)
+                        if (rerunResult.result) {
+                            logger.info(
+                                rerunResult.result.success
+                                    ? '✓ All tests passed'
+                                    : `✗ ${rerunResult.result.failed} test(s) failed`
+                            )
+                        }
+                    } catch (error) {
+                        logger.error(`Error during re-run: ${error}`)
+                    }
+                },
+                onError: (error: Error) => {
+                    logger.error(`Watcher error: ${error.message}`)
+                },
+            })
+
+            // Handle graceful shutdown
+            const shutdown = () => {
+                logger.info('\nStopping watcher...')
+                watcher.close()
+                resolve({ exitCode: EXIT_CODES.SUCCESS })
+            }
+
+            process.on('SIGINT', shutdown)
+            process.on('SIGTERM', shutdown)
+        })
+    }
+
+    return runTestsOnce(args, logger)
+}
+
+/**
+ * Execute tests once without watch mode
+ */
+async function runTestsOnce(
+    args: CLIArgs,
+    logger: ReturnType<typeof createLogger>,
+): Promise<RunCommandResult> {
+    const { options, patterns } = args
+
     try {
         // 1. Load configuration
         logger.debug(`Loading config from: ${options.config}`)
@@ -86,7 +152,6 @@ export async function runCommand(args: CLIArgs): Promise<RunCommandResult> {
         logger.debug(`Using environment: ${config.environmentName}`)
 
         // 3. Discover tests
-        // Priority: CLI option > config testDir > default '.'
         const testDir = options.testDir || config.testDir
         logger.debug(`Discovering tests in: ${testDir}`)
         let tests = await discoverTests({
@@ -114,22 +179,18 @@ export async function runCommand(args: CLIArgs): Promise<RunCommandResult> {
             return { exitCode: EXIT_CODES.VALIDATION_ERROR }
         }
 
-        // 6. Dry run mode - just show what would run
+        // 6. Dry run mode
         if (options.dryRun) {
             return performDryRun(definitions, logger)
         }
 
-        // 7. Analyze which adapters are required by the tests
+        // 7. Analyze required adapters
         const requiredAdapters = getRequiredAdapters(definitions)
         logger.debug(`Required adapters: ${[...requiredAdapters].join(', ') || 'none'}`)
 
-        // 7.5 Validate that required adapters have resolved connection strings
-        validateAdapterConnectionStrings(
-            config.environment,
-            [...requiredAdapters]
-        )
+        validateAdapterConnectionStrings(config.environment, [...requiredAdapters])
 
-        // 8. Create adapters (only required ones) and connect
+        // 8. Create and connect adapters
         const adapters = createAdapterRegistry(config.environment, logger, { requiredAdapters })
 
         try {
@@ -148,7 +209,7 @@ export async function runCommand(args: CLIArgs): Promise<RunCommandResult> {
             environmentName: config.environmentName,
         })
 
-        // 10. Create orchestrator and run tests
+        // 10. Create orchestrator
         const orchestrator = createOrchestrator(config, adapters, logger, {
             parallel: options.parallel,
             timeout: options.timeout,
@@ -162,61 +223,36 @@ export async function runCommand(args: CLIArgs): Promise<RunCommandResult> {
         // Connect orchestrator events to reporters
         orchestrator.addEventListener((event, data) => {
             switch (event) {
-                case 'suite:start': {
-                    reporterManager.onSuiteStart(
-                        data as Parameters<typeof reporterManager.onSuiteStart>[0],
-                    )
+                case 'suite:start':
+                    reporterManager.onSuiteStart(data as Parameters<typeof reporterManager.onSuiteStart>[0])
                     break
-                }
-                case 'suite:end': {
-                    reporterManager.onSuiteEnd(
-                        data as Parameters<typeof reporterManager.onSuiteEnd>[0],
-                    )
+                case 'suite:end':
+                    reporterManager.onSuiteEnd(data as Parameters<typeof reporterManager.onSuiteEnd>[0])
                     break
-                }
-                case 'test:start': {
-                    reporterManager.onTestStart(
-                        data as Parameters<typeof reporterManager.onTestStart>[0],
-                    )
+                case 'test:start':
+                    reporterManager.onTestStart(data as Parameters<typeof reporterManager.onTestStart>[0])
                     break
-                }
-                case 'test:end': {
-                    reporterManager.onTestEnd(
-                        data as Parameters<typeof reporterManager.onTestEnd>[0],
-                    )
+                case 'test:end':
+                    reporterManager.onTestEnd(data as Parameters<typeof reporterManager.onTestEnd>[0])
                     break
-                }
-                case 'phase:start': {
-                    reporterManager.onPhaseStart(
-                        data as Parameters<typeof reporterManager.onPhaseStart>[0],
-                    )
+                case 'phase:start':
+                    reporterManager.onPhaseStart(data as Parameters<typeof reporterManager.onPhaseStart>[0])
                     break
-                }
-                case 'phase:end': {
-                    reporterManager.onPhaseEnd(
-                        data as Parameters<typeof reporterManager.onPhaseEnd>[0],
-                    )
+                case 'phase:end':
+                    reporterManager.onPhaseEnd(data as Parameters<typeof reporterManager.onPhaseEnd>[0])
                     break
-                }
-                case 'step:start': {
-                    reporterManager.onStepStart(
-                        data as Parameters<typeof reporterManager.onStepStart>[0],
-                    )
+                case 'step:start':
+                    reporterManager.onStepStart(data as Parameters<typeof reporterManager.onStepStart>[0])
                     break
-                }
-                case 'step:end': {
-                    reporterManager.onStepEnd(
-                        data as Parameters<typeof reporterManager.onStepEnd>[0],
-                    )
+                case 'step:end':
+                    reporterManager.onStepEnd(data as Parameters<typeof reporterManager.onStepEnd>[0])
                     break
-                }
             }
         })
 
         // 11. Execute tests
         let result: TestSuiteResult
         try {
-            // Emit suite start event for reporters
             reporterManager.onSuiteStart({
                 suite: { name: 'E2E Tests', tests: definitions, config: config.raw },
                 totalTests: definitions.length,
@@ -225,13 +261,11 @@ export async function runCommand(args: CLIArgs): Promise<RunCommandResult> {
 
             result = await orchestrator.runSuite(definitions)
 
-            // Emit suite end event
             reporterManager.onSuiteEnd({
                 result,
                 timestamp: new Date(),
             })
         } finally {
-            // Always disconnect adapters
             logger.debug('Disconnecting adapters...')
             await adapters.disconnectAll()
         }
@@ -241,7 +275,6 @@ export async function runCommand(args: CLIArgs): Promise<RunCommandResult> {
 
         // 13. Return result
         const exitCode = result.success ? EXIT_CODES.SUCCESS : EXIT_CODES.TEST_FAILURE
-
         return { exitCode, result }
     } catch (error) {
         if (isE2ERunnerError(error)) {
