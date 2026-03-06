@@ -192,7 +192,7 @@ export class EventHubAdapter extends BaseAdapter {
     const timeout = (params.timeout as number) || 30000;
     const filter = params.filter as Record<string, unknown>;
 
-    return new Promise<AdapterStepResult>((resolve) => {
+    return new Promise<AdapterStepResult>((resolve, reject) => {
       let subscription: { close: () => Promise<void> } | null = null;
 
       const cleanup = async () => {
@@ -258,7 +258,7 @@ export class EventHubAdapter extends BaseAdapter {
         processError: async (error) => {
           clearTimeout(timeoutId);
           await cleanup();
-          resolve(this.failResult(error, Date.now() - start));
+          reject(error instanceof Error ? error : new Error(String(error)));
         },
       });
     });
@@ -276,7 +276,7 @@ export class EventHubAdapter extends BaseAdapter {
     const timeout = (params.timeout as number) || 10000;
     const events: unknown[] = [];
 
-    return new Promise<AdapterStepResult>((resolve) => {
+    return new Promise<AdapterStepResult>((resolve, reject) => {
       let subscription: { close: () => Promise<void> } | null = null;
 
       const cleanup = async () => {
@@ -308,7 +308,7 @@ export class EventHubAdapter extends BaseAdapter {
         processError: async (error) => {
           clearTimeout(timeoutId);
           await cleanup();
-          resolve(this.failResult(error, Date.now() - start));
+          reject(error instanceof Error ? error : new Error(String(error)));
         },
       });
     });

@@ -24,6 +24,7 @@ export interface MongoDBAssertion extends BaseAssertion {
 export class MongoDBAdapter extends BaseAdapter {
   private client: import('mongodb').MongoClient | null = null;
   private db: import('mongodb').Db | null = null;
+  private ObjectId: typeof import('mongodb').ObjectId | null = null;
 
   constructor(config: AdapterConfig, logger: Logger) {
     super(config, logger);
@@ -37,7 +38,8 @@ export class MongoDBAdapter extends BaseAdapter {
     if (this.connected) return;
 
     try {
-      const { MongoClient } = await import('mongodb');
+      const { MongoClient, ObjectId } = await import('mongodb');
+      this.ObjectId = ObjectId;
 
       this.client = new MongoClient(this.config.connectionString as string);
       await this.client.connect();
@@ -103,19 +105,19 @@ export class MongoDBAdapter extends BaseAdapter {
         }
 
         case 'findOne': {
-          const filter = await this.normalizeFilter(params.filter as Record<string, unknown>);
+          const filter = this.normalizeFilter(params.filter as Record<string, unknown>);
           result = await collection.findOne(filter);
           break;
         }
 
         case 'find': {
-          const filter = await this.normalizeFilter(params.filter as Record<string, unknown>);
+          const filter = this.normalizeFilter(params.filter as Record<string, unknown>);
           result = await collection.find(filter).toArray();
           break;
         }
 
         case 'updateOne': {
-          const filter = await this.normalizeFilter(params.filter as Record<string, unknown>);
+          const filter = this.normalizeFilter(params.filter as Record<string, unknown>);
           const update = params.update as Record<string, unknown>;
           const updateResult = await collection.updateOne(filter, update);
           result = {
@@ -126,7 +128,7 @@ export class MongoDBAdapter extends BaseAdapter {
         }
 
         case 'updateMany': {
-          const filter = await this.normalizeFilter(params.filter as Record<string, unknown>);
+          const filter = this.normalizeFilter(params.filter as Record<string, unknown>);
           const update = params.update as Record<string, unknown>;
           const updateManyResult = await collection.updateMany(filter, update);
           result = {
@@ -137,21 +139,21 @@ export class MongoDBAdapter extends BaseAdapter {
         }
 
         case 'deleteOne': {
-          const filter = await this.normalizeFilter(params.filter as Record<string, unknown>);
+          const filter = this.normalizeFilter(params.filter as Record<string, unknown>);
           const deleteResult = await collection.deleteOne(filter);
           result = { deletedCount: deleteResult.deletedCount };
           break;
         }
 
         case 'deleteMany': {
-          const filter = await this.normalizeFilter(params.filter as Record<string, unknown>);
+          const filter = this.normalizeFilter(params.filter as Record<string, unknown>);
           const deleteManyResult = await collection.deleteMany(filter);
           result = { deletedCount: deleteManyResult.deletedCount };
           break;
         }
 
         case 'count': {
-          const filter = await this.normalizeFilter(params.filter as Record<string, unknown> || {});
+          const filter = this.normalizeFilter(params.filter as Record<string, unknown> || {});
           result = await collection.countDocuments(filter);
           break;
         }
@@ -213,10 +215,10 @@ export class MongoDBAdapter extends BaseAdapter {
   /**
    * Normalize filter - convert _id strings to ObjectId
    */
-  private async normalizeFilter(
+  private normalizeFilter(
     filter: Record<string, unknown>
-  ): Promise<Record<string, unknown>> {
-    const { ObjectId } = await import('mongodb');
+  ): Record<string, unknown> {
+    const ObjectId = this.ObjectId!;
     const normalized = { ...filter };
 
     // Handle _id field

@@ -6,6 +6,7 @@
 
 import { AdapterRegistry } from '../adapters'
 import { AdapterError, ExecutionError } from '../errors'
+import { runAssertion, type BaseAssertion } from '../assertions/assertion-runner'
 import type {
     AdapterContext,
     AdapterStepResult,
@@ -133,6 +134,11 @@ export class StepExecutor {
             const duration = Date.now() - startTime
             const errorObj = error instanceof Error ? error : new Error(String(error))
 
+            // Re-throw AssertionError so it propagates through withRetry and marks the step as failed
+            if (errorObj.name === 'AssertionError') {
+                throw errorObj
+            }
+
             // Check if we should continue on error
             if (step.continueOnError) {
                 this.logger.warn(
@@ -140,7 +146,7 @@ export class StepExecutor {
                 )
                 return this.createStepResult(
                     step,
-                    'passed',
+                    'warned',
                     duration,
                     undefined,
                     retryCount,
@@ -238,14 +244,19 @@ export class StepExecutor {
      * Note: Full assertion engine will be integrated in Phase 5
      */
     private validateAssertions(assertions: unknown, data: unknown, stepId: string): void {
-        // Basic assertion validation - full assertion engine is in Phase 5
-        // For now, just log that assertions are present
-        this.logger.debug(`Step ${stepId} has assertions to validate:`, assertions)
+        this.logger.debug(`Step ${stepId} validating assertions against data`)
 
-        // Assertions will be validated by the assertion module in Phase 5
-        // For now, we just check if assertions is truthy to indicate it exists
-        if (assertions && typeof assertions === 'object') {
-            this.logger.debug(`Assertions pending validation for step ${stepId}`)
+        if (!assertions || typeof assertions !== 'object') {
+            return
+        }
+
+        // Support both single assertion object and array of assertions
+        const items: BaseAssertion[] = Array.isArray(assertions)
+            ? (assertions as BaseAssertion[])
+            : [assertions as BaseAssertion]
+
+        for (const assertion of items) {
+            runAssertion(data, assertion)
         }
     }
 
@@ -370,7 +381,7 @@ export function createFunctionStep(
 ): UnifiedStep {
     return {
         id,
-        adapter: 'http' as AdapterType, // Default adapter for function steps
+        adapter: 'typescript' as AdapterType,
         action: TYPESCRIPT_FUNCTION_ACTION,
         params: { __function: fn },
         ...options,

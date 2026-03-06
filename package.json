@@ -38,6 +38,7 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
+    "chokidar": "^5.0.0",
     "p-limit": "^3.1.0",
     "yaml": "^2.7.0"
   },
@@ -48,32 +49,38 @@
   "peerDependencies": {
     "@azure/event-hubs": "^6.0.0",
     "ioredis": "^5.0.0",
+    "kafkajs": "^2.0.0",
     "mongodb": "^7.0.0",
     "pg": "^8.16.3",
     "typescript": "^5.0.0"
   },
   "peerDependenciesMeta": {
-    "pg": {
+    "ioredis": {
       "optional": true
     },
-    "ioredis": {
+    "kafkajs": {
       "optional": true
     },
     "mongodb": {
       "optional": true
     },
-    "@azure/event-hubs": {
+    "pg": {
       "optional": true
     },
     "typescript": {
+      "optional": true
+    },
+    "@azure/event-hubs": {
       "optional": true
     }
   },
   "devDependencies": {
     "@azure/event-hubs": "^6.0.0",
+    "@types/chokidar": "^1.7.5",
     "@types/node": "^20.0.0",
     "@types/pg": "^8.16.0",
     "ioredis": "^5.8.2",
+    "kafkajs": "^2.2.4",
     "mongodb": "^7.0.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.0",
@@ -86,5 +93,17 @@
   "homepage": "https://github.com/liemle3893/e2e-runner#readme",
   "bugs": {
     "url": "https://github.com/liemle3893/e2e-runner/issues"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "import": "./dist/index.js"
+    },
+    "./dsl": {
+      "types": "./dist/dsl/index.d.ts",
+      "require": "./dist/dsl/index.js",
+      "import": "./dist/dsl/index.js"
+    }
   }
 }

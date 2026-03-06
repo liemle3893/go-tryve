@@ -44,6 +44,7 @@ const SYMBOLS = {
   pass: '\u2713', // checkmark
   fail: '\u2717', // X mark
   skip: '\u25CB', // circle
+  warn: '\u26A0', // warning symbol
   error: '\u2716', // heavy X
   pending: '\u25CB', // circle
   arrow: '\u2192', // arrow
@@ -86,6 +87,8 @@ export class ConsoleReporter extends BaseReporter {
         return this.colorize(SYMBOLS.fail, 'red');
       case 'skipped':
         return this.colorize(SYMBOLS.skip, 'yellow');
+      case 'warned':
+        return this.colorize(SYMBOLS.warn, 'yellow');
       case 'error':
         return this.colorize(SYMBOLS.error, 'red');
       default:
@@ -104,6 +107,8 @@ export class ConsoleReporter extends BaseReporter {
         return this.colorize('FAILED', 'red');
       case 'skipped':
         return this.colorize('SKIPPED', 'yellow');
+      case 'warned':
+        return this.colorize('WARNED', 'yellow');
       case 'error':
         return this.colorize('ERROR', 'red');
       default: {
