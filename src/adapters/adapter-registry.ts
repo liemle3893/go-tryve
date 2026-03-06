@@ -19,6 +19,7 @@ import { RedisAdapter } from './redis.adapter';
 import { MongoDBAdapter } from './mongodb.adapter';
 import { EventHubAdapter } from './eventhub.adapter';
 import { ShellAdapter } from './shell.adapter';
+import { KafkaAdapter } from './kafka.adapter';
 
 // ============================================================================
 // Types
@@ -140,6 +141,24 @@ export class AdapterRegistry {
         )
       );
     }
+
+    // Create Kafka adapter if configured AND required
+    if (this.isRequired('kafka') && this.config.adapters?.kafka) {
+      this.adapters.set(
+        'kafka',
+        new KafkaAdapter(
+          {
+            brokers: this.config.adapters.kafka.brokers,
+            clientId: this.config.adapters.kafka.clientId,
+            ssl: this.config.adapters.kafka.ssl,
+            sasl: this.config.adapters.kafka.sasl,
+            connectionTimeout: this.config.adapters.kafka.connectionTimeout,
+            requestTimeout: this.config.adapters.kafka.requestTimeout,
+          },
+          this.logger
+        )
+      );
+    }
   }
 
   /**
@@ -234,6 +253,13 @@ export class AdapterRegistry {
    */
   getShell(): ShellAdapter {
     return this.get('shell') as ShellAdapter;
+  }
+
+  /**
+   * Get Kafka adapter
+   */
+  getKafka(): KafkaAdapter {
+    return this.get('kafka') as KafkaAdapter;
   }
 
   /**
