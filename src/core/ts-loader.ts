@@ -16,6 +16,47 @@ import type {
 } from '../types';
 
 // ============================================================================
+// DSL Detection
+// ============================================================================
+
+/**
+ * Check if a definition was produced by the DSL builder.
+ * DSL definitions have declarative steps with adapters, not functions.
+ */
+function isDSLDefinition(def: unknown): def is UnifiedTestDefinition {
+  if (!def || typeof def !== 'object') {
+    return false
+  }
+
+  const obj = def as Record<string, unknown>
+
+  // DSL-produced definitions have:
+  // 1. name (string)
+  // 2. execute array with step objects (not functions)
+  if (typeof obj.name !== 'string') {
+    return false
+  }
+
+  if (!Array.isArray(obj.execute) || obj.execute.length === 0) {
+    return false
+  }
+
+  // Check if execute[0] is a step object (has adapter, action, params)
+  const firstStep = obj.execute[0] as Record<string, unknown>
+  if (
+    typeof firstStep === 'object' &&
+    firstStep !== null &&
+    typeof firstStep.adapter === 'string' &&
+    typeof firstStep.action === 'string' &&
+    firstStep.action !== '__typescript_function__'
+  ) {
+    return true
+  }
+
+  return false
+}
+
+// ============================================================================
 // Types (from tests/e2e/lib/types.ts)
 // ============================================================================
 
@@ -86,10 +127,20 @@ export async function loadTSTest(
 
     const definition = module.default;
 
+    // Check if this is a DSL-produced definition (already in UnifiedTestDefinition format)
+    if (isDSLDefinition(definition)) {
+      // DSL definitions are already in the correct format
+      // Just ensure sourceFile is set correctly
+      return {
+        ...definition,
+        sourceFile: path.resolve(filePath),
+      }
+    }
+
     // Extract test name from module or filename
     const testName = extractTestName(module, filePath);
 
-    // Validate the definition
+    // Validate the definition (for function-based tests)
     validateTSDefinition(definition, filePath);
 
     // Convert to unified format
