@@ -254,7 +254,267 @@ export function createWatcher(options: WatcherOptions): Watcher {
 }
 ```
 
-Modify `src/cli/run.command.ts` - add import at top and wrap with watch mode logic. The key change is to check `options.watch` early and set up a watcher after the initial run.
+Modify `src/cli/run.command.ts`:
+
+**1. Add import at the top of the file:**
+
+> Find:
+> ```typescript
+> import {
+>     createOrchestrator,
+>     discoverTests,
+> ```
+>
+> Insert after the closing brace of the core imports:
+> ```typescript
+> import { createWatcher } from '../core/watcher'
+> ```
+
+**2. Refactor runCommand function to support watch mode:**
+
+Replace the entire `runCommand` function with:
+
+```typescript
+/**
+ * Execute the run command
+ */
+export async function runCommand(args: CLIArgs): Promise<RunCommandResult> {
+    const { options, patterns } = args
+
+    // Determine log level based on options
+    const logLevel: LogLevel = options.quiet
+        ? 'error'
+        : options.debug
+          ? 'debug'
+          : options.verbose
+            ? 'info'
+            : 'info'
+
+    const logger = createLogger({
+        level: logLevel,
+        useColors: !options.noColor,
+        timestamp: options.debug,
+    })
+
+    logger.info('Starting E2E test run')
+
+    // For watch mode, run once then setup watcher
+    if (options.watch) {
+        const result = await runTestsOnce(args, logger)
+        if (!result.result?.success) {
+            logger.warn('Initial run had failures. Watch mode will re-run on changes.')
+        }
+
+        const testDir = args.options.testDir || '.'
+        logger.info('Watch mode enabled. Press Ctrl+C to exit.')
+
+        return new Promise((resolve) => {
+            const watcher = createWatcher({
+                paths: [testDir],
+                patterns: ['**/*.test.yaml', '**/*.test.ts'],
+                debounceMs: 300,
+                onChange: async (changedPath: string) => {
+                    console.clear()
+                    logger.info(`File changed: ${changedPath}`)
+                    logger.info('Re-running tests...')
+
+                    try {
+                        const rerunResult = await runTestsOnce(args, logger)
+                        if (rerunResult.result) {
+                            logger.info(
+                                rerunResult.result.success
+                                    ? '✓ All tests passed'
+                                    : `✗ ${rerunResult.result.failed} test(s) failed`
+                            )
+                        }
+                    } catch (error) {
+                        logger.error(`Error during re-run: ${error}`)
+                    }
+                },
+                onError: (error: Error) => {
+                    logger.error(`Watcher error: ${error.message}`)
+                },
+            })
+
+            // Handle graceful shutdown
+            const shutdown = () => {
+                logger.info('\nStopping watcher...')
+                watcher.close()
+                resolve({ exitCode: EXIT_CODES.SUCCESS })
+            }
+
+            process.on('SIGINT', shutdown)
+            process.on('SIGTERM', shutdown)
+        })
+    }
+
+    return runTestsOnce(args, logger)
+}
+
+/**
+ * Execute tests once without watch mode
+ */
+async function runTestsOnce(
+    args: CLIArgs,
+    logger: ReturnType<typeof createLogger>,
+): Promise<RunCommandResult> {
+    const { options, patterns } = args
+
+    try {
+        // 1. Load configuration
+        logger.debug(`Loading config from: ${options.config}`)
+        const baseConfig = await loadConfig({
+            configPath: options.config,
+            environment: options.env,
+        })
+
+        // 2. Merge CLI options with config
+        const config = mergeConfigWithOptions(baseConfig, {
+            timeout: options.timeout,
+            retries: options.retries,
+            parallel: options.parallel,
+            reporter: options.reporter.length > 0 ? options.reporter : undefined,
+        })
+
+        logger.debug(`Using environment: ${config.environmentName}`)
+
+        // 3. Discover tests
+        const testDir = options.testDir || config.testDir
+        logger.debug(`Discovering tests in: ${testDir}`)
+        let tests = await discoverTests({
+            basePath: testDir,
+            patterns: ['**/*.test.yaml', '**/*.test.ts'],
+        })
+
+        logger.debug(`Discovered ${tests.length} test(s)`)
+
+        // 4. Apply filters
+        tests = await applyFilters(tests, patterns, options, logger)
+
+        if (tests.length === 0) {
+            logger.warn('No tests found matching the specified criteria')
+            return { exitCode: EXIT_CODES.SUCCESS }
+        }
+
+        logger.info(`Running ${tests.length} test(s)`)
+
+        // 5. Load test definitions
+        const definitions = await loadTestDefinitions(tests, logger)
+
+        if (definitions.length === 0) {
+            logger.warn('No valid test definitions loaded')
+            return { exitCode: EXIT_CODES.VALIDATION_ERROR }
+        }
+
+        // 6. Dry run mode
+        if (options.dryRun) {
+            return performDryRun(definitions, logger)
+        }
+
+        // 7. Analyze required adapters
+        const requiredAdapters = getRequiredAdapters(definitions)
+        logger.debug(`Required adapters: ${[...requiredAdapters].join(', ') || 'none'}`)
+
+        validateAdapterConnectionStrings(config.environment, [...requiredAdapters])
+
+        // 8. Create and connect adapters
+        const adapters = createAdapterRegistry(config.environment, logger, { requiredAdapters })
+
+        try {
+            logger.debug('Connecting adapters...')
+            await adapters.connectAll()
+        } catch (error) {
+            const e = wrapError(error, 'Failed to connect adapters')
+            printError(e.message, e.hint)
+            return { exitCode: EXIT_CODES.CONNECTION_ERROR }
+        }
+
+        // 9. Create reporters
+        const reporterManager = createReporterManager(config.reporters, {
+            verbose: options.verbose,
+            noColor: options.noColor,
+            environmentName: config.environmentName,
+        })
+
+        // 10. Create orchestrator
+        const orchestrator = createOrchestrator(config, adapters, logger, {
+            parallel: options.parallel,
+            timeout: options.timeout,
+            retries: options.retries,
+            skipSetup: options.skipSetup,
+            skipTeardown: options.skipTeardown,
+            bail: options.bail,
+            dryRun: false,
+        })
+
+        // Connect orchestrator events to reporters
+        orchestrator.addEventListener((event, data) => {
+            switch (event) {
+                case 'suite:start':
+                    reporterManager.onSuiteStart(data as Parameters<typeof reporterManager.onSuiteStart>[0])
+                    break
+                case 'suite:end':
+                    reporterManager.onSuiteEnd(data as Parameters<typeof reporterManager.onSuiteEnd>[0])
+                    break
+                case 'test:start':
+                    reporterManager.onTestStart(data as Parameters<typeof reporterManager.onTestStart>[0])
+                    break
+                case 'test:end':
+                    reporterManager.onTestEnd(data as Parameters<typeof reporterManager.onTestEnd>[0])
+                    break
+                case 'phase:start':
+                    reporterManager.onPhaseStart(data as Parameters<typeof reporterManager.onPhaseStart>[0])
+                    break
+                case 'phase:end':
+                    reporterManager.onPhaseEnd(data as Parameters<typeof reporterManager.onPhaseEnd>[0])
+                    break
+                case 'step:start':
+                    reporterManager.onStepStart(data as Parameters<typeof reporterManager.onStepStart>[0])
+                    break
+                case 'step:end':
+                    reporterManager.onStepEnd(data as Parameters<typeof reporterManager.onStepEnd>[0])
+                    break
+            }
+        })
+
+        // 11. Execute tests
+        let result: TestSuiteResult
+        try {
+            reporterManager.onSuiteStart({
+                suite: { name: 'E2E Tests', tests: definitions, config: config.raw },
+                totalTests: definitions.length,
+                timestamp: new Date(),
+            })
+
+            result = await orchestrator.runSuite(definitions)
+
+            reporterManager.onSuiteEnd({
+                result,
+                timestamp: new Date(),
+            })
+        } finally {
+            logger.debug('Disconnecting adapters...')
+            await adapters.disconnectAll()
+        }
+
+        // 12. Generate reports
+        await reporterManager.generateReports(result)
+
+        // 13. Return result
+        const exitCode = result.success ? EXIT_CODES.SUCCESS : EXIT_CODES.TEST_FAILURE
+        return { exitCode, result }
+    } catch (error) {
+        if (isE2ERunnerError(error)) {
+            printError(error.message, error.hint)
+            return { exitCode: errorCodeToExitCode(error.code) }
+        }
+
+        const wrapped = wrapError(error, 'Unexpected error during test run')
+        printError(wrapped.message)
+        return { exitCode: EXIT_CODES.FATAL }
+    }
+}
+```
 
 ### Step 4: Run test to verify it passes
 
