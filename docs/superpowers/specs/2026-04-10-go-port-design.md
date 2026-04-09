@@ -1,12 +1,13 @@
-# E2E-Runner Go Port — Design Spec
+# Tryve — Design Spec
 
 **Date:** 2026-04-10
 **Status:** Approved
-**Approach:** Go-native architecture, full feature parity with TypeScript version
+**Approach:** Go-native architecture, full feature parity with TypeScript e2e-runner
+**Binary name:** `tryve` (try + verify)
 
 ## Summary
 
-Port the entire e2e-runner project (~16K LOC TypeScript) to Go as a single static binary. Users get one download — no Node.js, no npm, no peer dependency installation. The Go version runs the exact same YAML test files and `e2e.config.yaml` format. The TypeScript DSL is dropped; hooks become shell commands.
+Port the entire e2e-runner project (~16K LOC TypeScript) to Go as a single static binary called `tryve`. Users get one download — no Node.js, no npm, no peer dependency installation. The Go version runs the exact same YAML test files and `e2e.config.yaml` format. The TypeScript DSL is dropped; hooks become shell commands.
 
 ## Decisions
 
@@ -19,6 +20,7 @@ Port the entire e2e-runner project (~16K LOC TypeScript) to Go as a single stati
 | Distribution | Cross-compiled binaries + `go install` | GitHub releases for all platforms |
 | CGo | None — pure Go only | Clean cross-compilation, single static binary |
 | Repo strategy | Same repo, Go at root, TypeScript moved to `ts/` | Single source of truth |
+| Binary name | `tryve` (try + verify) | Unique, 5 chars, not taken by any existing tool |
 | Architecture | Go-native (interfaces, context, goroutines) | Idiomatic, maintainable, performant |
 
 ## Project Layout
@@ -30,7 +32,7 @@ e2e-runner/
 │   ├── package.json
 │   └── ...
 ├── cmd/
-│   └── e2e/
+│   └── tryve/
 │       └── main.go            # CLI entrypoint (minimal — wires cobra to internal)
 ├── internal/
 │   ├── adapter/               # Adapter interface + 7 implementations
@@ -275,29 +277,29 @@ Uses `github.com/ohler55/ojg` for JSONPath evaluation against `map[string]any` d
 ```go
 package errors
 
-// E2EError is the base error type.
-type E2EError struct {
+// TryveError is the base error type.
+type TryveError struct {
     Code    string // Machine-readable code (e.g., "CONFIG_INVALID")
     Message string // Human-readable message
     Hint    string // Suggested fix
     Cause   error  // Wrapped underlying error
 }
 
-func (e *E2EError) Error() string { return e.Message }
-func (e *E2EError) Unwrap() error { return e.Cause }
+func (e *TryveError) Error() string { return e.Message }
+func (e *TryveError) Unwrap() error { return e.Cause }
 ```
 
 Constructor functions for each category:
 
 ```go
-func ConfigError(msg, hint string, cause error) *E2EError
-func ValidationError(msg, hint string, cause error) *E2EError
-func ConnectionError(adapter, msg string, cause error) *E2EError
-func ExecutionError(step, msg string, cause error) *E2EError
-func AssertionError(path, operator string, expected, actual any) *E2EError
-func TimeoutError(operation string, duration time.Duration) *E2EError
-func InterpolationError(expr, msg string) *E2EError
-func AdapterError(adapter, action, msg string, cause error) *E2EError
+func ConfigError(msg, hint string, cause error) *TryveError
+func ValidationError(msg, hint string, cause error) *TryveError
+func ConnectionError(adapter, msg string, cause error) *TryveError
+func ExecutionError(step, msg string, cause error) *TryveError
+func AssertionError(path, operator string, expected, actual any) *TryveError
+func TimeoutError(operation string, duration time.Duration) *TryveError
+func InterpolationError(expr, msg string) *TryveError
+func AdapterError(adapter, action, msg string, cause error) *TryveError
 ```
 
 All support `errors.Is()` and `errors.As()` for type checking in callers.
@@ -305,7 +307,7 @@ All support `errors.Is()` and `errors.As()` for type checking in callers.
 ## Test Execution Flow
 
 ```
-1. cmd/e2e/main.go
+1. cmd/tryve/main.go
    └─ cobra parses CLI flags
    └─ calls pkg/runner.RunTests(opts)
 
@@ -401,24 +403,24 @@ Identical flags and behavior to TypeScript version:
 
 | Command | Description |
 |---------|-------------|
-| `e2e run` | Execute tests (default command) |
-| `e2e validate` | Validate test file syntax |
-| `e2e list` | List discovered tests |
-| `e2e health` | Check adapter connectivity |
-| `e2e init` | Initialize e2e.config.yaml |
-| `e2e test create <name>` | Create test from template |
-| `e2e test list-templates` | List available templates |
-| `e2e doc [section]` | Show documentation |
-| `e2e install --skills` | Install Claude Code skills (preserved from TS) |
-| `e2e version` | Print version |
+| `tryve run` | Execute tests (default command) |
+| `tryve validate` | Validate test file syntax |
+| `tryve list` | List discovered tests |
+| `tryve health` | Check adapter connectivity |
+| `tryve init` | Initialize e2e.config.yaml |
+| `tryve test create <name>` | Create test from template |
+| `tryve test list-templates` | List available templates |
+| `tryve doc [section]` | Show documentation |
+| `tryve install --skills` | Install Claude Code skills (preserved from TS) |
+| `tryve version` | Print version |
 
 All flags from the TypeScript version are preserved: `--config`, `--env`, `--test-dir`, `--parallel`, `--timeout`, `--retries`, `--bail`, `--grep`, `--tag`, `--priority`, `--dry-run`, `--watch`, `--skip-setup`, `--skip-teardown`, `--reporter`, `--output`.
 
-Environment variables: `E2E_CONFIG`, `E2E_ENV`, `E2E_TEST_DIR`, `E2E_REPORT_DIR`, `E2E_VERBOSE`, `NO_COLOR`.
+Environment variables: `TRYVE_CONFIG`, `TRYVE_ENV`, `TRYVE_TEST_DIR`, `TRYVE_REPORT_DIR`, `TRYVE_VERBOSE`, `NO_COLOR`.
 
 ### Embedded Documentation
 
-The `e2e doc` command embeds documentation files at compile time using Go's `//go:embed` directive. Docs from `docs/sections/` are embedded into the binary so they're available without external files. The `install --skills` command similarly embeds skill templates from `skills/`.
+The `tryve doc` command embeds documentation files at compile time using Go's `//go:embed` directive. Docs from `docs/sections/` are embedded into the binary so they're available without external files. The `install --skills` command similarly embeds skill templates from `skills/`.
 
 ## Build & Distribution
 
@@ -428,7 +430,7 @@ The `e2e doc` command embeds documentation files at compile time using Go's `//g
 VERSION ?= $(shell git describe --tags --always)
 
 build:
-    go build -ldflags "-s -w -X main.version=$(VERSION)" -o bin/e2e ./cmd/e2e
+    go build -ldflags "-s -w -X main.version=$(VERSION)" -o bin/tryve ./cmd/tryve
 
 test:
     go test ./...
@@ -444,19 +446,19 @@ release:
 
 | OS | Arch | Binary |
 |----|------|--------|
-| linux | amd64 | `e2e-linux-amd64` |
-| linux | arm64 | `e2e-linux-arm64` |
-| darwin | amd64 | `e2e-darwin-amd64` |
-| darwin | arm64 | `e2e-darwin-arm64` |
-| windows | amd64 | `e2e-windows-amd64.exe` |
-| windows | arm64 | `e2e-windows-arm64.exe` |
+| linux | amd64 | `tryve-linux-amd64` |
+| linux | arm64 | `tryve-linux-arm64` |
+| darwin | amd64 | `tryve-darwin-amd64` |
+| darwin | arm64 | `tryve-darwin-arm64` |
+| windows | amd64 | `tryve-windows-amd64.exe` |
+| windows | arm64 | `tryve-windows-arm64.exe` |
 
 ### GitHub Actions Release Workflow
 
 - Triggered on version tags (`v*`)
 - Uses GoReleaser for building + checksums + release notes
 - Publishes to GitHub Releases
-- Users can also `go install github.com/liemle3893/e2e-runner/cmd/e2e@latest`
+- Users can also `go install github.com/liemle3893/tryve/cmd/tryve@latest`
 
 ## Adapter Implementation Notes
 
