@@ -76,10 +76,7 @@ func (c *Console) OnStepComplete(_ context.Context, _ *tryve.StepDefinition, out
 		marker = c.styled("x", ansiRed)
 	}
 
-	desc := outcome.Step.Description
-	if desc == "" {
-		desc = outcome.Step.Action
-	}
+	desc := stepDescription(outcome)
 
 	fmt.Fprintf(c.w, "  %s %s (%s)\n", marker, desc, outcome.Duration)
 
@@ -152,4 +149,58 @@ func (c *Console) OnSuiteComplete(_ context.Context, _ *tryve.SuiteResult, resul
 // Flush is a no-op for the Console reporter; all output is written synchronously.
 func (c *Console) Flush() error {
 	return nil
+}
+
+// stepDescription builds a human-readable label for a step.
+// Uses the explicit description if set, otherwise synthesizes one from adapter + params.
+func stepDescription(outcome *tryve.StepOutcome) string {
+	step := outcome.Step
+	if step.Description != "" {
+		return step.Description
+	}
+
+	prefix := step.Adapter + "." + step.Action
+
+	switch step.Adapter {
+	case "http":
+		method, _ := step.Params["method"].(string)
+		url, _ := step.Params["url"].(string)
+		if method == "" {
+			method = "GET"
+		}
+		if url != "" {
+			return fmt.Sprintf("%s %s", method, url)
+		}
+	case "shell":
+		if cmd, ok := step.Params["command"].(string); ok {
+			if len(cmd) > 60 {
+				cmd = cmd[:57] + "..."
+			}
+			return fmt.Sprintf("$ %s", cmd)
+		}
+	case "postgresql":
+		if sql, ok := step.Params["sql"].(string); ok {
+			if len(sql) > 60 {
+				sql = sql[:57] + "..."
+			}
+			return fmt.Sprintf("pg: %s", sql)
+		}
+	case "mongodb":
+		coll, _ := step.Params["collection"].(string)
+		if coll != "" {
+			return fmt.Sprintf("mongo.%s(%s)", step.Action, coll)
+		}
+	case "redis":
+		key, _ := step.Params["key"].(string)
+		if key != "" {
+			return fmt.Sprintf("redis.%s %s", step.Action, key)
+		}
+	case "kafka", "eventhub":
+		topic, _ := step.Params["topic"].(string)
+		if topic != "" {
+			return fmt.Sprintf("%s.%s(%s)", step.Adapter, step.Action, topic)
+		}
+	}
+
+	return prefix
 }
