@@ -40,6 +40,7 @@ func newRunCmd() *cobra.Command {
 	cmd.Flags().StringSlice("reporter", nil, "additional reporter names (can be repeated)")
 	cmd.Flags().StringP("output", "o", "", "output file path for file-based reporters")
 	cmd.Flags().Bool("verbose", false, "enable verbose per-step output")
+	cmd.Flags().Bool("debug", false, "show full request/response data for every step")
 	cmd.Flags().Bool("watch", false, "re-run tests on file changes")
 
 	return cmd
@@ -68,6 +69,7 @@ func runCmdHandler(cmd *cobra.Command, _ []string) error {
 	skipSetup, _ := cmd.Flags().GetBool("skip-setup")
 	skipTeardown, _ := cmd.Flags().GetBool("skip-teardown")
 	verbose, _ := cmd.Flags().GetBool("verbose")
+	debug, _ := cmd.Flags().GetBool("debug")
 	reporterTypes, _ := cmd.Flags().GetStringSlice("reporter")
 	outputPath, _ := cmd.Flags().GetString("output")
 	watchMode, _ := cmd.Flags().GetBool("watch")
@@ -133,7 +135,7 @@ func runCmdHandler(cmd *cobra.Command, _ []string) error {
 
 	// Build reporter pipeline: console is always included; additional reporters
 	// are appended based on the --reporter flag values.
-	reporters := []reporter.Reporter{reporter.NewConsoleFromEnv(verbose)}
+	reporters := []reporter.Reporter{reporter.NewConsoleFromEnvWithDebug(verbose, debug)}
 	for _, rType := range reporterTypes {
 		switch rType {
 		case "junit":

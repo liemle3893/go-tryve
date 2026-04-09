@@ -2,9 +2,11 @@ package reporter
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/liemle3893/e2e-runner/internal/tryve"
 )
@@ -16,6 +18,7 @@ const (
 	ansiGreen  = "\033[32m"
 	ansiYellow = "\033[33m"
 	ansiCyan   = "\033[36m"
+	ansiDim    = "\033[2m"
 	ansiReset  = "\033[0m"
 )
 
@@ -24,24 +27,33 @@ const (
 type Console struct {
 	w       io.Writer
 	verbose bool
+	debug   bool
 	color   bool
 }
 
-// NewConsole creates a Console reporter writing to w. verbose enables per-step
-// output; color enables ANSI escape codes.
+// NewConsole creates a Console reporter writing to w.
 func NewConsole(w io.Writer, verbose, color bool) *Console {
 	return &Console{w: w, verbose: verbose, color: color}
 }
 
-// NewConsoleFromEnv creates a Console reporter writing to os.Stdout, auto-detecting
-// colour support via the NO_COLOR environment variable (https://no-color.org/).
+// NewConsoleWithDebug creates a Console reporter with debug mode.
+func NewConsoleWithDebug(w io.Writer, verbose, debug, color bool) *Console {
+	return &Console{w: w, verbose: verbose || debug, debug: debug, color: color}
+}
+
+// NewConsoleFromEnv creates a Console reporter writing to os.Stdout.
 func NewConsoleFromEnv(verbose bool) *Console {
 	color := os.Getenv("NO_COLOR") == ""
 	return NewConsole(os.Stdout, verbose, color)
 }
 
-// styled wraps text in the given ANSI style code followed by a reset, but only
-// when colour output is enabled.
+// NewConsoleFromEnvWithDebug creates a Console reporter with debug mode.
+func NewConsoleFromEnvWithDebug(verbose, debug bool) *Console {
+	color := os.Getenv("NO_COLOR") == ""
+	return NewConsoleWithDebug(os.Stdout, verbose, debug, color)
+}
+
+// styled wraps text in the given ANSI style code.
 func (c *Console) styled(text, style string) string {
 	if !c.color {
 		return text
@@ -49,21 +61,21 @@ func (c *Console) styled(text, style string) string {
 	return style + text + ansiReset
 }
 
-// OnSuiteStart prints the "Tryve Test Runner" header.
+// OnSuiteStart prints the header.
 func (c *Console) OnSuiteStart(_ context.Context, _ *tryve.SuiteResult) error {
 	fmt.Fprintln(c.w, c.styled("Tryve Test Runner", ansiBold))
 	return nil
 }
 
-// OnTestStart prints a "RUN {name}" line when verbose output is enabled.
+// OnTestStart prints the test name when verbose.
 func (c *Console) OnTestStart(_ context.Context, test *tryve.TestDefinition) error {
 	if c.verbose {
-		fmt.Fprintf(c.w, "%s\n", c.styled("RUN "+test.Name, ansiCyan))
+		fmt.Fprintf(c.w, "\n%s\n", c.styled("RUN "+test.Name, ansiCyan))
 	}
 	return nil
 }
 
-// OnStepComplete prints step results in verbose mode, including failed assertions.
+// OnStepComplete prints step results with varying detail levels.
 func (c *Console) OnStepComplete(_ context.Context, _ *tryve.StepDefinition, outcome *tryve.StepOutcome) error {
 	if !c.verbose {
 		return nil
@@ -77,21 +89,22 @@ func (c *Console) OnStepComplete(_ context.Context, _ *tryve.StepDefinition, out
 	}
 
 	desc := stepDescription(outcome)
-
 	fmt.Fprintf(c.w, "  %s %s (%s)\n", marker, desc, outcome.Duration)
 
+	// Debug mode: show full request/response data for every step.
+	if c.debug && outcome.Result != nil {
+		c.printDebugData(outcome)
+	}
+
+	// Show errors and failed assertions for failed steps.
 	if outcome.Status == tryve.StatusFailed || outcome.Status == tryve.StatusWarned {
-		// Show the step error (connection failure, timeout, interpolation error, etc.)
 		if outcome.Error != nil {
 			fmt.Fprintf(c.w, "      %s %v\n", c.styled("ERR", ansiRed), outcome.Error)
 		}
-
-		// Show failed assertions with details.
 		for _, a := range outcome.Assertions {
 			if !a.Passed {
-				detail := fmt.Sprintf("%s %s: expected %v, got %v",
-					a.Path, a.Operator, a.Expected, a.Actual)
-				fmt.Fprintf(c.w, "      %s %s\n", c.styled("ASSERT", ansiRed), detail)
+				fmt.Fprintf(c.w, "      %s %s %s: expected %v, got %v\n",
+					c.styled("ASSERT", ansiRed), a.Path, a.Operator, a.Expected, a.Actual)
 			}
 		}
 	}
@@ -99,7 +112,142 @@ func (c *Console) OnStepComplete(_ context.Context, _ *tryve.StepDefinition, out
 	return nil
 }
 
-// OnTestComplete prints a PASS/FAIL/SKIP line for the test with its duration.
+// printDebugData outputs full request/response details for a step.
+func (c *Console) printDebugData(outcome *tryve.StepOutcome) {
+	step := outcome.Step
+	data := outcome.Result.Data
+	meta := outcome.Result.Metadata
+	dim := ansiDim
+
+	switch step.Adapter {
+	case "http":
+		c.printHTTPDebug(step, data, meta, dim)
+	case "shell":
+		c.printShellDebug(data, dim)
+	case "postgresql":
+		c.printDBDebug("pg", step, data, dim)
+	case "mongodb":
+		c.printDBDebug("mongo", step, data, dim)
+	case "redis":
+		c.printRedisDebug(step, data, dim)
+	case "kafka", "eventhub":
+		c.printEventDebug(step, data, dim)
+	}
+}
+
+func (c *Console) printHTTPDebug(step *tryve.StepDefinition, data, meta map[string]any, dim string) {
+	// Request
+	method, _ := meta["method"].(string)
+	url, _ := meta["url"].(string)
+	fmt.Fprintf(c.w, "      %s\n", c.styled(fmt.Sprintf("→ %s %s", method, url), dim))
+
+	// Request headers
+	if headers, ok := step.Params["headers"].(map[string]any); ok && len(headers) > 0 {
+		for k, v := range headers {
+			fmt.Fprintf(c.w, "      %s\n", c.styled(fmt.Sprintf("  %s: %v", k, v), dim))
+		}
+	}
+
+	// Request body
+	if body := step.Params["body"]; body != nil {
+		bodyStr := formatJSON(body)
+		for _, line := range limitLines(bodyStr, 20) {
+			fmt.Fprintf(c.w, "      %s\n", c.styled("  "+line, dim))
+		}
+	}
+
+	// Response
+	status, _ := data["status"].(float64)
+	statusText, _ := data["statusText"].(string)
+	fmt.Fprintf(c.w, "      %s\n", c.styled(fmt.Sprintf("← %d %s", int(status), statusText), dim))
+
+	// Response headers
+	if headers, ok := data["headers"].(map[string]any); ok {
+		for k, v := range headers {
+			fmt.Fprintf(c.w, "      %s\n", c.styled(fmt.Sprintf("  %s: %v", k, v), dim))
+		}
+	}
+
+	// Response body
+	if body := data["body"]; body != nil {
+		bodyStr := formatJSON(body)
+		for _, line := range limitLines(bodyStr, 30) {
+			fmt.Fprintf(c.w, "      %s\n", c.styled("  "+line, dim))
+		}
+	}
+}
+
+func (c *Console) printShellDebug(data map[string]any, dim string) {
+	if stdout, ok := data["stdout"].(string); ok && stdout != "" {
+		fmt.Fprintf(c.w, "      %s\n", c.styled("stdout:", dim))
+		for _, line := range limitLines(stdout, 20) {
+			fmt.Fprintf(c.w, "      %s\n", c.styled("  "+line, dim))
+		}
+	}
+	if stderr, ok := data["stderr"].(string); ok && stderr != "" {
+		fmt.Fprintf(c.w, "      %s\n", c.styled("stderr:", dim))
+		for _, line := range limitLines(stderr, 10) {
+			fmt.Fprintf(c.w, "      %s\n", c.styled("  "+line, dim))
+		}
+	}
+	if code, ok := data["exitCode"].(float64); ok && code != 0 {
+		fmt.Fprintf(c.w, "      %s\n", c.styled(fmt.Sprintf("exit code: %d", int(code)), dim))
+	}
+}
+
+func (c *Console) printDBDebug(prefix string, step *tryve.StepDefinition, data map[string]any, dim string) {
+	// Show the query/sql
+	if sql, ok := step.Params["sql"].(string); ok {
+		fmt.Fprintf(c.w, "      %s\n", c.styled(prefix+" query:", dim))
+		for _, line := range limitLines(sql, 10) {
+			fmt.Fprintf(c.w, "      %s\n", c.styled("  "+line, dim))
+		}
+	}
+	// Show params
+	if params := step.Params["params"]; params != nil {
+		fmt.Fprintf(c.w, "      %s\n", c.styled(fmt.Sprintf("  params: %v", params), dim))
+	}
+	// Show result
+	if rows, ok := data["rows"].([]any); ok {
+		fmt.Fprintf(c.w, "      %s\n", c.styled(fmt.Sprintf("← %d row(s)", len(rows)), dim))
+		for i, row := range rows {
+			if i >= 5 {
+				fmt.Fprintf(c.w, "      %s\n", c.styled(fmt.Sprintf("  ... and %d more", len(rows)-5), dim))
+				break
+			}
+			fmt.Fprintf(c.w, "      %s\n", c.styled("  "+formatJSON(row), dim))
+		}
+	}
+	if row, ok := data["row"]; ok && row != nil {
+		fmt.Fprintf(c.w, "      %s\n", c.styled("← "+formatJSON(row), dim))
+	}
+	if count, ok := data["rowsAffected"]; ok {
+		fmt.Fprintf(c.w, "      %s\n", c.styled(fmt.Sprintf("← %v row(s) affected", count), dim))
+	}
+}
+
+func (c *Console) printRedisDebug(step *tryve.StepDefinition, data map[string]any, dim string) {
+	if key, ok := step.Params["key"].(string); ok {
+		fmt.Fprintf(c.w, "      %s\n", c.styled(fmt.Sprintf("key: %s", key), dim))
+	}
+	if val, ok := data["value"]; ok {
+		fmt.Fprintf(c.w, "      %s\n", c.styled(fmt.Sprintf("← %v", val), dim))
+	}
+}
+
+func (c *Console) printEventDebug(step *tryve.StepDefinition, data map[string]any, dim string) {
+	if topic, ok := step.Params["topic"].(string); ok {
+		fmt.Fprintf(c.w, "      %s\n", c.styled(fmt.Sprintf("topic: %s", topic), dim))
+	}
+	if events, ok := data["events"].([]any); ok {
+		fmt.Fprintf(c.w, "      %s\n", c.styled(fmt.Sprintf("← %d event(s)", len(events)), dim))
+	}
+	if val := data["value"]; val != nil {
+		fmt.Fprintf(c.w, "      %s\n", c.styled(fmt.Sprintf("← %v", val), dim))
+	}
+}
+
+// OnTestComplete prints PASS/FAIL/SKIP with duration.
 func (c *Console) OnTestComplete(_ context.Context, test *tryve.TestDefinition, result *tryve.TestResult) error {
 	var label string
 	switch result.Status {
@@ -120,7 +268,6 @@ func (c *Console) OnTestComplete(_ context.Context, test *tryve.TestDefinition, 
 		if result.Error != nil {
 			fmt.Fprintf(c.w, "     %s %v\n", c.styled("→", ansiRed), result.Error)
 		}
-		// Show first failed assertion from the last failed step.
 		for i := len(result.Steps) - 1; i >= 0; i-- {
 			step := result.Steps[i]
 			if step.Status != tryve.StatusFailed {
@@ -140,7 +287,7 @@ func (c *Console) OnTestComplete(_ context.Context, test *tryve.TestDefinition, 
 	return nil
 }
 
-// OnSuiteComplete prints a summary line showing pass/fail/skip counts and total duration.
+// OnSuiteComplete prints the summary.
 func (c *Console) OnSuiteComplete(_ context.Context, _ *tryve.SuiteResult, result *tryve.SuiteResult) error {
 	passed := c.styled(fmt.Sprintf("%d passed", result.Passed), ansiGreen)
 	failed := c.styled(fmt.Sprintf("%d failed", result.Failed), ansiRed)
@@ -151,13 +298,12 @@ func (c *Console) OnSuiteComplete(_ context.Context, _ *tryve.SuiteResult, resul
 	return nil
 }
 
-// Flush is a no-op for the Console reporter; all output is written synchronously.
+// Flush is a no-op for the Console reporter.
 func (c *Console) Flush() error {
 	return nil
 }
 
 // stepDescription builds a human-readable label for a step.
-// Uses the explicit description if set, otherwise synthesizes one from adapter + params.
 func stepDescription(outcome *tryve.StepOutcome) string {
 	step := outcome.Step
 	if step.Description != "" {
@@ -208,4 +354,22 @@ func stepDescription(outcome *tryve.StepOutcome) string {
 	}
 
 	return prefix
+}
+
+// formatJSON pretty-prints a value as JSON. Falls back to %v on failure.
+func formatJSON(v any) string {
+	b, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return fmt.Sprintf("%v", v)
+	}
+	return string(b)
+}
+
+// limitLines splits text into lines and caps at maxLines.
+func limitLines(s string, maxLines int) []string {
+	lines := strings.Split(strings.TrimRight(s, "\n"), "\n")
+	if len(lines) > maxLines {
+		lines = append(lines[:maxLines], fmt.Sprintf("... (%d more lines)", len(lines)-maxLines))
+	}
+	return lines
 }
