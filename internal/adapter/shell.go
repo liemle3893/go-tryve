@@ -105,20 +105,11 @@ func (a *ShellAdapter) execAction(ctx context.Context, params map[string]any) (*
 		"stderr":   stderr.String(),
 		"exitCode": float64(exitCode),
 	}
-	result := SuccessResult(data, duration, nil)
 
-	// Non-zero exit is an error (matching TS e2e-runner behavior).
-	// Return both the result (for capture/debug) AND the error.
-	if exitCode != 0 {
-		stderrSnippet := stderr.String()
-		if len(stderrSnippet) > 200 {
-			stderrSnippet = stderrSnippet[:200] + "..."
-		}
-		return result, tryve.AdapterError("shell", "exec",
-			fmt.Sprintf("command exited with code %d: %s", exitCode, stderrSnippet), nil)
-	}
-
-	return result, nil
+	// Non-zero exit is NOT an adapter error. The exitCode is in the data
+	// and can be checked via assertions (assert: exitCode: 0).
+	// This matches the TS e2e-runner behavior.
+	return SuccessResult(data, duration, nil), nil
 }
 
 // buildCommand constructs the exec.Cmd appropriate for the current OS.

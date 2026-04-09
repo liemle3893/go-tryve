@@ -91,6 +91,11 @@ func runCmdHandler(cmd *cobra.Command, _ []string) error {
 		cfg.Defaults.Retries = retries
 	}
 
+	// Use config testDir if CLI flag wasn't explicitly set.
+	if !cmd.Flags().Changed("test-dir") && cfg.TestDir != "" {
+		testDir = cfg.TestDir
+	}
+
 	// Discover test files once; used by both dry-run and watch/run paths.
 	paths, err := loader.Discover(testDir)
 	if err != nil {

@@ -1,8 +1,10 @@
 package config
 
 import (
+	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -21,6 +23,11 @@ var envVarPattern = regexp.MustCompile(`\$\{(\w+)\}`)
 //   - baseUrl: STRICT — error if a referenced env var is not set.
 //   - adapter configs and variables: NON-STRICT — unresolved placeholders are preserved.
 func Load(path, envName string) (*LoadedConfig, error) {
+	// Load .env file from the config file's directory (if it exists).
+	// Only sets vars that aren't already in the environment.
+	configDir := filepath.Dir(path)
+	loadDotEnv(filepath.Join(configDir, ".env"))
+
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, tryve.ConfigError(
@@ -78,10 +85,16 @@ func Load(path, envName string) (*LoadedConfig, error) {
 		reporters = []ReporterConfig{{Type: "console"}}
 	}
 
+	testDir := raw.TestDir
+	if testDir == "" {
+		testDir = "."
+	}
+
 	return &LoadedConfig{
 		Raw:             raw,
 		Environment:     env,
 		EnvironmentName: envName,
+		TestDir:         testDir,
 		Defaults:        defaults,
 		Variables:       resolvedVars,
 		Hooks:           raw.Hooks,
@@ -184,6 +197,47 @@ func applyDefaults(d DefaultsConfig) DefaultsConfig {
 	// Since zero is the builtin default, no adjustment is needed.
 	_ = defaultRetries
 	return d
+}
+
+// loadDotEnv reads a .env file and sets any variables not already in the
+// environment. Lines with # comments, empty lines, and export prefixes are handled.
+// If the file doesn't exist, this is a no-op.
+func loadDotEnv(path string) {
+	f, err := os.Open(path)
+	if err != nil {
+		return // file not found or not readable — silently skip
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		// Strip optional "export " prefix
+		line = strings.TrimPrefix(line, "export ")
+
+		key, value, ok := strings.Cut(line, "=")
+		if !ok {
+			continue
+		}
+		key = strings.TrimSpace(key)
+		value = strings.TrimSpace(value)
+
+		// Strip surrounding quotes
+		if len(value) >= 2 {
+			if (value[0] == '"' && value[len(value)-1] == '"') ||
+				(value[0] == '\'' && value[len(value)-1] == '\'') {
+				value = value[1 : len(value)-1]
+			}
+		}
+
+		// Only set if not already in environment (env takes precedence over .env)
+		if _, exists := os.LookupEnv(key); !exists {
+			os.Setenv(key, value)
+		}
+	}
 }
 
 // buildMissingEnvHint constructs a human-readable hint listing the available

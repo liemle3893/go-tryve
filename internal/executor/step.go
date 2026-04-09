@@ -2,6 +2,7 @@ package executor
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"math/rand"
 	"time"
@@ -156,7 +157,29 @@ func ExecuteStep(
 		}
 	}
 
-	// 7. Success.
+	// 7. Shell exit code check: if a shell command exited non-zero and there was
+	//    no explicit exitCode assertion, treat it as a step failure.
+	if step.Adapter == "shell" && result != nil && result.Data != nil {
+		if exitCode, ok := result.Data["exitCode"].(float64); ok && exitCode != 0 {
+			if !hasExitCodeAssertion(step.Assert) {
+				elapsed = time.Since(start)
+				stderr, _ := result.Data["stderr"].(string)
+				if len(stderr) > 200 {
+					stderr = stderr[:200] + "..."
+				}
+				execErr := tryve.ExecutionError(step.ID,
+					fmt.Sprintf("command exited with code %d: %s", int(exitCode), stderr), nil)
+				if step.ContinueOnError {
+					return warnedOutcome(step, result, assertionOutcomes, execErr, elapsed), nil
+				}
+				o := failedOutcome(step, execErr, elapsed)
+				o.Result = result
+				return o, nil
+			}
+		}
+	}
+
+	// 8. Success.
 	elapsed = time.Since(start)
 	return passedOutcome(step, result, assertionOutcomes, elapsed), nil
 }
@@ -224,4 +247,24 @@ func ExecuteStepWithRetry(
 	}
 
 	return outcome, retries
+}
+
+// hasExitCodeAssertion checks whether the step's assert definition includes
+// an exitCode check (meaning the test author explicitly handles exit codes).
+func hasExitCodeAssertion(assertDef any) bool {
+	switch def := assertDef.(type) {
+	case map[string]any:
+		if _, ok := def["exitCode"]; ok {
+			return true
+		}
+	case []any:
+		for _, item := range def {
+			if m, ok := item.(map[string]any); ok {
+				if path, ok := m["path"].(string); ok && path == "$.exitCode" {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }

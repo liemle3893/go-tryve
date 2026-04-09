@@ -3,6 +3,7 @@ package config
 // RawConfig is the direct YAML-unmarshalled representation of e2e.config.yaml.
 type RawConfig struct {
 	Version      string                       `yaml:"version"`
+	TestDir      string                       `yaml:"testDir"`
 	Environments map[string]EnvironmentConfig `yaml:"environments"`
 	Defaults     DefaultsConfig               `yaml:"defaults"`
 	Variables    map[string]any               `yaml:"variables"`
@@ -49,6 +50,7 @@ type LoadedConfig struct {
 	Raw             RawConfig
 	Environment     EnvironmentConfig
 	EnvironmentName string
+	TestDir         string
 	Defaults        DefaultsConfig
 	Variables       map[string]any
 	Hooks           HooksConfig
