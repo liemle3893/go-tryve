@@ -117,7 +117,16 @@ func runMapAssertions(data map[string]any, def map[string]any) ([]tryve.Assertio
 	// json — []any of {path, operator: value} items.
 	if jsonDef, ok := def["json"]; ok {
 		if items, ok := jsonDef.([]any); ok {
-			outs, err := runSliceAssertions(data, items)
+			// JSON path assertions evaluate against the response body, not the
+			// full adapter data. This matches the TS e2e-runner behavior where
+			// paths like "$.data.id" resolve against the parsed response body.
+			jsonData := data
+			if body, ok := data["body"]; ok {
+				if bodyMap, ok := body.(map[string]any); ok {
+					jsonData = bodyMap
+				}
+			}
+			outs, err := runSliceAssertions(jsonData, items)
 			if err != nil {
 				return outcomes, err
 			}

@@ -127,9 +127,9 @@ func TestRunAssertions_JSONPathAssertions(t *testing.T) {
 	}
 	assertDef := map[string]any{
 		"json": []any{
-			map[string]any{"path": "$.body.user.name", "equals": "Alice"},
-			map[string]any{"path": "$.body.user.id", "equals": 42},
-			map[string]any{"path": "$.body.count", "greaterThan": 0},
+			map[string]any{"path": "$.user.name", "equals": "Alice"},
+			map[string]any{"path": "$.user.id", "equals": 42},
+			map[string]any{"path": "$.count", "greaterThan": 0},
 		},
 	}
 

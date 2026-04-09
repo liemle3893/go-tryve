@@ -101,6 +101,12 @@ func ExecuteStep(
 		return failedOutcome(step, err, elapsed), nil
 	}
 
+	// Store resolved params for debug display.
+	storeResolved := func(o *tryve.StepOutcome) *tryve.StepOutcome {
+		o.ResolvedParams = resolvedParams
+		return o
+	}
+
 	// 4. Execute adapter action.
 	result, execErr := adp.Execute(ctx, step.Action, resolvedParams)
 	elapsed := time.Since(start)
@@ -108,8 +114,18 @@ func ExecuteStep(
 	// 5. Capture: extract JSONPath values even if execution returned an error,
 	//    as long as there is result data (e.g. shell stdout before non-zero exit).
 	if step.Capture != nil && result != nil && result.Data != nil {
+		// For HTTP adapter, capture paths evaluate against the response body
+		// (matching TS e2e-runner behavior where $.id means response.body.id).
+		captureData := result.Data
+		if step.Adapter == "http" {
+			if body, ok := result.Data["body"]; ok {
+				if bodyMap, ok := body.(map[string]any); ok {
+					captureData = bodyMap
+				}
+			}
+		}
 		for varName, path := range step.Capture {
-			val, _ := assertion.EvalJSONPath(result.Data, path)
+			val, _ := assertion.EvalJSONPath(captureData, path)
 			interpCtx.Captured[varName] = val
 		}
 	}
@@ -125,9 +141,12 @@ func ExecuteStep(
 	}
 
 	// 6. Assert: evaluate assertion definitions against result data.
+	//    Assertions may reference interpolated values (e.g. equals: "{{captured.id}}"),
+	//    so they must be resolved first.
 	var assertionOutcomes []tryve.AssertionOutcome
 	if step.Assert != nil && result != nil && result.Data != nil {
-		outcomes, err := assertion.RunAssertions(result.Data, step.Assert)
+		resolvedAssert, _ := resolveAssertDef(step.Assert, interpCtx)
+		outcomes, err := assertion.RunAssertions(result.Data, resolvedAssert)
 		if err != nil {
 			elapsed = time.Since(start)
 			if step.ContinueOnError {
@@ -181,7 +200,7 @@ func ExecuteStep(
 
 	// 8. Success.
 	elapsed = time.Since(start)
-	return passedOutcome(step, result, assertionOutcomes, elapsed), nil
+	return storeResolved(passedOutcome(step, result, assertionOutcomes, elapsed)), nil
 }
 
 // backoffDelay computes exponential backoff with ~15% jitter.
@@ -247,6 +266,18 @@ func ExecuteStepWithRetry(
 	}
 
 	return outcome, retries
+}
+
+// resolveAssertDef interpolates values inside assertion definitions.
+func resolveAssertDef(assertDef any, ctx *tryve.InterpolationContext) (any, error) {
+	switch def := assertDef.(type) {
+	case map[string]any:
+		return interpolate.ResolveMap(def, ctx)
+	case []any:
+		return interpolate.ResolveSlice(def, ctx)
+	default:
+		return assertDef, nil
+	}
 }
 
 // hasExitCodeAssertion checks whether the step's assert definition includes

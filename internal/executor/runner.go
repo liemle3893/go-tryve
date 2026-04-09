@@ -84,8 +84,10 @@ func RunTest(
 	}
 
 	// 5. Resolve retry settings.
+	// td.Retries == -1 means "not set, use default".
+	// td.Retries == 0 means "explicitly no retries".
 	maxRetries := defaultRetries
-	if td.Retries > 0 {
+	if td.Retries >= 0 {
 		maxRetries = td.Retries
 	}
 	baseDelay := time.Duration(defaultRetryDelay) * time.Millisecond

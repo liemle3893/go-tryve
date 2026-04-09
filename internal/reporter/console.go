@@ -115,44 +115,50 @@ func (c *Console) OnStepComplete(_ context.Context, _ *tryve.StepDefinition, out
 // printDebugData outputs full request/response details for a step.
 func (c *Console) printDebugData(outcome *tryve.StepOutcome) {
 	step := outcome.Step
+	// Use resolved params (post-interpolation) for debug, fall back to step.Params
+	params := outcome.ResolvedParams
+	if params == nil {
+		params = step.Params
+	}
 	data := outcome.Result.Data
 	meta := outcome.Result.Metadata
 	dim := ansiDim
 
 	switch step.Adapter {
 	case "http":
-		c.printHTTPDebug(step, data, meta, dim)
+		c.printHTTPDebug(params, data, meta, dim)
 	case "shell":
-		c.printShellDebug(data, dim)
+		c.printShellDebug(params, data, dim)
 	case "postgresql":
-		c.printDBDebug("pg", step, data, dim)
+		c.printDBDebug("pg", params, data, dim)
 	case "mongodb":
-		c.printDBDebug("mongo", step, data, dim)
+		c.printDBDebug("mongo", params, data, dim)
 	case "redis":
-		c.printRedisDebug(step, data, dim)
+		c.printRedisDebug(params, data, dim)
 	case "kafka", "eventhub":
-		c.printEventDebug(step, data, dim)
+		c.printEventDebug(params, data, dim)
 	}
 }
 
-func (c *Console) printHTTPDebug(step *tryve.StepDefinition, data, meta map[string]any, dim string) {
-	// Request
+func (c *Console) printHTTPDebug(params map[string]any, data, meta map[string]any, dim string) {
+	// Request — use metadata for resolved URL, fall back to params
 	method, _ := meta["method"].(string)
 	url, _ := meta["url"].(string)
-	fmt.Fprintf(c.w, "      %s\n", c.styled(fmt.Sprintf("→ %s %s", method, url), dim))
-
-	// Request headers
-	if headers, ok := step.Params["headers"].(map[string]any); ok && len(headers) > 0 {
-		for k, v := range headers {
-			fmt.Fprintf(c.w, "      %s\n", c.styled(fmt.Sprintf("  %s: %v", k, v), dim))
+	if method == "" {
+		method, _ = params["method"].(string)
+		if method == "" {
+			method = "GET"
 		}
 	}
+	if url == "" {
+		url, _ = params["url"].(string)
+	}
+	fmt.Fprintf(c.w, "      %s\n", c.styled(fmt.Sprintf("→ %s %s", method, url), dim))
 
-	// Request body
-	if body := step.Params["body"]; body != nil {
-		bodyStr := formatJSON(body)
-		for _, line := range limitLines(bodyStr, 20) {
-			fmt.Fprintf(c.w, "      %s\n", c.styled("  "+line, dim))
+	// Response headers (from actual response)
+	if headers, ok := data["headers"].(map[string]any); ok && len(headers) > 0 {
+		for k, v := range headers {
+			fmt.Fprintf(c.w, "      %s\n", c.styled(fmt.Sprintf("  %s: %v", k, v), dim))
 		}
 	}
 
@@ -177,7 +183,7 @@ func (c *Console) printHTTPDebug(step *tryve.StepDefinition, data, meta map[stri
 	}
 }
 
-func (c *Console) printShellDebug(data map[string]any, dim string) {
+func (c *Console) printShellDebug(params, data map[string]any, dim string) {
 	if stdout, ok := data["stdout"].(string); ok && stdout != "" {
 		fmt.Fprintf(c.w, "      %s\n", c.styled("stdout:", dim))
 		for _, line := range limitLines(stdout, 20) {
@@ -195,17 +201,17 @@ func (c *Console) printShellDebug(data map[string]any, dim string) {
 	}
 }
 
-func (c *Console) printDBDebug(prefix string, step *tryve.StepDefinition, data map[string]any, dim string) {
+func (c *Console) printDBDebug(prefix string, params, data map[string]any, dim string) {
 	// Show the query/sql
-	if sql, ok := step.Params["sql"].(string); ok {
+	if sql, ok := params["sql"].(string); ok {
 		fmt.Fprintf(c.w, "      %s\n", c.styled(prefix+" query:", dim))
 		for _, line := range limitLines(sql, 10) {
 			fmt.Fprintf(c.w, "      %s\n", c.styled("  "+line, dim))
 		}
 	}
 	// Show params
-	if params := step.Params["params"]; params != nil {
-		fmt.Fprintf(c.w, "      %s\n", c.styled(fmt.Sprintf("  params: %v", params), dim))
+	if p := params["params"]; p != nil {
+		fmt.Fprintf(c.w, "      %s\n", c.styled(fmt.Sprintf("  params: %v", p), dim))
 	}
 	// Show result
 	if rows, ok := data["rows"].([]any); ok {
@@ -226,8 +232,8 @@ func (c *Console) printDBDebug(prefix string, step *tryve.StepDefinition, data m
 	}
 }
 
-func (c *Console) printRedisDebug(step *tryve.StepDefinition, data map[string]any, dim string) {
-	if key, ok := step.Params["key"].(string); ok {
+func (c *Console) printRedisDebug(params, data map[string]any, dim string) {
+	if key, ok := params["key"].(string); ok {
 		fmt.Fprintf(c.w, "      %s\n", c.styled(fmt.Sprintf("key: %s", key), dim))
 	}
 	if val, ok := data["value"]; ok {
@@ -235,8 +241,8 @@ func (c *Console) printRedisDebug(step *tryve.StepDefinition, data map[string]an
 	}
 }
 
-func (c *Console) printEventDebug(step *tryve.StepDefinition, data map[string]any, dim string) {
-	if topic, ok := step.Params["topic"].(string); ok {
+func (c *Console) printEventDebug(params, data map[string]any, dim string) {
+	if topic, ok := params["topic"].(string); ok {
 		fmt.Fprintf(c.w, "      %s\n", c.styled(fmt.Sprintf("topic: %s", topic), dim))
 	}
 	if events, ok := data["events"].([]any); ok {

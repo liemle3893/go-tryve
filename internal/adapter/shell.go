@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 
 	"github.com/liemle3893/e2e-runner/internal/tryve"
 )
@@ -101,8 +102,8 @@ func (a *ShellAdapter) execAction(ctx context.Context, params map[string]any) (*
 	}
 
 	data := map[string]any{
-		"stdout":   stdout.String(),
-		"stderr":   stderr.String(),
+		"stdout":   strings.TrimRight(stdout.String(), "\r\n"),
+		"stderr":   strings.TrimRight(stderr.String(), "\r\n"),
 		"exitCode": float64(exitCode),
 	}
 

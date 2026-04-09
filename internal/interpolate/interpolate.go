@@ -140,14 +140,14 @@ func resolveExpression(expr string, ctx *tryve.InterpolationContext) (string, er
 		if !ok {
 			return "", errUnresolved(expr)
 		}
-		return fmt.Sprintf("%v", val), nil
+		return stringify(val), nil
 	}
 
 	// 4. Variables (dot-notation traversal).
 	if ctx.Variables != nil {
 		val, ok := getNestedValue(ctx.Variables, expr)
 		if ok {
-			return fmt.Sprintf("%v", val), nil
+			return stringify(val), nil
 		}
 	}
 
@@ -379,6 +379,14 @@ func getNestedValue(m map[string]any, path string) (any, bool) {
 		return nil, false
 	}
 	return getNestedValue(nested, parts[1])
+}
+
+// stringify converts a value to string, handling nil as empty string.
+func stringify(v any) string {
+	if v == nil {
+		return ""
+	}
+	return fmt.Sprintf("%v", v)
 }
 
 // shallowCopyMap returns a shallow copy of a map[string]any.

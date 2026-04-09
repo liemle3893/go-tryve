@@ -54,8 +54,8 @@ func TestExecuteStep_BasicShell(t *testing.T) {
 	if !ok {
 		t.Fatalf("stdout not a string: %v", outcome.Result.Data["stdout"])
 	}
-	if stdout != "hello\n" {
-		t.Errorf("expected stdout %q, got %q", "hello\n", stdout)
+	if stdout != "hello" {
+		t.Errorf("expected stdout %q, got %q", "hello", stdout)
 	}
 }
 
@@ -86,8 +86,8 @@ func TestExecuteStep_WithCapture(t *testing.T) {
 	if !ok {
 		t.Fatal("expected 'myVar' to be captured in interpCtx.Captured")
 	}
-	if capturedVal != "captured_value\n" {
-		t.Errorf("expected captured value %q, got %q", "captured_value\n", capturedVal)
+	if capturedVal != "captured_value" {
+		t.Errorf("expected captured value %q, got %q", "captured_value", capturedVal)
 	}
 }
 
@@ -134,7 +134,7 @@ func TestExecuteStep_ContinueOnError(t *testing.T) {
 		Action:  "exec",
 		Params:  map[string]any{"command": "echo hello"},
 		Assert: map[string]any{
-			// Assertion that will fail: stdout will be "hello\n", not "nope".
+			// Assertion that will fail: stdout will be "hello", not "nope".
 			"path":   "$.stdout",
 			"equals": "nope",
 		},
@@ -177,8 +177,8 @@ func TestExecuteStep_InterpolatesParams(t *testing.T) {
 	if !ok {
 		t.Fatalf("stdout not a string: %v", outcome.Result.Data["stdout"])
 	}
-	if stdout != "interpolated\n" {
-		t.Errorf("expected stdout %q, got %q", "interpolated\n", stdout)
+	if stdout != "interpolated" {
+		t.Errorf("expected stdout %q, got %q", "interpolated", stdout)
 	}
 }
 

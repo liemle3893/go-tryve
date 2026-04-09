@@ -194,7 +194,12 @@ func (a *HTTPAdapter) executeRequest(ctx context.Context, params map[string]any)
 		"duration":   float64(duration.Milliseconds()),
 	}
 
-	return SuccessResult(data, duration, nil), nil
+	meta := map[string]any{
+		"method": method,
+		"url":    targetURL,
+	}
+
+	return SuccessResult(data, duration, meta), nil
 }
 
 // stringParam retrieves a string value from params by key, returning def when

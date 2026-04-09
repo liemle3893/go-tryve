@@ -128,7 +128,7 @@ execute:
     assert:
       status: 200
       json:
-        - path: "$.body.status"
+        - path: "$.status"
           equals: "ok"
 
   - adapter: http
@@ -138,11 +138,11 @@ execute:
     body:
       name: "{{userName}}"
     capture:
-      userId: "$.body.id"
+      userId: "$.id"
     assert:
       status: 201
       json:
-        - path: "$.body.name"
+        - path: "$.name"
           equals: "test-user"
 
   - adapter: http
@@ -152,7 +152,7 @@ execute:
     assert:
       status: 200
       json:
-        - path: "$.body.id"
+        - path: "$.id"
           equals: 42
 `
 

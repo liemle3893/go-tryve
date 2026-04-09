@@ -96,6 +96,13 @@ func ParseFile(path string) (*tryve.TestDefinition, error) {
 	}
 
 	td.SourceFile = path
+
+	// If "retries" was not explicitly set in the YAML, use -1 to signal "use default".
+	// This distinguishes "retries: 0" (no retries) from absent (use config default).
+	if _, hasRetries := raw["retries"]; !hasRetries {
+		td.Retries = -1
+	}
+
 	return &td, nil
 }
 

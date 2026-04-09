@@ -88,13 +88,14 @@ type TestResult struct {
 
 // StepOutcome records the execution result of one step within a test phase.
 type StepOutcome struct {
-	Step       *StepDefinition
-	Phase      TestPhase
-	Status     TestStatus
-	Result     *StepResult
-	Assertions []AssertionOutcome
-	Error      error
-	Duration   time.Duration
+	Step           *StepDefinition
+	Phase          TestPhase
+	Status         TestStatus
+	Result         *StepResult
+	ResolvedParams map[string]any
+	Assertions     []AssertionOutcome
+	Error          error
+	Duration       time.Duration
 }
 
 // AssertionOutcome records the result of a single assertion check.

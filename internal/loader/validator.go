@@ -75,7 +75,7 @@ func Validate(td *tryve.TestDefinition) []error {
 	}
 
 	const maxRetries = 5
-	if td.Retries < 0 || td.Retries > maxRetries {
+	if td.Retries < -1 || td.Retries > maxRetries {
 		errs = append(errs, tryve.ValidationError(
 			fmt.Sprintf("retries %d is out of range; must be between 0 and %d", td.Retries, maxRetries),
 			"set retries to a value between 0 and 5",

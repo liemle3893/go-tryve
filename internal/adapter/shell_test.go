@@ -27,8 +27,8 @@ func TestShellAdapter_ExecSimple(t *testing.T) {
 	if !ok {
 		t.Fatalf("stdout not a string: %v", result.Data["stdout"])
 	}
-	if stdout != "hello\n" {
-		t.Fatalf("expected stdout %q, got %q", "hello\n", stdout)
+	if stdout != "hello" {
+		t.Fatalf("expected stdout %q, got %q", "hello", stdout)
 	}
 
 	exitCode, ok := result.Data["exitCode"].(float64)
@@ -63,8 +63,8 @@ func TestShellAdapter_ExecWithEnv(t *testing.T) {
 	if !ok {
 		t.Fatalf("stdout not a string: %v", result.Data["stdout"])
 	}
-	if stdout != "test_value_123\n" {
-		t.Fatalf("expected stdout %q, got %q", "test_value_123\n", stdout)
+	if stdout != "test_value_123" {
+		t.Fatalf("expected stdout %q, got %q", "test_value_123", stdout)
 	}
 }
 

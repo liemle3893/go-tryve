@@ -74,7 +74,7 @@ execute:
     assert:
       status: 200
       json:
-        - path: "$.body.ok"
+        - path: "$.ok"
           equals: true
 `
 	path := filepath.Join(dir, "ping.test.yaml")

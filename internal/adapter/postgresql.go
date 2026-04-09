@@ -2,7 +2,10 @@ package adapter
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -208,9 +211,9 @@ func (a *PostgreSQLAdapter) queryOneAction(ctx context.Context, params map[strin
 		return nil, tryve.AdapterError(postgresqlAdapterName, "queryOne", "query returned no rows", nil)
 	}
 
-	data := map[string]any{
-		"row": rows[0],
-	}
+	// Return the row columns at top level (matching TS behavior).
+	// This allows capture paths like "id" to work as $.id.
+	data := rows[0]
 	return SuccessResult(data, duration, nil), nil
 }
 
@@ -260,7 +263,7 @@ func (a *PostgreSQLAdapter) fetchRows(ctx context.Context, sql string, args []an
 		}
 		row := make(map[string]any, len(colNames))
 		for i, name := range colNames {
-			row[name] = values[i]
+			row[name] = normalizeValue(values[i])
 		}
 		result = append(result, row)
 	}
@@ -297,4 +300,33 @@ func extractSQLParams(params map[string]any) (string, []any, error) {
 	}
 
 	return sql, queryParams, nil
+}
+
+// normalizeValue converts pgx-specific Go types into JSON-friendly representations
+// so that captured values and assertions work as expected.
+func normalizeValue(v any) any {
+	if v == nil {
+		return nil
+	}
+	switch val := v.(type) {
+	case [16]byte:
+		// UUID: format as standard string "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+		return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x",
+			val[0:4], val[4:6], val[6:8], val[8:10], val[10:16])
+	case []byte:
+		// Try JSON first, then string
+		var js any
+		if err := json.Unmarshal(val, &js); err == nil {
+			return js
+		}
+		return string(val)
+	case time.Time:
+		return val.Format(time.RFC3339)
+	case net.IP:
+		return val.String()
+	case fmt.Stringer:
+		return val.String()
+	default:
+		return v
+	}
 }
