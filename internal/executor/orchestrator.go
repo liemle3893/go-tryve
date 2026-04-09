@@ -153,6 +153,8 @@ func (o *Orchestrator) Run(ctx context.Context, tests []*tryve.TestDefinition) *
 				o.reporter,
 				defaults.Retries,
 				defaults.RetryDelay,
+				o.config.Environment.BaseURL,
+				o.config.Variables,
 			)
 
 			// Run afterEach hook regardless of test outcome.

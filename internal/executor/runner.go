@@ -2,6 +2,8 @@ package executor
 
 import (
 	"context"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/liemle3893/e2e-runner/internal/adapter"
@@ -35,6 +37,8 @@ func RunTest(
 	rep reporter.Reporter,
 	defaultRetries int,
 	defaultRetryDelay int,
+	baseURL string,
+	configVars map[string]any,
 ) *tryve.TestResult {
 	// 1. Early-return for skipped tests.
 	if td.Skip {
@@ -58,12 +62,25 @@ func RunTest(
 
 	start := time.Now()
 
-	// 4. Build the interpolation context seeded with test-level variables.
+	// 4. Build the interpolation context seeded with config + test variables.
 	interpCtx := tryve.NewInterpolationContext()
-	if td.Variables != nil {
-		for k, v := range td.Variables {
-			interpCtx.Variables[k] = v
+	interpCtx.BaseURL = baseURL
+
+	// Populate environment variables from the process.
+	for _, entry := range os.Environ() {
+		if k, v, ok := strings.Cut(entry, "="); ok {
+			interpCtx.Env[k] = v
 		}
+	}
+
+	// Config-level variables (lower priority than test-level).
+	for k, v := range configVars {
+		interpCtx.Variables[k] = v
+	}
+
+	// Test-level variables override config variables.
+	for k, v := range td.Variables {
+		interpCtx.Variables[k] = v
 	}
 
 	// 5. Resolve retry settings.
