@@ -14,6 +14,7 @@ import (
 	"github.com/liemle3893/e2e-runner/internal/loader"
 	"github.com/liemle3893/e2e-runner/internal/reporter"
 	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/e2e-runner/internal/watcher"
 )
 
 // newRunCmd constructs the `run` sub-command which discovers, filters, and
@@ -39,6 +40,7 @@ func newRunCmd() *cobra.Command {
 	cmd.Flags().StringSlice("reporter", nil, "additional reporter names (can be repeated)")
 	cmd.Flags().StringP("output", "o", "", "output file path for file-based reporters")
 	cmd.Flags().Bool("verbose", false, "enable verbose per-step output")
+	cmd.Flags().Bool("watch", false, "re-run tests on file changes")
 
 	return cmd
 }
@@ -66,6 +68,9 @@ func runCmdHandler(cmd *cobra.Command, _ []string) error {
 	skipSetup, _ := cmd.Flags().GetBool("skip-setup")
 	skipTeardown, _ := cmd.Flags().GetBool("skip-teardown")
 	verbose, _ := cmd.Flags().GetBool("verbose")
+	reporterTypes, _ := cmd.Flags().GetStringSlice("reporter")
+	outputPath, _ := cmd.Flags().GetString("output")
+	watchMode, _ := cmd.Flags().GetBool("watch")
 
 	// Load configuration.
 	cfg, err := config.Load(cfgPath, envName)
@@ -84,38 +89,41 @@ func runCmdHandler(cmd *cobra.Command, _ []string) error {
 		cfg.Defaults.Retries = retries
 	}
 
-	// Discover test files.
+	// Discover test files once; used by both dry-run and watch/run paths.
 	paths, err := loader.Discover(testDir)
 	if err != nil {
 		return fmt.Errorf("discovering tests in %q: %w", testDir, err)
 	}
 
-	// Parse and validate each discovered file.
-	var tests []*tryve.TestDefinition
-	for _, p := range paths {
-		td, parseErr := loader.ParseFile(p)
-		if parseErr != nil {
-			fmt.Fprintf(os.Stderr, "WARN  parse error %s: %v\n", p, parseErr)
-			continue
-		}
-		if errs := loader.Validate(td); len(errs) > 0 {
-			for _, ve := range errs {
-				fmt.Fprintf(os.Stderr, "WARN  validation error %s: %v\n", p, ve)
+	// loadAndFilter parses all discovered paths, validates them, and applies the
+	// active filter options. It re-reads from disk on every call so that watch
+	// mode picks up newly created or edited test files.
+	loadAndFilter := func() []*tryve.TestDefinition {
+		var loaded []*tryve.TestDefinition
+		for _, p := range paths {
+			td, parseErr := loader.ParseFile(p)
+			if parseErr != nil {
+				fmt.Fprintf(os.Stderr, "WARN  parse error %s: %v\n", p, parseErr)
+				continue
 			}
-			continue
+			if errs := loader.Validate(td); len(errs) > 0 {
+				for _, ve := range errs {
+					fmt.Fprintf(os.Stderr, "WARN  validation error %s: %v\n", p, ve)
+				}
+				continue
+			}
+			loaded = append(loaded, td)
 		}
-		tests = append(tests, td)
+		return executor.FilterTests(loaded, executor.FilterOptions{
+			Tags:     tags,
+			Grep:     grep,
+			Priority: priority,
+		})
 	}
 
-	// Apply filters.
-	filtered := executor.FilterTests(tests, executor.FilterOptions{
-		Tags:     tags,
-		Grep:     grep,
-		Priority: priority,
-	})
-
-	// Dry-run: print matching tests and exit.
+	// Dry-run: print matching tests and exit without running them.
 	if dryRun {
+		filtered := loadAndFilter()
 		for _, td := range filtered {
 			fmt.Fprintf(cmd.OutOrStdout(), "[%s] %s (%s)\n", td.Priority, td.Name, td.SourceFile)
 		}
@@ -123,37 +131,92 @@ func runCmdHandler(cmd *cobra.Command, _ []string) error {
 		return nil
 	}
 
-	// Honour skip-setup / skip-teardown by clearing those phases.
-	if skipSetup {
-		for _, td := range filtered {
-			td.Setup = nil
+	// Build reporter pipeline: console is always included; additional reporters
+	// are appended based on the --reporter flag values.
+	reporters := []reporter.Reporter{reporter.NewConsoleFromEnv(verbose)}
+	for _, rType := range reporterTypes {
+		switch rType {
+		case "junit":
+			reporters = append(reporters, reporter.NewJUnit(outputPath))
+		case "html":
+			reporters = append(reporters, reporter.NewHTML(outputPath))
+		case "json":
+			reporters = append(reporters, reporter.NewJSON(outputPath))
+		default:
+			fmt.Fprintf(os.Stderr, "WARN  unknown reporter %q — skipping\n", rType)
 		}
 	}
-	if skipTeardown {
-		for _, td := range filtered {
-			td.Teardown = nil
-		}
-	}
-
-	// Build reporter.
-	consoleRep := reporter.NewConsoleFromEnv(verbose)
+	rep := reporter.NewMulti(reporters...)
 
 	// Build adapter registry.
 	reg := adapter.NewRegistry()
-	baseURL := cfg.Environment.BaseURL
-	reg.Register("http", adapter.NewHTTPAdapter(baseURL))
+
+	// HTTP adapter: available when baseURL is configured.
+	if cfg.Environment.BaseURL != "" {
+		reg.Register("http", adapter.NewHTTPAdapter(cfg.Environment.BaseURL))
+	}
+
+	// Shell adapter is always available.
 	reg.Register("shell", adapter.NewShellAdapter(&adapter.ShellConfig{}))
+
+	// Register adapters from the environment config block.
+	for name, adapterCfg := range cfg.Environment.Adapters {
+		switch name {
+		case "postgresql":
+			reg.Register("postgresql", adapter.NewPostgreSQLAdapter(adapterCfg))
+		case "mongodb":
+			reg.Register("mongodb", adapter.NewMongoDBAdapter(adapterCfg))
+		case "redis":
+			reg.Register("redis", adapter.NewRedisAdapter(adapterCfg))
+		case "kafka":
+			reg.Register("kafka", adapter.NewKafkaAdapter(adapterCfg))
+		case "eventhub":
+			reg.Register("eventhub", adapter.NewEventHubAdapter(adapterCfg))
+		default:
+			fmt.Fprintf(os.Stderr, "WARN  unknown adapter %q in config — skipping\n", name)
+		}
+	}
 	defer reg.CloseAll(ctx)
 
-	// Create and configure orchestrator.
-	orch := executor.NewOrchestrator(reg, consoleRep, cfg)
-	orch.SetBail(bail)
+	// runOnce executes the full filtered test suite and returns the suite result.
+	runOnce := func() *tryve.SuiteResult {
+		runFiltered := loadAndFilter()
 
-	// Run all filtered tests.
-	result := orch.Run(ctx, filtered)
+		if skipSetup {
+			for _, td := range runFiltered {
+				td.Setup = nil
+			}
+		}
+		if skipTeardown {
+			for _, td := range runFiltered {
+				td.Teardown = nil
+			}
+		}
 
-	if result.Failed > 0 {
-		os.Exit(1)
+		orch := executor.NewOrchestrator(reg, rep, cfg)
+		orch.SetBail(bail)
+		return orch.Run(ctx, runFiltered)
 	}
-	return nil
+
+	if !watchMode {
+		result := runOnce()
+		if result.Failed > 0 {
+			os.Exit(1)
+		}
+		return nil
+	}
+
+	// Watch mode: run tests initially, then re-run on file changes.
+	fmt.Fprintln(cmd.OutOrStdout(), "Watch mode enabled — press Ctrl+C to stop.")
+	runOnce()
+
+	w, err := watcher.New([]string{testDir}, func() {
+		fmt.Fprintf(cmd.OutOrStdout(), "\nFile change detected, re-running tests...\n\n")
+		runOnce()
+	})
+	if err != nil {
+		return fmt.Errorf("starting watcher: %w", err)
+	}
+	// Start blocks until ctx is cancelled (Ctrl+C).
+	return w.Start(ctx)
 }
