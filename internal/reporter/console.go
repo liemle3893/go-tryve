@@ -112,6 +112,29 @@ func (c *Console) OnTestComplete(_ context.Context, test *tryve.TestDefinition, 
 	}
 
 	fmt.Fprintf(c.w, "%s %s (%s)\n", label, test.Name, result.Duration)
+
+	// Always show failure reason, even without --verbose.
+	if result.Status == tryve.StatusFailed && !c.verbose {
+		if result.Error != nil {
+			fmt.Fprintf(c.w, "     %s %v\n", c.styled("→", ansiRed), result.Error)
+		}
+		// Show first failed assertion from the last failed step.
+		for i := len(result.Steps) - 1; i >= 0; i-- {
+			step := result.Steps[i]
+			if step.Status != tryve.StatusFailed {
+				continue
+			}
+			for _, a := range step.Assertions {
+				if !a.Passed {
+					fmt.Fprintf(c.w, "     %s [%s] %s %s %v, got %v\n",
+						c.styled("→", ansiRed), step.Step.ID, a.Path, a.Operator, a.Expected, a.Actual)
+					break
+				}
+			}
+			break
+		}
+	}
+
 	return nil
 }
 
