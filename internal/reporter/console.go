@@ -80,13 +80,18 @@ func (c *Console) OnStepComplete(_ context.Context, _ *tryve.StepDefinition, out
 
 	fmt.Fprintf(c.w, "  %s %s (%s)\n", marker, desc, outcome.Duration)
 
-	// Print details for any failed assertions.
-	for _, a := range outcome.Assertions {
-		if !a.Passed {
-			fmt.Fprintf(c.w, "      %s: expected %v, got %v\n",
-				c.styled("ASSERT FAIL", ansiRed), a.Expected, a.Actual)
-			if a.Message != "" {
-				fmt.Fprintf(c.w, "        %s\n", a.Message)
+	if outcome.Status == tryve.StatusFailed || outcome.Status == tryve.StatusWarned {
+		// Show the step error (connection failure, timeout, interpolation error, etc.)
+		if outcome.Error != nil {
+			fmt.Fprintf(c.w, "      %s %v\n", c.styled("ERR", ansiRed), outcome.Error)
+		}
+
+		// Show failed assertions with details.
+		for _, a := range outcome.Assertions {
+			if !a.Passed {
+				detail := fmt.Sprintf("%s %s: expected %v, got %v",
+					a.Path, a.Operator, a.Expected, a.Actual)
+				fmt.Fprintf(c.w, "      %s %s\n", c.styled("ASSERT", ansiRed), detail)
 			}
 		}
 	}
