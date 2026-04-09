@@ -101,21 +101,26 @@ func ExecuteStep(
 	}
 
 	// 4. Execute adapter action.
-	result, err := adp.Execute(ctx, step.Action, resolvedParams)
+	result, execErr := adp.Execute(ctx, step.Action, resolvedParams)
 	elapsed := time.Since(start)
-	if err != nil {
-		if step.ContinueOnError {
-			return warnedOutcome(step, nil, nil, err, elapsed), nil
-		}
-		return failedOutcome(step, err, elapsed), nil
-	}
 
-	// 5. Capture: extract JSONPath values from result data into the interpolation context.
+	// 5. Capture: extract JSONPath values even if execution returned an error,
+	//    as long as there is result data (e.g. shell stdout before non-zero exit).
 	if step.Capture != nil && result != nil && result.Data != nil {
 		for varName, path := range step.Capture {
 			val, _ := assertion.EvalJSONPath(result.Data, path)
 			interpCtx.Captured[varName] = val
 		}
+	}
+
+	// If adapter returned an error, fail the step (but keep result for debug output).
+	if execErr != nil {
+		if step.ContinueOnError {
+			return warnedOutcome(step, result, nil, execErr, elapsed), nil
+		}
+		o := failedOutcome(step, execErr, elapsed)
+		o.Result = result // preserve for --debug output
+		return o, nil
 	}
 
 	// 6. Assert: evaluate assertion definitions against result data.

@@ -68,8 +68,8 @@ func TestShellAdapter_ExecWithEnv(t *testing.T) {
 	}
 }
 
-// TestShellAdapter_ExecFailure verifies that a non-zero exit code is returned
-// in the result data and does NOT produce an error return value.
+// TestShellAdapter_ExecFailure verifies that a non-zero exit code returns both
+// the result data (stdout/stderr/exitCode) AND an error.
 func TestShellAdapter_ExecFailure(t *testing.T) {
 	a := adapter.NewShellAdapter(&adapter.ShellConfig{})
 	ctx := context.Background()
@@ -77,11 +77,12 @@ func TestShellAdapter_ExecFailure(t *testing.T) {
 	result, err := a.Execute(ctx, "exec", map[string]any{
 		"command": "exit 1",
 	})
-	if err != nil {
-		t.Fatalf("expected nil error for non-zero exit, got: %v", err)
+	if err == nil {
+		t.Fatal("expected error for non-zero exit, got nil")
 	}
+	// Result should still be returned (for capture/debug).
 	if result == nil {
-		t.Fatal("expected non-nil StepResult")
+		t.Fatal("expected non-nil StepResult even on error")
 	}
 
 	exitCode, ok := result.Data["exitCode"].(float64)
