@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -102,30 +103,44 @@ func runCmdHandler(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("discovering tests in %q: %w", testDir, err)
 	}
 
-	// loadAndFilter parses all discovered paths, validates them, and applies the
-	// active filter options. It re-reads from disk on every call so that watch
-	// mode picks up newly created or edited test files.
+	filterOpts := executor.FilterOptions{Tags: tags, Grep: grep, Priority: priority}
+	hasFilter := len(tags) > 0 || grep != "" || priority != ""
+
+	// loadAndFilter parses all discovered paths, filters FIRST (cheap name/tag
+	// check), then validates only matching tests. This avoids expensive validation
+	// of tests that won't be run.
 	loadAndFilter := func() []*tryve.TestDefinition {
-		var loaded []*tryve.TestDefinition
+		// Phase 1: parse all files (fast — just YAML unmarshal).
+		var parsed []*tryve.TestDefinition
 		for _, p := range paths {
 			td, parseErr := loader.ParseFile(p)
 			if parseErr != nil {
-				fmt.Fprintf(os.Stderr, "WARN  parse error %s: %v\n", p, parseErr)
-				continue
-			}
-			if errs := loader.Validate(td); len(errs) > 0 {
-				for _, ve := range errs {
-					fmt.Fprintf(os.Stderr, "WARN  validation error %s: %v\n", p, ve)
+				if !hasFilter {
+					fmt.Fprintf(os.Stderr, "WARN  parse error %s: %v\n", p, parseErr)
 				}
 				continue
 			}
-			loaded = append(loaded, td)
+			parsed = append(parsed, td)
 		}
-		return executor.FilterTests(loaded, executor.FilterOptions{
-			Tags:     tags,
-			Grep:     grep,
-			Priority: priority,
-		})
+
+		// Phase 2: filter by tag/grep/priority BEFORE validation.
+		candidates := parsed
+		if hasFilter {
+			candidates = executor.FilterTests(parsed, filterOpts)
+		}
+
+		// Phase 3: validate only the tests that will actually run.
+		var valid []*tryve.TestDefinition
+		for _, td := range candidates {
+			if errs := loader.Validate(td); len(errs) > 0 {
+				for _, ve := range errs {
+					fmt.Fprintf(os.Stderr, "WARN  validation error %s: %v\n", td.SourceFile, ve)
+				}
+				continue
+			}
+			valid = append(valid, td)
+		}
+		return valid
 	}
 
 	// Dry-run: print matching tests and exit without running them.
@@ -186,6 +201,31 @@ func runCmdHandler(cmd *cobra.Command, _ []string) error {
 		}
 	}
 	defer reg.CloseAll(ctx)
+
+	// Pre-warm: connect required adapters in parallel before the first test.
+	// This avoids paying connection latency during step execution.
+	if !dryRun {
+		filtered := loadAndFilter()
+		needed := map[string]bool{}
+		for _, td := range filtered {
+			for _, phases := range [][]tryve.StepDefinition{td.Setup, td.Execute, td.Verify, td.Teardown} {
+				for _, s := range phases {
+					needed[s.Adapter] = true
+				}
+			}
+		}
+		var wg sync.WaitGroup
+		for name := range needed {
+			if reg.Has(name) {
+				wg.Add(1)
+				go func(n string) {
+					defer wg.Done()
+					reg.Get(ctx, n) // triggers Connect
+				}(name)
+			}
+		}
+		wg.Wait()
+	}
 
 	// runOnce executes the full filtered test suite and returns the suite result.
 	runOnce := func() *tryve.SuiteResult {
