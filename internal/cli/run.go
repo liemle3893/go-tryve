@@ -162,6 +162,8 @@ func runCmdHandler(cmd *cobra.Command, _ []string) error {
 	// Register adapters from the environment config block.
 	for name, adapterCfg := range cfg.Environment.Adapters {
 		switch name {
+		case "http", "shell":
+			// Already registered above; skip duplicate.
 		case "postgresql":
 			reg.Register("postgresql", adapter.NewPostgreSQLAdapter(adapterCfg))
 		case "mongodb":
@@ -181,6 +183,10 @@ func runCmdHandler(cmd *cobra.Command, _ []string) error {
 	// runOnce executes the full filtered test suite and returns the suite result.
 	runOnce := func() *tryve.SuiteResult {
 		runFiltered := loadAndFilter()
+		if len(runFiltered) == 0 {
+			fmt.Fprintln(os.Stderr, "No tests matched the current filters.")
+			return &tryve.SuiteResult{}
+		}
 
 		if skipSetup {
 			for _, td := range runFiltered {

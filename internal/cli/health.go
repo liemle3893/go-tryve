@@ -46,6 +46,8 @@ func healthCmdHandler(cmd *cobra.Command, _ []string) error {
 	// Register adapters from the environment config block.
 	for name, adapterCfg := range cfg.Environment.Adapters {
 		switch name {
+		case "http", "shell":
+			// Already registered above; skip duplicate.
 		case "postgresql":
 			reg.Register("postgresql", adapter.NewPostgreSQLAdapter(adapterCfg))
 		case "mongodb":
