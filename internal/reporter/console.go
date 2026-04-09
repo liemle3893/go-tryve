@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/liemle3893/e2e-runner/internal/tryve"
 )
@@ -25,10 +26,19 @@ const (
 // Console is a Reporter implementation that writes human-readable, optionally
 // colourised output to an io.Writer (usually os.Stdout).
 type Console struct {
-	w       io.Writer
-	verbose bool
-	debug   bool
-	color   bool
+	w           io.Writer
+	verbose     bool
+	debug       bool
+	color       bool
+	failedTests []failedTestInfo
+}
+
+type failedTestInfo struct {
+	name    string
+	stepID  string
+	adapter string
+	action  string
+	err     string
 }
 
 // NewConsole creates a Console reporter writing to w.
@@ -269,38 +279,104 @@ func (c *Console) OnTestComplete(_ context.Context, test *tryve.TestDefinition, 
 
 	fmt.Fprintf(c.w, "%s %s (%s)\n", label, test.Name, result.Duration)
 
-	// Always show failure reason, even without --verbose.
-	if result.Status == tryve.StatusFailed && !c.verbose {
-		if result.Error != nil {
-			fmt.Fprintf(c.w, "     %s %v\n", c.styled("→", ansiRed), result.Error)
-		}
-		for i := len(result.Steps) - 1; i >= 0; i-- {
-			step := result.Steps[i]
+	// Collect failed test info for the final summary.
+	if result.Status == tryve.StatusFailed {
+		info := failedTestInfo{name: test.Name}
+		// Find the first failed step.
+		for _, step := range result.Steps {
 			if step.Status != tryve.StatusFailed {
 				continue
 			}
+			info.stepID = step.Step.ID
+			info.adapter = step.Step.Adapter
+			info.action = step.Step.Action
+			if step.Error != nil {
+				info.err = step.Error.Error()
+			}
+			// Check for assertion failure message.
 			for _, a := range step.Assertions {
 				if !a.Passed {
-					fmt.Fprintf(c.w, "     %s [%s] %s %s %v, got %v\n",
-						c.styled("→", ansiRed), step.Step.ID, a.Path, a.Operator, a.Expected, a.Actual)
+					info.err = fmt.Sprintf("[%s.%s] %s", step.Step.Adapter, step.Step.Action, a.Message)
 					break
 				}
 			}
 			break
 		}
+		if info.err == "" && result.Error != nil {
+			info.err = result.Error.Error()
+		}
+		c.failedTests = append(c.failedTests, info)
 	}
 
 	return nil
 }
 
-// OnSuiteComplete prints the summary.
+// OnSuiteComplete prints the summary with failed test details.
 func (c *Console) OnSuiteComplete(_ context.Context, _ *tryve.SuiteResult, result *tryve.SuiteResult) error {
-	passed := c.styled(fmt.Sprintf("%d passed", result.Passed), ansiGreen)
-	failed := c.styled(fmt.Sprintf("%d failed", result.Failed), ansiRed)
-	skipped := c.styled(fmt.Sprintf("%d skipped", result.Skipped), ansiYellow)
+	fmt.Fprintln(c.w)
+	fmt.Fprintln(c.w, c.styled("────────────────────────────────────────────────────────────", ansiDim))
+	fmt.Fprintln(c.w)
+	fmt.Fprintln(c.w, c.styled("Test Summary", ansiBold+ansiCyan))
+	fmt.Fprintln(c.w)
 
-	fmt.Fprintf(c.w, "\n%s, %s, %s — %d total (%s)\n",
-		passed, failed, skipped, result.Total, result.Duration)
+	// Pass/fail/skip counts
+	parts := []string{c.styled(fmt.Sprintf("✓ %d passed", result.Passed), ansiGreen)}
+	if result.Failed > 0 {
+		parts = append(parts, c.styled(fmt.Sprintf("✗ %d failed", result.Failed), ansiRed))
+	} else {
+		parts = append(parts, c.styled(fmt.Sprintf("✗ %d failed", result.Failed), ansiDim))
+	}
+	if result.Skipped > 0 {
+		parts = append(parts, c.styled(fmt.Sprintf("○ %d skipped", result.Skipped), ansiYellow))
+	} else {
+		parts = append(parts, c.styled(fmt.Sprintf("○ %d skipped", result.Skipped), ansiDim))
+	}
+	fmt.Fprintf(c.w, "  %s\n", strings.Join(parts, "  |  "))
+	fmt.Fprintln(c.w)
+
+	// Pass rate bar
+	barLen := 30
+	passRatio := 0.0
+	if result.Total > 0 {
+		passRatio = float64(result.Passed) / float64(result.Total)
+	}
+	filled := int(passRatio * float64(barLen))
+	bar := strings.Repeat("█", filled) + strings.Repeat("░", barLen-filled)
+	barColor := ansiGreen
+	if passRatio < 1.0 {
+		barColor = ansiYellow
+	}
+	if passRatio < 0.5 {
+		barColor = ansiRed
+	}
+	fmt.Fprintf(c.w, "  Pass rate: [%s] %.0f%%\n", c.styled(bar, barColor), passRatio*100)
+	fmt.Fprintln(c.w)
+
+	// Duration and total
+	fmt.Fprintf(c.w, "  • Total duration: %s\n", result.Duration.Round(time.Millisecond))
+	fmt.Fprintf(c.w, "  • Total tests: %d\n", result.Total)
+
+	// Failed test details
+	if len(c.failedTests) > 0 {
+		fmt.Fprintln(c.w)
+		fmt.Fprintln(c.w, c.styled("Failed Tests:", ansiRed))
+		for _, ft := range c.failedTests {
+			fmt.Fprintf(c.w, "  %s %s\n", c.styled("✗", ansiRed), ft.name)
+			if ft.err != "" {
+				fmt.Fprintf(c.w, "    %s\n", c.styled(ft.err, ansiDim))
+			}
+		}
+	}
+
+	fmt.Fprintln(c.w)
+	fmt.Fprintln(c.w, c.styled("════════════════════════════════════════════════════════════", ansiDim))
+	if result.Failed == 0 {
+		fmt.Fprintln(c.w, c.styled("  ALL TESTS PASSED", ansiBold+ansiGreen))
+	} else {
+		fmt.Fprintln(c.w, c.styled("  TESTS FAILED", ansiBold+ansiRed))
+	}
+	fmt.Fprintln(c.w, c.styled("════════════════════════════════════════════════════════════", ansiDim))
+
 	return nil
 }
 
