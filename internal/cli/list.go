@@ -29,7 +29,7 @@ func newListCmd() *cobra.Command {
 
 // listCmdHandler implements the `list` command execution logic.
 func listCmdHandler(cmd *cobra.Command, _ []string) error {
-	testDir, _ := cmd.Flags().GetString("test-dir")
+	testDir := resolveTestDir(cmd)
 	grep, _ := cmd.Flags().GetString("grep")
 	tags, _ := cmd.Flags().GetStringSlice("tag")
 	priority, _ := cmd.Flags().GetString("priority")

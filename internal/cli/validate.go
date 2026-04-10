@@ -24,7 +24,7 @@ func newValidateCmd() *cobra.Command {
 
 // validateCmdHandler implements the `validate` command execution logic.
 func validateCmdHandler(cmd *cobra.Command, _ []string) error {
-	testDir, _ := cmd.Flags().GetString("test-dir")
+	testDir := resolveTestDir(cmd)
 
 	paths, err := loader.Discover(testDir)
 	if err != nil {
