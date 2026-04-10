@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"sync"
 	"syscall"
 
@@ -93,8 +94,9 @@ func runCmdHandler(cmd *cobra.Command, _ []string) error {
 	}
 
 	// Use config testDir if CLI flag wasn't explicitly set.
+	// testDir in config is relative to the config file, not CWD.
 	if !cmd.Flags().Changed("test-dir") && cfg.TestDir != "" {
-		testDir = cfg.TestDir
+		testDir = filepath.Join(filepath.Dir(cfgPath), cfg.TestDir)
 	}
 
 	// Discover test files once; used by both dry-run and watch/run paths.
