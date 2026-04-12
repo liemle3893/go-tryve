@@ -25,6 +25,7 @@ func NewRoot(version string) *cobra.Command {
 		newVersionCmd(version),
 		newTestCmd(),
 		newDocCmd(),
+		newInstallCmd(),
 	)
 
 	return root
