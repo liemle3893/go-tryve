@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/liemle3893/e2e-runner/internal/watcher"
+	"github.com/liemle3893/go-tryve/internal/watcher"
 )
 
 // waitTimeout is how long a test waits for the onChange channel to receive.

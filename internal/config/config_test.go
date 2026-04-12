@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/liemle3893/e2e-runner/internal/config"
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/config"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 )
 
 // writeYAML writes content to a temporary file and returns its path.

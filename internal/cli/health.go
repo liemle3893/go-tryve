@@ -7,8 +7,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/liemle3893/e2e-runner/internal/adapter"
-	"github.com/liemle3893/e2e-runner/internal/config"
+	"github.com/liemle3893/go-tryve/internal/adapter"
+	"github.com/liemle3893/go-tryve/internal/config"
 )
 
 // newHealthCmd constructs the `health` sub-command which checks connectivity

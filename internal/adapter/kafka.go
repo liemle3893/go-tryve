@@ -14,7 +14,7 @@ import (
 	"github.com/segmentio/kafka-go/sasl/plain"
 	"github.com/segmentio/kafka-go/sasl/scram"
 
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 )
 
 // KafkaAdapter provides produce, consume, waitFor, and clear actions against

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/messaging/azeventhubs/v2"
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 )
 
 // EventHubAdapter publishes and consumes events on Azure Event Hubs.

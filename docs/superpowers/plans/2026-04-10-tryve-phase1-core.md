@@ -106,7 +106,7 @@ Note: `docs/`, `tests/`, `skills/`, `CLAUDE.md`, `AGENTS.md`, `README.md`, `dock
 
 ```go
 // go.mod
-module github.com/liemle3893/e2e-runner
+module github.com/liemle3893/go-tryve
 
 go 1.23
 
@@ -207,7 +207,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 )
 
 func TestTryveError_Error(t *testing.T) {
@@ -510,7 +510,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/liemle3893/e2e-runner/internal/config"
+	"github.com/liemle3893/go-tryve/internal/config"
 )
 
 func TestLoad_MinimalConfig(t *testing.T) {
@@ -722,7 +722,7 @@ import (
 	"os"
 	"regexp"
 
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 	"gopkg.in/yaml.v3"
 )
 
@@ -892,7 +892,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/liemle3893/e2e-runner/internal/interpolate"
+	"github.com/liemle3893/go-tryve/internal/interpolate"
 )
 
 func TestBuiltin_UUID(t *testing.T) {
@@ -1331,8 +1331,8 @@ package interpolate_test
 import (
 	"testing"
 
-	"github.com/liemle3893/e2e-runner/internal/interpolate"
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/interpolate"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 )
 
 func TestResolve_SimpleVariable(t *testing.T) {
@@ -1459,7 +1459,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 )
 
 const maxDepth = 10
@@ -1780,7 +1780,7 @@ package assertion_test
 import (
 	"testing"
 
-	"github.com/liemle3893/e2e-runner/internal/assertion"
+	"github.com/liemle3893/go-tryve/internal/assertion"
 )
 
 func TestJSONPath_SimpleProperty(t *testing.T) {
@@ -2022,7 +2022,7 @@ package assertion_test
 import (
 	"testing"
 
-	"github.com/liemle3893/e2e-runner/internal/assertion"
+	"github.com/liemle3893/go-tryve/internal/assertion"
 )
 
 func TestMatch_Equals(t *testing.T) {
@@ -2146,8 +2146,8 @@ package assertion_test
 import (
 	"testing"
 
-	"github.com/liemle3893/e2e-runner/internal/assertion"
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/assertion"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 )
 
 func TestRunAssertions_HTTPStatus(t *testing.T) {
@@ -2258,7 +2258,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 )
 
 // MatchResult holds the outcome of a single matcher check.
@@ -2527,7 +2527,7 @@ package assertion
 import (
 	"fmt"
 
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 )
 
 // Operators recognized in assertion definitions.
@@ -2777,7 +2777,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/liemle3893/e2e-runner/internal/loader"
+	"github.com/liemle3893/go-tryve/internal/loader"
 )
 
 func TestDiscover_FindsTestFiles(t *testing.T) {
@@ -3035,7 +3035,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 	"gopkg.in/yaml.v3"
 )
 
@@ -3173,7 +3173,7 @@ package loader
 import (
 	"fmt"
 
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 )
 
 var validAdapters = map[string]bool{
@@ -3375,8 +3375,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/liemle3893/e2e-runner/internal/adapter"
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/adapter"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 )
 
 type mockAdapter struct {
@@ -3447,7 +3447,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 )
 
 // Adapter is the core interface all protocol adapters implement.
@@ -3481,7 +3481,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 )
 
 // Registry manages adapter instances with lazy initialization.
@@ -3594,7 +3594,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/liemle3893/e2e-runner/internal/adapter"
+	"github.com/liemle3893/go-tryve/internal/adapter"
 )
 
 func TestHTTPAdapter_GET(t *testing.T) {
@@ -3766,7 +3766,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 )
 
 // HTTPAdapter handles HTTP/REST API requests.
@@ -3971,7 +3971,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/liemle3893/e2e-runner/internal/adapter"
+	"github.com/liemle3893/go-tryve/internal/adapter"
 )
 
 func TestShellAdapter_ExecSimple(t *testing.T) {
@@ -4059,7 +4059,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 )
 
 // ShellConfig holds optional default settings for the shell adapter.
@@ -4181,8 +4181,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/liemle3893/e2e-runner/internal/reporter"
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/reporter"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 )
 
 func TestConsoleReporter_SuiteComplete(t *testing.T) {
@@ -4252,7 +4252,7 @@ package reporter
 import (
 	"context"
 
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 )
 
 // Reporter receives lifecycle events during test execution.
@@ -4329,7 +4329,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 )
 
 // Console writes human-readable test results to an io.Writer.
@@ -4471,9 +4471,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/liemle3893/e2e-runner/internal/adapter"
-	"github.com/liemle3893/e2e-runner/internal/executor"
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/adapter"
+	"github.com/liemle3893/go-tryve/internal/executor"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 )
 
 func newTestRegistry(baseURL string) *adapter.Registry {
@@ -4597,10 +4597,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/liemle3893/e2e-runner/internal/adapter"
-	"github.com/liemle3893/e2e-runner/internal/assertion"
-	"github.com/liemle3893/e2e-runner/internal/interpolate"
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/adapter"
+	"github.com/liemle3893/go-tryve/internal/assertion"
+	"github.com/liemle3893/go-tryve/internal/interpolate"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 )
 
 // ExecuteStep runs a single step: interpolate params → delay → execute → capture → assert.
@@ -4792,9 +4792,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/liemle3893/e2e-runner/internal/executor"
-	"github.com/liemle3893/e2e-runner/internal/reporter"
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/executor"
+	"github.com/liemle3893/go-tryve/internal/reporter"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 )
 
 func TestRunTest_SimplePass(t *testing.T) {
@@ -4966,9 +4966,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/liemle3893/e2e-runner/internal/adapter"
-	"github.com/liemle3893/e2e-runner/internal/reporter"
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/adapter"
+	"github.com/liemle3893/go-tryve/internal/reporter"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 )
 
 // RunTest executes a single test through all its phases.
@@ -5103,10 +5103,10 @@ import (
 	"context"
 	"testing"
 
-	"github.com/liemle3893/e2e-runner/internal/config"
-	"github.com/liemle3893/e2e-runner/internal/executor"
-	"github.com/liemle3893/e2e-runner/internal/reporter"
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/config"
+	"github.com/liemle3893/go-tryve/internal/executor"
+	"github.com/liemle3893/go-tryve/internal/reporter"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 )
 
 func TestOrchestrator_RunAll(t *testing.T) {
@@ -5206,10 +5206,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/liemle3893/e2e-runner/internal/adapter"
-	"github.com/liemle3893/e2e-runner/internal/config"
-	"github.com/liemle3893/e2e-runner/internal/reporter"
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/adapter"
+	"github.com/liemle3893/go-tryve/internal/config"
+	"github.com/liemle3893/go-tryve/internal/reporter"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -5506,11 +5506,11 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/liemle3893/e2e-runner/internal/adapter"
-	"github.com/liemle3893/e2e-runner/internal/config"
-	"github.com/liemle3893/e2e-runner/internal/executor"
-	"github.com/liemle3893/e2e-runner/internal/loader"
-	"github.com/liemle3893/e2e-runner/internal/reporter"
+	"github.com/liemle3893/go-tryve/internal/adapter"
+	"github.com/liemle3893/go-tryve/internal/config"
+	"github.com/liemle3893/go-tryve/internal/executor"
+	"github.com/liemle3893/go-tryve/internal/loader"
+	"github.com/liemle3893/go-tryve/internal/reporter"
 	"github.com/spf13/cobra"
 )
 
@@ -5656,7 +5656,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/liemle3893/e2e-runner/internal/loader"
+	"github.com/liemle3893/go-tryve/internal/loader"
 	"github.com/spf13/cobra"
 )
 
@@ -5712,8 +5712,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/liemle3893/e2e-runner/internal/executor"
-	"github.com/liemle3893/e2e-runner/internal/loader"
+	"github.com/liemle3893/go-tryve/internal/executor"
+	"github.com/liemle3893/go-tryve/internal/loader"
 	"github.com/spf13/cobra"
 )
 
@@ -5773,8 +5773,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/liemle3893/e2e-runner/internal/adapter"
-	"github.com/liemle3893/e2e-runner/internal/config"
+	"github.com/liemle3893/go-tryve/internal/adapter"
+	"github.com/liemle3893/go-tryve/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -5964,7 +5964,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/liemle3893/e2e-runner/internal/cli"
+	"github.com/liemle3893/go-tryve/internal/cli"
 )
 
 var version = "dev"
@@ -5983,7 +5983,7 @@ func main() {
 Add missing import to `internal/cli/list.go`:
 ```go
 import (
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 	// ... other imports
 )
 ```
@@ -6025,11 +6025,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/liemle3893/e2e-runner/internal/adapter"
-	"github.com/liemle3893/e2e-runner/internal/config"
-	"github.com/liemle3893/e2e-runner/internal/executor"
-	"github.com/liemle3893/e2e-runner/internal/loader"
-	"github.com/liemle3893/e2e-runner/internal/reporter"
+	"github.com/liemle3893/go-tryve/internal/adapter"
+	"github.com/liemle3893/go-tryve/internal/config"
+	"github.com/liemle3893/go-tryve/internal/executor"
+	"github.com/liemle3893/go-tryve/internal/loader"
+	"github.com/liemle3893/go-tryve/internal/reporter"
 )
 
 func TestIntegration_FullHTTPFlow(t *testing.T) {
@@ -6173,7 +6173,7 @@ execute:
 Add the tryve import:
 ```go
 import (
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 	// ... other imports
 )
 ```

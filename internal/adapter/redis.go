@@ -7,7 +7,7 @@ import (
 
 	goredis "github.com/redis/go-redis/v9"
 
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 )
 
 // RedisAdapter executes Redis commands against a target Redis server.

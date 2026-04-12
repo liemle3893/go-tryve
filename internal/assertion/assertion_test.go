@@ -3,7 +3,7 @@ package assertion_test
 import (
 	"testing"
 
-	"github.com/liemle3893/e2e-runner/internal/assertion"
+	"github.com/liemle3893/go-tryve/internal/assertion"
 )
 
 // TestRunAssertions_HTTPStatus verifies that a single numeric status assertion passes

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 )
 
 // TestTryveError_Error_MessageOnly verifies Error() returns only the message when no cause is set.

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 )
 
 // ANSI escape codes used by the Console reporter.

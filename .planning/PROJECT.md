@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A flexible end-to-end testing framework for API and database testing. Tests are written in YAML (declarative) or TypeScript (programmatic), with adapters for HTTP, PostgreSQL, MongoDB, Redis, and EventHub. Distributed as an npm package (`@liemle3893/e2e-runner`) with a CLI and programmatic API. The framework exists but has significant incomplete features, bugs, and dead code that prevent real-world use with confidence.
+A flexible end-to-end testing framework for API and database testing. Tests are written in YAML (declarative) or TypeScript (programmatic), with adapters for HTTP, PostgreSQL, MongoDB, Redis, and EventHub. Distributed as an npm package (`@liemle3893/go-tryve`) with a CLI and programmatic API. The framework exists but has significant incomplete features, bugs, and dead code that prevent real-world use with confidence.
 
 ## Core Value
 
@@ -62,7 +62,7 @@ Every test that passes actually passed, and every feature that exists actually w
 
 ## Context
 
-This is a brownfield project at version 1.2.1, published to npm as `@liemle3893/e2e-runner`. The framework has a solid architectural foundation (layered plugin architecture with event-driven reporting) but accumulated significant technical debt during initial development. Multiple features were started but never completed — the assertion engine in StepExecutor is a stub referencing "Phase 5" that never happened, test dependency ordering is parsed but never enforced, and the TypeScript test adapter uses a misleading 'http' placeholder type.
+This is a brownfield project at version 1.2.1, published to npm as `@liemle3893/go-tryve`. The framework has a solid architectural foundation (layered plugin architecture with event-driven reporting) but accumulated significant technical debt during initial development. Multiple features were started but never completed — the assertion engine in StepExecutor is a stub referencing "Phase 5" that never happened, test dependency ordering is parsed but never enforced, and the TypeScript test adapter uses a misleading 'http' placeholder type.
 
 The codebase has zero unit tests (`npm test` prints "No tests yet"). All validation happens through E2E test YAML files in `tests/e2e/adapters/`. Several bugs cause silent failures: `continueOnError` marks failed steps as passed, retryCount is always zero at the test level, and EventHub errors resolve instead of rejecting.
 
@@ -74,7 +74,7 @@ The immediate goal is to make every existing feature actually work correctly, ad
 - **Peer dependency model**: Adapter drivers remain optional peer deps — install only what you need
 - **Node.js >=18**: Minimum runtime requirement, uses native fetch
 - **CommonJS output**: Published as CommonJS (tsconfig module: commonjs), must not break consumers
-- **npm package**: Published as `@liemle3893/e2e-runner` — changes must be publishable
+- **npm package**: Published as `@liemle3893/go-tryve` — changes must be publishable
 
 ## Key Decisions
 

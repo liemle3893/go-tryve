@@ -1,4 +1,4 @@
-module github.com/liemle3893/e2e-runner
+module github.com/liemle3893/go-tryve
 
 go 1.25.0
 

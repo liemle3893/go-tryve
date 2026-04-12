@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/liemle3893/e2e-runner/internal/reporter"
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/reporter"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 )
 
 // makeStep is a helper that builds a minimal StepDefinition for use in tests.

@@ -13,12 +13,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/liemle3893/e2e-runner/internal/adapter"
-	"github.com/liemle3893/e2e-runner/internal/config"
-	"github.com/liemle3893/e2e-runner/internal/executor"
-	"github.com/liemle3893/e2e-runner/internal/loader"
-	"github.com/liemle3893/e2e-runner/internal/reporter"
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/adapter"
+	"github.com/liemle3893/go-tryve/internal/config"
+	"github.com/liemle3893/go-tryve/internal/executor"
+	"github.com/liemle3893/go-tryve/internal/loader"
+	"github.com/liemle3893/go-tryve/internal/reporter"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 )
 
 // newIntegrationServer starts a local HTTP server with the routes required by

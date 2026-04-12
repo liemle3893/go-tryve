@@ -7,9 +7,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/liemle3893/e2e-runner/internal/executor"
-	"github.com/liemle3893/e2e-runner/internal/loader"
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/executor"
+	"github.com/liemle3893/go-tryve/internal/loader"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 )
 
 // ANSI escape codes for list output styling.

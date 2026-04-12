@@ -3,7 +3,7 @@ package loader
 import (
 	"fmt"
 
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 )
 
 // validAdapters is the set of adapter names recognised by the runner.

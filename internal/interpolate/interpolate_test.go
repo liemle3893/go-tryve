@@ -3,8 +3,8 @@ package interpolate_test
 import (
 	"testing"
 
-	"github.com/liemle3893/e2e-runner/internal/interpolate"
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/interpolate"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 )
 
 // newCtx creates a fresh InterpolationContext for tests.

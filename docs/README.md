@@ -17,7 +17,7 @@ A powerful, YAML-based end-to-end testing framework with multi-adapter support f
 ### Installation
 
 ```bash
-npm install @liemle3893/e2e-runner
+npm install @liemle3893/go-tryve
 ```
 
 ### Initialize Configuration

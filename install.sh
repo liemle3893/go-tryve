@@ -1,13 +1,13 @@
 #!/bin/sh
 # Tryve installer — downloads the latest release from GitHub.
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/liemle3893/e2e-runner/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/liemle3893/go-tryve/main/install.sh | sh
 #   curl -fsSL ... | sh -s -- --dir /custom/path
 #   curl -fsSL ... | sh -s -- --version v1.2.3
 
 set -eu
 
-REPO="liemle3893/e2e-runner"
+REPO="liemle3893/go-tryve"
 BINARY="tryve"
 INSTALL_DIR="/usr/local/bin"
 VERSION=""

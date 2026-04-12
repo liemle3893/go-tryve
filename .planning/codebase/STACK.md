@@ -105,7 +105,7 @@ The codebase relies on several built-in Node.js APIs without third-party librari
 - Optional: Docker + Docker Compose for local adapter services
 
 **Production/Deployment:**
-- Distributed as an npm package: `@liemle3893/e2e-runner`
+- Distributed as an npm package: `@liemle3893/go-tryve`
 - Published files: `dist/`, `bin/`, `README.md`
 - Consumers install peer dependencies selectively based on adapters needed
 - No bundler — shipped as CommonJS source

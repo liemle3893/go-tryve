@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 )
 
 // reportEntry pairs a test definition with its final result for template rendering.

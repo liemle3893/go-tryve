@@ -6,7 +6,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 )
 
 // Registry manages adapter instances with lazy (on-first-access) initialisation.

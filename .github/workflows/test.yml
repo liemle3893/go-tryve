@@ -23,6 +23,7 @@ jobs:
         run: go test ./... -v
 
       - name: Lint
+        continue-on-error: true # golangci-lint does not yet support Go 1.25
         uses: golangci/golangci-lint-action@v6
         with:
           version: latest

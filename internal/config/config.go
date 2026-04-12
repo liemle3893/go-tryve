@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 	"gopkg.in/yaml.v3"
 )
 

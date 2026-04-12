@@ -17,20 +17,20 @@ A powerful, flexible end-to-end testing framework for API and database testing. 
 ### Global Installation (recommended for CLI usage)
 
 ```bash
-npm install -g @liemle3893/e2e-runner
+npm install -g @liemle3893/go-tryve
 ```
 
 ### Local Installation (for project integration)
 
 ```bash
-npm install --save-dev @liemle3893/e2e-runner
+npm install --save-dev @liemle3893/go-tryve
 ```
 
 ### Using npx (no installation)
 
 ```bash
-npx @liemle3893/e2e-runner --help
-npx @liemle3893/e2e-runner run --config ./e2e.config.yaml
+npx @liemle3893/go-tryve --help
+npx @liemle3893/go-tryve run --config ./e2e.config.yaml
 ```
 
 ### Optional Adapters
@@ -297,7 +297,7 @@ teardown:
 
 ```typescript
 // users.test.ts
-import type { TestDefinition } from '@liemle3893/e2e-runner';
+import type { TestDefinition } from '@liemle3893/go-tryve';
 
 export default {
   name: 'Create User Flow',
@@ -464,7 +464,7 @@ reporters:
 ## Programmatic API
 
 ```typescript
-import { runTests, validateTests, listTests, checkHealth } from '@liemle3893/e2e-runner';
+import { runTests, validateTests, listTests, checkHealth } from '@liemle3893/go-tryve';
 
 // Run tests
 const result = await runTests({

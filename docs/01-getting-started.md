@@ -13,13 +13,13 @@ This guide walks you through installing and running your first E2E test.
 ### As a Project Dependency
 
 ```bash
-npm install @liemle3893/e2e-runner
+npm install @liemle3893/go-tryve
 ```
 
 ### Global Installation
 
 ```bash
-npm install -g @liemle3893/e2e-runner
+npm install -g @liemle3893/go-tryve
 ```
 
 ## Quick Setup

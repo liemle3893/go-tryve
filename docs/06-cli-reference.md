@@ -6,10 +6,10 @@ Complete reference for all CLI commands and options.
 
 ```bash
 # Local installation
-npm install @liemle3893/e2e-runner
+npm install @liemle3893/go-tryve
 
 # Global installation
-npm install -g @liemle3893/e2e-runner
+npm install -g @liemle3893/go-tryve
 ```
 
 ## Commands Overview

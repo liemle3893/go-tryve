@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 )
 
 const maxDepth = 10

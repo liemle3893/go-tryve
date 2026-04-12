@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 )
 
 // Adapter is the core interface all protocol adapters must implement.

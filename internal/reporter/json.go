@@ -7,7 +7,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 )
 
 // jsonSummary holds the aggregated counts and total duration for the suite.

@@ -9,10 +9,10 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/liemle3893/e2e-runner/internal/adapter"
-	"github.com/liemle3893/e2e-runner/internal/config"
-	"github.com/liemle3893/e2e-runner/internal/reporter"
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/adapter"
+	"github.com/liemle3893/go-tryve/internal/config"
+	"github.com/liemle3893/go-tryve/internal/reporter"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 )
 
 // Orchestrator coordinates parallel test execution with dependency ordering,

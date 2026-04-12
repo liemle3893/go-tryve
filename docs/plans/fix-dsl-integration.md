@@ -119,11 +119,11 @@ After modification, the end of package.json should look like:
 ```json
   "repository": {
     "type": "git",
-    "url": "https://github.com/liemle3893/e2e-runner.git"
+    "url": "https://github.com/liemle3893/go-tryve.git"
   },
-  "homepage": "https://github.com/liemle3893/e2e-runner#readme",
+  "homepage": "https://github.com/liemle3893/go-tryve#readme",
   "bugs": {
-    "url": "https://github.com/liemle3893/e2e-runner/issues"
+    "url": "https://github.com/liemle3893/go-tryve/issues"
   },
   "exports": {
     ".": {

@@ -7,10 +7,10 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/liemle3893/e2e-runner/internal/adapter"
-	"github.com/liemle3893/e2e-runner/internal/assertion"
-	"github.com/liemle3893/e2e-runner/internal/interpolate"
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/adapter"
+	"github.com/liemle3893/go-tryve/internal/assertion"
+	"github.com/liemle3893/go-tryve/internal/interpolate"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 )
 
 const maxBackoffDelay = 30 * time.Second

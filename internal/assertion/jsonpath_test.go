@@ -3,7 +3,7 @@ package assertion_test
 import (
 	"testing"
 
-	"github.com/liemle3893/e2e-runner/internal/assertion"
+	"github.com/liemle3893/go-tryve/internal/assertion"
 )
 
 // TestJSONPath_SimpleProperty verifies that a simple top-level property is retrieved correctly.

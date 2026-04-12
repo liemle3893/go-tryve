@@ -83,8 +83,8 @@
 ## CI/CD & Deployment
 
 **Hosting:**
-- Distributed via npm registry as `@liemle3893/e2e-runner`
-- Repository: `https://github.com/liemle3893/e2e-runner.git`
+- Distributed via npm registry as `@liemle3893/go-tryve`
+- Repository: `https://github.com/liemle3893/go-tryve.git`
 
 **CI Pipeline:**
 - None detected — no GitHub Actions, CircleCI, or other CI config files present

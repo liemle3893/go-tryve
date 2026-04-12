@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/liemle3893/e2e-runner/internal/config"
+	"github.com/liemle3893/go-tryve/internal/config"
 )
 
 // resolveTestDir determines the test directory by checking (in order):

@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/liemle3893/e2e-runner/pkg/runner"
+	"github.com/liemle3893/go-tryve/pkg/runner"
 )
 
 // newTestServer starts a minimal httptest.Server with a single route:

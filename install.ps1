@@ -1,6 +1,6 @@
 # Tryve installer for Windows (PowerShell)
 # Usage:
-#   irm https://raw.githubusercontent.com/liemle3893/e2e-runner/main/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/liemle3893/go-tryve/main/install.ps1 | iex
 #   .\install.ps1 -Dir C:\custom\path -Version v1.2.3
 
 param(
@@ -9,7 +9,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$Repo = "liemle3893/e2e-runner"
+$Repo = "liemle3893/go-tryve"
 $Binary = "tryve"
 
 function Resolve-Version {

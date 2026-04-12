@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/liemle3893/e2e-runner/internal/reporter"
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/reporter"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 )
 
 // parseJUnitSuites reads and decodes the JUnit XML written to path.

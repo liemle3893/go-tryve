@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/liemle3893/e2e-runner/internal/adapter"
-	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/go-tryve/internal/adapter"
+	"github.com/liemle3893/go-tryve/internal/tryve"
 )
 
 // TestNewEventHubAdapter_DefaultConsumerGroup verifies that omitting consumerGroup

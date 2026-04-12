@@ -502,7 +502,7 @@ import {
   fail,
   assertThrows,
   assertThrowsAsync,
-} from '@liemle3893/e2e-runner';
+} from '@liemle3893/go-tryve';
 
 // Basic matchers
 expect(value).toBe(expected);           // Strict equality (===)

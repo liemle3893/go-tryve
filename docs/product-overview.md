@@ -195,7 +195,7 @@ All with a unified YAML syntax and zero boilerplate.
 **Category:** API and Database Testing Framework  
 **Maturity:** v1.2.1 (npm package) — Feature-complete core with active development on gaps  
 **License:** MIT (open-source)  
-**Distribution:** npm (`@liemle3893/e2e-runner`)
+**Distribution:** npm (`@liemle3893/go-tryve`)
 
 ### Competitive Landscape
 
@@ -248,8 +248,8 @@ All with a unified YAML syntax and zero boilerplate.
 
 ## References
 
-- **Repository:** https://github.com/liemle3893/e2e-runner
-- **npm Package:** @liemle3893/e2e-runner
+- **Repository:** https://github.com/liemle3893/go-tryve
+- **npm Package:** @liemle3893/go-tryve
 - **Documentation:** `docs/` directory
 - **Roadmap:** `.planning/ROADMAP.md`
 - **Requirements:** `.planning/REQUIREMENTS.md`

@@ -8,7 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	assets "github.com/liemle3893/e2e-runner"
+	assets "github.com/liemle3893/go-tryve"
 )
 
 // newInstallCmd constructs the `install` sub-command which copies bundled

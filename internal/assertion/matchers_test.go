@@ -3,7 +3,7 @@ package assertion_test
 import (
 	"testing"
 
-	"github.com/liemle3893/e2e-runner/internal/assertion"
+	"github.com/liemle3893/go-tryve/internal/assertion"
 )
 
 // TestMatch_Equals verifies deep-equal comparisons for int, string, bool, and nil values,

@@ -473,7 +473,7 @@ verify:
 When using TypeScript tests, the `expect()` API provides additional matchers:
 
 ```typescript
-import { expect, assert, fail } from '@liemle3893/e2e-runner';
+import { expect, assert, fail } from '@liemle3893/go-tryve';
 
 // Basic matchers
 expect(value).toBe(expected);           // Strict equality (===)
