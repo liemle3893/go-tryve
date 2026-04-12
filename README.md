@@ -1,199 +1,127 @@
-# E2E Test Runner
+# Tryve
 
-A powerful, flexible end-to-end testing framework for API and database testing. Write tests in YAML or TypeScript, validate against multiple data stores, and generate comprehensive reports.
+A YAML-driven, multi-protocol end-to-end test runner. Write tests in YAML, run them against HTTP APIs and databases, and get results in console, JUnit, HTML, or JSON.
 
-## Features
-
-- **Multi-format tests**: Write tests in YAML for simplicity or TypeScript for full control
-- **Database adapters**: Built-in support for PostgreSQL, MongoDB, Redis, and Azure EventHub
-- **HTTP testing**: Native HTTP adapter for REST API testing with JSONPath assertions
-- **Parallel execution**: Run tests concurrently with configurable parallelism
-- **Multiple reporters**: Console, JUnit XML, HTML, and JSON output formats
-- **Variable interpolation**: Dynamic values with built-in functions (`${uuid()}`, `${now()}`, etc.)
-- **Flexible filtering**: Filter tests by tags, priority, or name patterns
+Single binary. Zero runtime dependencies. Cross-platform.
 
 ## Installation
 
-### Global Installation (recommended for CLI usage)
+### Shell (Linux / macOS)
 
 ```bash
-npm install -g @liemle3893/go-tryve
+curl -fsSL https://raw.githubusercontent.com/liemle3893/go-tryve/main/install.sh | sh
 ```
 
-### Local Installation (for project integration)
+Options: `--dir /custom/path` to change install location, `--version v2.0.0` to pin a version.
 
-```bash
-npm install --save-dev @liemle3893/go-tryve
+### PowerShell (Windows)
+
+```powershell
+irm https://raw.githubusercontent.com/liemle3893/go-tryve/main/install.ps1 | iex
 ```
 
-### Using npx (no installation)
+Options: `-Dir C:\custom\path` to change install location, `-Version v2.0.0` to pin a version.
+
+### Go Install
 
 ```bash
-npx @liemle3893/go-tryve --help
-npx @liemle3893/go-tryve run --config ./e2e.config.yaml
+go install github.com/liemle3893/go-tryve/cmd/tryve@latest
 ```
 
-### Optional Adapters
-
-Install database adapters as needed:
+### From Source
 
 ```bash
-# PostgreSQL
-npm install pg
-
-# MongoDB
-npm install mongodb
-
-# Redis
-npm install ioredis
-
-# Azure EventHub
-npm install @azure/event-hubs
+git clone https://github.com/liemle3893/go-tryve.git
+cd go-tryve
+make build    # binary at ./bin/tryve
 ```
 
 ## Quick Start
 
-### 1. Initialize Configuration
-
 ```bash
-e2e init
+# Create a config file
+tryve init
+
+# Create a test
+tryve test create my-api-test
+
+# Run all tests
+tryve run
+
+# Run with filters
+tryve run --tag smoke --bail
 ```
 
-This creates `e2e.config.yaml` in your current directory.
+## Writing Tests
 
-### 2. Create a Test
-
-Create `my-api.test.yaml`:
+Tests are YAML files with four optional phases: `setup`, `execute`, `verify`, and `teardown`.
 
 ```yaml
-name: Get Users API
-description: Test the users endpoint
-tags: [smoke, api]
+name: Create and verify user
+description: Full user lifecycle test
+tags: [smoke, users]
 priority: P1
 
+variables:
+  email: "test-${uuid()}@example.com"
+
+setup:
+  - id: clean-slate
+    adapter: postgresql
+    action: exec
+    params:
+      query: "DELETE FROM users WHERE email LIKE 'test-%@example.com'"
+
 execute:
-  - id: get-users
+  - id: create-user
     adapter: http
-    action: GET
+    action: POST
     params:
       url: /api/users
+      body:
+        email: "${email}"
+        name: "Test User"
+    capture:
+      userId: $.body.id
     assertions:
       - path: $.status
         operator: equals
-        expected: 200
-      - path: $.body.data
-        operator: isArray
+        expected: 201
+
+  - id: get-user
+    adapter: http
+    action: GET
+    params:
+      url: "/api/users/${captured.userId}"
+    assertions:
+      - path: $.body.email
+        operator: equals
+        expected: "${email}"
+
+verify:
+  - id: check-db
+    adapter: postgresql
+    action: query
+    params:
+      query: "SELECT * FROM users WHERE id = $1"
+      params: ["${captured.userId}"]
+    assertions:
+      - path: $.rows[0].email
+        operator: equals
+        expected: "${email}"
+
+teardown:
+  - id: cleanup
+    adapter: postgresql
+    action: exec
+    params:
+      query: "DELETE FROM users WHERE id = $1"
+      params: ["${captured.userId}"]
 ```
 
-### 3. Run Tests
+## Configuration
 
-```bash
-e2e run
-```
-
-## CLI Commands
-
-### `e2e run`
-
-Execute E2E tests.
-
-```bash
-# Run all tests
-e2e run
-
-# Run with specific config
-e2e run -c ./config/e2e.config.yaml
-
-# Run tests from a specific directory
-e2e run -d ./tests/integration
-
-# Filter by tags
-e2e run --tag smoke --tag regression
-
-# Filter by priority
-e2e run --priority P0 --priority P1
-
-# Filter by name pattern
-e2e run -g "user*"
-
-# Parallel execution
-e2e run -p 4
-
-# Stop on first failure
-e2e run --bail
-
-# Dry run (show what would run)
-e2e run --dry-run
-```
-
-### `e2e validate`
-
-Validate test file syntax without running.
-
-```bash
-e2e validate
-e2e validate -d ./tests
-```
-
-### `e2e list`
-
-List discovered tests.
-
-```bash
-e2e list
-e2e list --tag smoke
-```
-
-### `e2e health`
-
-Check adapter connectivity.
-
-```bash
-e2e health
-e2e health --adapter postgresql
-```
-
-### `e2e init`
-
-Initialize configuration file.
-
-```bash
-e2e init
-```
-
-## CLI Options
-
-| Option | Short | Description | Default |
-|--------|-------|-------------|---------|
-| `--config` | `-c` | Config file path | `e2e.config.yaml` |
-| `--env` | `-e` | Environment name | `local` |
-| `--test-dir` | `-d` | Test directory | `.` (current) |
-| `--report-dir` | | Report output directory | `./reports` |
-| `--verbose` | `-v` | Verbose output | `false` |
-| `--quiet` | `-q` | Errors only | `false` |
-| `--parallel` | `-p` | Parallel test count | `1` |
-| `--timeout` | `-t` | Timeout in ms | `30000` |
-| `--retries` | `-r` | Retry count | `0` |
-| `--bail` | | Stop on first failure | `false` |
-| `--grep` | `-g` | Filter by name pattern | |
-| `--tag` | | Filter by tag (repeatable) | |
-| `--priority` | | Filter by P0/P1/P2/P3 | |
-| `--reporter` | | Reporter type (repeatable) | `console` |
-| `--output` | `-o` | Report output path | |
-| `--dry-run` | | Show tests without running | `false` |
-
-## Environment Variables
-
-| Variable | Description |
-|----------|-------------|
-| `E2E_CONFIG` | Config file path |
-| `E2E_ENV` | Environment name |
-| `E2E_TEST_DIR` | Test directory |
-| `E2E_REPORT_DIR` | Report output directory |
-| `E2E_VERBOSE` | Enable verbose output (`1` or `true`) |
-| `NO_COLOR` | Disable colored output (`1` or `true`) |
-
-## Configuration File
+`e2e.config.yaml` defines environments, adapters, defaults, and variables.
 
 ```yaml
 version: "1.0"
@@ -225,191 +153,21 @@ reporters:
     output: "./reports/junit.xml"
 ```
 
-## Writing Tests
-
-### YAML Format
-
-```yaml
-name: Create User Flow
-description: Test user creation and retrieval
-tags: [integration, users]
-priority: P1
-timeout: 60000
-
-variables:
-  testEmail: "test-${uuid()}@example.com"
-
-setup:
-  - id: cleanup-existing
-    adapter: postgresql
-    action: exec
-    params:
-      query: "DELETE FROM users WHERE email LIKE 'test-%@example.com'"
-
-execute:
-  - id: create-user
-    adapter: http
-    action: POST
-    params:
-      url: /api/users
-      body:
-        email: "${testEmail}"
-        name: "Test User"
-    capture:
-      userId: $.body.id
-    assertions:
-      - path: $.status
-        operator: equals
-        expected: 201
-
-  - id: get-user
-    adapter: http
-    action: GET
-    params:
-      url: "/api/users/${captured.userId}"
-    assertions:
-      - path: $.body.email
-        operator: equals
-        expected: "${testEmail}"
-
-verify:
-  - id: check-database
-    adapter: postgresql
-    action: query
-    params:
-      query: "SELECT * FROM users WHERE id = $1"
-      params: ["${captured.userId}"]
-    assertions:
-      - path: $.rows[0].email
-        operator: equals
-        expected: "${testEmail}"
-
-teardown:
-  - id: delete-user
-    adapter: postgresql
-    action: exec
-    params:
-      query: "DELETE FROM users WHERE id = $1"
-      params: ["${captured.userId}"]
-```
-
-### TypeScript Format
-
-```typescript
-// users.test.ts
-import type { TestDefinition } from '@liemle3893/go-tryve';
-
-export default {
-  name: 'Create User Flow',
-  tags: ['integration', 'users'],
-  priority: 'P1',
-
-  async execute(ctx) {
-    // Create user via API
-    const createRes = await ctx.http.post('/api/users', {
-      email: `test-${ctx.uuid()}@example.com`,
-      name: 'Test User',
-    });
-
-    ctx.expect(createRes.status).toBe(201);
-    ctx.capture('userId', createRes.body.id);
-
-    // Verify in database
-    const dbResult = await ctx.postgresql.query(
-      'SELECT * FROM users WHERE id = $1',
-      [ctx.captured.userId]
-    );
-
-    ctx.expect(dbResult.rows).toHaveLength(1);
-    ctx.expect(dbResult.rows[0].email).toContain('test-');
-  },
-
-  async teardown(ctx) {
-    await ctx.postgresql.exec(
-      'DELETE FROM users WHERE id = $1',
-      [ctx.captured.userId]
-    );
-  },
-} as TestDefinition;
-```
-
-## Variable Interpolation
-
-### Built-in Functions
-
-| Function | Description | Example |
-|----------|-------------|---------|
-| `${uuid()}` | Generate UUID v4 | `550e8400-e29b-41d4-a716-446655440000` |
-| `${now()}` | Current timestamp (ISO) | `2024-01-15T10:30:00.000Z` |
-| `${timestamp()}` | Unix timestamp (ms) | `1705315800000` |
-| `${random()}` | Random number 0-1 | `0.7234` |
-| `${randomInt(min, max)}` | Random integer | `42` |
-
-### Environment Variables
-
-Access environment variables with `${env.VAR_NAME}`:
-
-```yaml
-params:
-  apiKey: "${env.API_KEY}"
-```
-
-### Captured Values
-
-Access values captured from previous steps:
-
-```yaml
-params:
-  url: "/api/users/${captured.userId}"
-```
-
 ## Adapters
 
-### HTTP Adapter
-
-```yaml
-- adapter: http
-  action: POST  # GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS
-  params:
-    url: /api/endpoint
-    headers:
-      Authorization: "Bearer ${token}"
-    body:
-      key: value
-    timeout: 5000
-```
-
-### PostgreSQL Adapter
-
-```yaml
-- adapter: postgresql
-  action: query  # or 'exec'
-  params:
-    query: "SELECT * FROM users WHERE id = $1"
-    params: [123]
-```
-
-### MongoDB Adapter
-
-```yaml
-- adapter: mongodb
-  action: find  # insertOne, updateOne, deleteOne, find, etc.
-  params:
-    collection: users
-    filter:
-      email: "test@example.com"
-```
-
-### Redis Adapter
-
-```yaml
-- adapter: redis
-  action: get  # set, del, hgetall, etc.
-  params:
-    key: "user:123"
-```
+| Adapter | Actions | Config Key |
+|---------|---------|------------|
+| **HTTP** | `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS` | `baseUrl` |
+| **PostgreSQL** | `query`, `exec` | `connectionString` |
+| **MongoDB** | `find`, `findOne`, `insertOne`, `updateOne`, `deleteOne`, `deleteMany`, `countDocuments`, `aggregate` | `connectionString` |
+| **Redis** | `get`, `set`, `del`, `exists`, `hget`, `hset`, `hgetall`, `lpush`, `rpush`, `lrange`, `sadd`, `smembers`, `publish` | `connectionString` |
+| **Kafka** | `produce`, `consume` | `brokers` |
+| **Azure EventHub** | `send`, `receive` | `connectionString`, `eventHubName` |
+| **Shell** | `exec` | _(none)_ |
 
 ## Assertions
+
+Use JSONPath expressions in `path` to extract values, then assert with an operator.
 
 | Operator | Description |
 |----------|-------------|
@@ -417,78 +175,142 @@ params:
 | `notEquals` | Not equal |
 | `contains` | String/array contains |
 | `notContains` | Does not contain |
-| `greaterThan` | Numeric > |
-| `lessThan` | Numeric < |
 | `matches` | Regex match |
-| `isArray` | Is array type |
-| `isObject` | Is object type |
-| `hasLength` | Array/string length |
-| `hasProperty` | Object has property |
+| `type` | Type check (`string`, `number`, `boolean`, `array`, `object`, `null`) |
+| `exists` | Value is present |
+| `notExists` | Value is absent |
+| `isNull` | Value is null |
+| `isNotNull` | Value is not null |
+| `greaterThan` | Numeric `>` |
+| `lessThan` | Numeric `<` |
+| `greaterThanOrEqual` | Numeric `>=` |
+| `lessThanOrEqual` | Numeric `<=` |
+| `length` | Array/string length equals |
+| `isEmpty` | Array/string is empty |
+| `notEmpty` | Array/string is not empty |
+| `hasProperty` | Object has key |
+| `notHasProperty` | Object lacks key |
 
-## Reporters
+## Built-in Functions
 
-### Console Reporter
+Use `${functionName(args)}` in any string value.
 
-Default output to terminal with colors and progress.
+| Function | Description | Example Output |
+|----------|-------------|----------------|
+| `uuid()` | UUID v4 | `550e8400-e29b-41d4-a716-446655440000` |
+| `now()` | Current time (ISO 8601) | `2026-04-12T10:30:00Z` |
+| `timestamp()` | Unix timestamp (seconds) | `1744454400` |
+| `isoDate()` | Current date (ISO) | `2026-04-12` |
+| `random()` | Random float 0-1 | `0.7234` |
+| `randomString(len)` | Random alphanumeric string | `aB3kZ9mQ` |
+| `env(name)` | Environment variable | _(value of $name)_ |
+| `file(path)` | Read file contents | _(file contents)_ |
+| `base64(value)` | Base64 encode | `aGVsbG8=` |
+| `base64Decode(value)` | Base64 decode | `hello` |
+| `md5(value)` | MD5 hash | `5d41402abc4b2a76...` |
+| `sha256(value)` | SHA-256 hash | `2cf24dba5fb0a30e...` |
+| `dateAdd(duration)` | Current time + duration | `2026-04-13T10:30:00Z` |
+| `dateSub(duration)` | Current time - duration | `2026-04-11T10:30:00Z` |
+| `totp(secret)` | TOTP code | `483920` |
+| `jsonStringify(value)` | JSON encode | `"{\"key\":\"val\"}"` |
+| `lower(value)` | Lowercase | `hello` |
+| `upper(value)` | Uppercase | `HELLO` |
+| `trim(value)` | Trim whitespace | `hello` |
 
-### JUnit Reporter
+## CLI Reference
 
-XML output for CI/CD integration:
+### Commands
 
-```yaml
-reporters:
-  - type: junit
-    output: "./reports/junit.xml"
+```
+tryve run          Run tests
+tryve validate     Validate test file syntax
+tryve list         List discovered tests
+tryve health       Check adapter connectivity
+tryve init         Create e2e.config.yaml
+tryve test create  Create a test from template
+tryve doc          Browse built-in documentation
+tryve install      Install Claude Code skills
+tryve version      Print version
 ```
 
-### HTML Reporter
+### `tryve run` Flags
 
-Interactive HTML report:
+| Flag | Short | Description | Default |
+|------|-------|-------------|---------|
+| `--config` | `-c` | Config file path | `e2e.config.yaml` |
+| `--env` | `-e` | Environment name | `local` |
+| `--test-dir` | `-d` | Test directory | `tests` |
+| `--parallel` | `-p` | Parallel test count | config default |
+| `--timeout` | `-t` | Per-test timeout (ms) | config default |
+| `--retries` | `-r` | Retry count on failure | config default |
+| `--bail` | | Stop on first failure | `false` |
+| `--grep` | `-g` | Filter by name (regex) | |
+| `--tag` | | Filter by tag (repeatable) | |
+| `--priority` | | Filter by priority (P0-P3) | |
+| `--dry-run` | | Show matching tests without running | `false` |
+| `--skip-setup` | | Skip setup phase | `false` |
+| `--skip-teardown` | | Skip teardown phase | `false` |
+| `--reporter` | | Reporter type (repeatable) | `console` |
+| `--output` | `-o` | Output path for file reporters | |
+| `--verbose` | | Show per-step detail | `false` |
+| `--debug` | | Show full request/response data | `false` |
+| `--watch` | | Re-run on file changes | `false` |
 
-```yaml
-reporters:
-  - type: html
-    output: "./reports/report.html"
+### Reporters
+
+| Type | Output | Use Case |
+|------|--------|----------|
+| `console` | Terminal | Local development |
+| `junit` | XML file | CI/CD integration |
+| `html` | HTML file | Shareable reports |
+| `json` | JSON file | Programmatic consumption |
+
+```bash
+# Multiple reporters
+tryve run --reporter console --reporter junit -o reports/results.xml
 ```
 
-### JSON Reporter
+## Programmatic Usage (Go)
 
-Machine-readable JSON:
+```go
+package main
 
-```yaml
-reporters:
-  - type: json
-    output: "./reports/results.json"
-```
+import (
+    "context"
+    "fmt"
+    "log"
 
-## Programmatic API
+    "github.com/liemle3893/go-tryve/pkg/runner"
+)
 
-```typescript
-import { runTests, validateTests, listTests, checkHealth } from '@liemle3893/go-tryve';
+func main() {
+    r, err := runner.New(
+        runner.WithConfig("e2e.config.yaml"),
+        runner.WithEnv("local"),
+        runner.WithTags("smoke"),
+        runner.WithParallel(4),
+    )
+    if err != nil {
+        log.Fatal(err)
+    }
 
-// Run tests
-const result = await runTests({
-  config: './e2e.config.yaml',
-  testDir: './tests',
-  tag: ['smoke'],
-  parallel: 4,
-});
+    result, err := r.Run(context.Background())
+    if err != nil {
+        log.Fatal(err)
+    }
 
-console.log(`Passed: ${result.passed}, Failed: ${result.failed}`);
-
-// Validate test syntax
-const validation = await validateTests({ testDir: './tests' });
-if (!validation.valid) {
-  console.error('Validation errors:', validation.errors);
+    fmt.Printf("Passed: %d, Failed: %d\n", result.Passed, result.Failed)
 }
+```
 
-// List available tests
-const tests = await listTests({ tag: ['integration'] });
-tests.forEach(t => console.log(`- ${t.name} (${t.tags.join(', ')})`));
+## Development
 
-// Check adapter health
-const health = await checkHealth();
-console.log('All adapters healthy:', health.healthy);
+```bash
+make build       # Build binary to bin/tryve
+make test        # Run all tests
+make test-v      # Run tests with verbose output
+make lint        # Run golangci-lint
+make clean       # Remove build artifacts
 ```
 
 ## License
