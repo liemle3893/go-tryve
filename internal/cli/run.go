@@ -1,0 +1,277 @@
+package cli
+
+import (
+	"fmt"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"sync"
+	"syscall"
+
+	"github.com/spf13/cobra"
+
+	"github.com/liemle3893/e2e-runner/internal/adapter"
+	"github.com/liemle3893/e2e-runner/internal/config"
+	"github.com/liemle3893/e2e-runner/internal/executor"
+	"github.com/liemle3893/e2e-runner/internal/loader"
+	"github.com/liemle3893/e2e-runner/internal/reporter"
+	"github.com/liemle3893/e2e-runner/internal/tryve"
+	"github.com/liemle3893/e2e-runner/internal/watcher"
+)
+
+// newRunCmd constructs the `run` sub-command which discovers, filters, and
+// executes YAML test files with the configured adapters.
+func newRunCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "run",
+		Short: "Discover and run YAML test files",
+		RunE:  runCmdHandler,
+	}
+
+	cmd.Flags().StringP("test-dir", "d", "tests", "directory to search for test files")
+	cmd.Flags().IntP("parallel", "p", 0, "number of tests to run in parallel (0 = use config default)")
+	cmd.Flags().IntP("timeout", "t", 0, "per-test timeout in milliseconds (0 = use config default)")
+	cmd.Flags().IntP("retries", "r", -1, "number of retries on failure (-1 = use config default)")
+	cmd.Flags().Bool("bail", false, "stop after the first test failure")
+	cmd.Flags().StringP("grep", "g", "", "filter tests by name (regexp or substring)")
+	cmd.Flags().StringSlice("tag", nil, "filter tests by tag (can be repeated)")
+	cmd.Flags().String("priority", "", "filter tests by priority (P0, P1, P2, P3)")
+	cmd.Flags().Bool("dry-run", false, "print matching tests without executing them")
+	cmd.Flags().Bool("skip-setup", false, "skip the setup phase for every test")
+	cmd.Flags().Bool("skip-teardown", false, "skip the teardown phase for every test")
+	cmd.Flags().StringSlice("reporter", nil, "additional reporter names (can be repeated)")
+	cmd.Flags().StringP("output", "o", "", "output file path for file-based reporters")
+	cmd.Flags().Bool("verbose", false, "enable verbose per-step output")
+	cmd.Flags().Bool("debug", false, "show full request/response data for every step")
+	cmd.Flags().Bool("watch", false, "re-run tests on file changes")
+
+	return cmd
+}
+
+// runCmdHandler implements the `run` command execution logic.
+func runCmdHandler(cmd *cobra.Command, _ []string) error {
+	// Set up cancellable context tied to OS interrupts.
+	ctx, stop := signal.NotifyContext(cmd.Context(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	// Read persistent flags (defined on root, inherited by all sub-commands).
+	cfgPath, _ := cmd.Root().PersistentFlags().GetString("config")
+	envName, _ := cmd.Root().PersistentFlags().GetString("env")
+
+	// Read run-specific flags.
+	testDir, _ := cmd.Flags().GetString("test-dir")
+	parallel, _ := cmd.Flags().GetInt("parallel")
+	timeout, _ := cmd.Flags().GetInt("timeout")
+	retries, _ := cmd.Flags().GetInt("retries")
+	bail, _ := cmd.Flags().GetBool("bail")
+	grep, _ := cmd.Flags().GetString("grep")
+	tags, _ := cmd.Flags().GetStringSlice("tag")
+	priority, _ := cmd.Flags().GetString("priority")
+	dryRun, _ := cmd.Flags().GetBool("dry-run")
+	skipSetup, _ := cmd.Flags().GetBool("skip-setup")
+	skipTeardown, _ := cmd.Flags().GetBool("skip-teardown")
+	verbose, _ := cmd.Flags().GetBool("verbose")
+	debug, _ := cmd.Flags().GetBool("debug")
+	reporterTypes, _ := cmd.Flags().GetStringSlice("reporter")
+	outputPath, _ := cmd.Flags().GetString("output")
+	watchMode, _ := cmd.Flags().GetBool("watch")
+
+	// Load configuration.
+	cfg, err := config.Load(cfgPath, envName)
+	if err != nil {
+		return fmt.Errorf("loading config: %w", err)
+	}
+
+	// Apply CLI overrides on top of config defaults.
+	if parallel > 0 {
+		cfg.Defaults.Parallel = parallel
+	}
+	if timeout > 0 {
+		cfg.Defaults.Timeout = timeout
+	}
+	if retries >= 0 {
+		cfg.Defaults.Retries = retries
+	}
+
+	// Use config testDir if CLI flag wasn't explicitly set.
+	// testDir in config is relative to the config file, not CWD.
+	if !cmd.Flags().Changed("test-dir") && cfg.TestDir != "" {
+		testDir = filepath.Join(filepath.Dir(cfgPath), cfg.TestDir)
+	}
+
+	// Discover test files once; used by both dry-run and watch/run paths.
+	paths, err := loader.Discover(testDir)
+	if err != nil {
+		return fmt.Errorf("discovering tests in %q: %w", testDir, err)
+	}
+
+	filterOpts := executor.FilterOptions{Tags: tags, Grep: grep, Priority: priority}
+	hasFilter := len(tags) > 0 || grep != "" || priority != ""
+
+	// loadAndFilter parses all discovered paths, filters FIRST (cheap name/tag
+	// check), then validates only matching tests. This avoids expensive validation
+	// of tests that won't be run.
+	loadAndFilter := func() []*tryve.TestDefinition {
+		// Phase 1: parse all files (fast — just YAML unmarshal).
+		var parsed []*tryve.TestDefinition
+		for _, p := range paths {
+			td, parseErr := loader.ParseFile(p)
+			if parseErr != nil {
+				if !hasFilter {
+					fmt.Fprintf(os.Stderr, "WARN  parse error %s: %v\n", p, parseErr)
+				}
+				continue
+			}
+			parsed = append(parsed, td)
+		}
+
+		// Phase 2: filter by tag/grep/priority BEFORE validation.
+		candidates := parsed
+		if hasFilter {
+			candidates = executor.FilterTests(parsed, filterOpts)
+		}
+
+		// Phase 3: validate only the tests that will actually run.
+		var valid []*tryve.TestDefinition
+		for _, td := range candidates {
+			if errs := loader.Validate(td); len(errs) > 0 {
+				for _, ve := range errs {
+					fmt.Fprintf(os.Stderr, "WARN  validation error %s: %v\n", td.SourceFile, ve)
+				}
+				continue
+			}
+			valid = append(valid, td)
+		}
+		return valid
+	}
+
+	// Dry-run: print matching tests and exit without running them.
+	if dryRun {
+		filtered := loadAndFilter()
+		for _, td := range filtered {
+			fmt.Fprintf(cmd.OutOrStdout(), "[%s] %s (%s)\n", td.Priority, td.Name, td.SourceFile)
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "\n%d test(s) matched\n", len(filtered))
+		return nil
+	}
+
+	// Build reporter pipeline: console is always included; additional reporters
+	// are appended based on the --reporter flag values.
+	reporters := []reporter.Reporter{reporter.NewConsoleFromEnvWithDebug(verbose, debug)}
+	for _, rType := range reporterTypes {
+		switch rType {
+		case "junit":
+			reporters = append(reporters, reporter.NewJUnit(outputPath))
+		case "html":
+			reporters = append(reporters, reporter.NewHTML(outputPath))
+		case "json":
+			reporters = append(reporters, reporter.NewJSON(outputPath))
+		default:
+			fmt.Fprintf(os.Stderr, "WARN  unknown reporter %q — skipping\n", rType)
+		}
+	}
+	rep := reporter.NewMulti(reporters...)
+
+	// Build adapter registry.
+	reg := adapter.NewRegistry()
+
+	// HTTP adapter: available when baseURL is configured.
+	if cfg.Environment.BaseURL != "" {
+		reg.Register("http", adapter.NewHTTPAdapter(cfg.Environment.BaseURL))
+	}
+
+	// Shell adapter is always available.
+	reg.Register("shell", adapter.NewShellAdapter(&adapter.ShellConfig{}))
+
+	// Register adapters from the environment config block.
+	for name, adapterCfg := range cfg.Environment.Adapters {
+		switch name {
+		case "http", "shell":
+			// Already registered above; skip duplicate.
+		case "postgresql":
+			reg.Register("postgresql", adapter.NewPostgreSQLAdapter(adapterCfg))
+		case "mongodb":
+			reg.Register("mongodb", adapter.NewMongoDBAdapter(adapterCfg))
+		case "redis":
+			reg.Register("redis", adapter.NewRedisAdapter(adapterCfg))
+		case "kafka":
+			reg.Register("kafka", adapter.NewKafkaAdapter(adapterCfg))
+		case "eventhub":
+			reg.Register("eventhub", adapter.NewEventHubAdapter(adapterCfg))
+		default:
+			fmt.Fprintf(os.Stderr, "WARN  unknown adapter %q in config — skipping\n", name)
+		}
+	}
+	defer reg.CloseAll(ctx)
+
+	// Pre-warm: connect required adapters in parallel before the first test.
+	// This avoids paying connection latency during step execution.
+	if !dryRun {
+		filtered := loadAndFilter()
+		needed := map[string]bool{}
+		for _, td := range filtered {
+			for _, phases := range [][]tryve.StepDefinition{td.Setup, td.Execute, td.Verify, td.Teardown} {
+				for _, s := range phases {
+					needed[s.Adapter] = true
+				}
+			}
+		}
+		var wg sync.WaitGroup
+		for name := range needed {
+			if reg.Has(name) {
+				wg.Add(1)
+				go func(n string) {
+					defer wg.Done()
+					reg.Get(ctx, n) // triggers Connect
+				}(name)
+			}
+		}
+		wg.Wait()
+	}
+
+	// runOnce executes the full filtered test suite and returns the suite result.
+	runOnce := func() *tryve.SuiteResult {
+		runFiltered := loadAndFilter()
+		if len(runFiltered) == 0 {
+			fmt.Fprintln(os.Stderr, "No tests matched the current filters.")
+			return &tryve.SuiteResult{}
+		}
+
+		if skipSetup {
+			for _, td := range runFiltered {
+				td.Setup = nil
+			}
+		}
+		if skipTeardown {
+			for _, td := range runFiltered {
+				td.Teardown = nil
+			}
+		}
+
+		orch := executor.NewOrchestrator(reg, rep, cfg)
+		orch.SetBail(bail)
+		return orch.Run(ctx, runFiltered)
+	}
+
+	if !watchMode {
+		result := runOnce()
+		if result.Failed > 0 {
+			os.Exit(1)
+		}
+		return nil
+	}
+
+	// Watch mode: run tests initially, then re-run on file changes.
+	fmt.Fprintln(cmd.OutOrStdout(), "Watch mode enabled — press Ctrl+C to stop.")
+	runOnce()
+
+	w, err := watcher.New([]string{testDir}, func() {
+		fmt.Fprintf(cmd.OutOrStdout(), "\nFile change detected, re-running tests...\n\n")
+		runOnce()
+	})
+	if err != nil {
+		return fmt.Errorf("starting watcher: %w", err)
+	}
+	// Start blocks until ctx is cancelled (Ctrl+C).
+	return w.Start(ctx)
+}

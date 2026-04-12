@@ -36,3 +36,9 @@ reports
 
 # Worktrees
 .worktrees/
+
+# Go
+bin/
+*.exe
+*.test
+*.out
