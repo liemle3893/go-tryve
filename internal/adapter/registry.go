@@ -59,11 +59,7 @@ func (r *Registry) Get(ctx context.Context, name string) (Adapter, error) {
 	}
 
 	if err := a.Connect(ctx); err != nil {
-		return nil, tryve.ConnectionError(
-			name,
-			fmt.Sprintf("adapter %q failed to connect: %v", name, err),
-			err,
-		)
+		return nil, err
 	}
 
 	r.connected[name] = true

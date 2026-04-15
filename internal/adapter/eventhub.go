@@ -54,6 +54,9 @@ func (a *EventHubAdapter) Connect(_ context.Context) error {
 		return tryve.ConnectionError("eventhub",
 			"connectionString is required in adapter configuration", nil)
 	}
+	if err := CheckUnresolvedEnvVars("eventhub", "connectionString", a.connectionString); err != nil {
+		return err
+	}
 	producer, err := azeventhubs.NewProducerClientFromConnectionString(
 		a.connectionString, a.eventHubName, nil,
 	)

@@ -293,15 +293,11 @@ func findVarDeps(s string, vars map[string]any) []string {
 		}
 	}
 
+	// Only scan {{expr}} patterns for variable cross-references.
+	// ${expr} patterns are environment variable references resolved by the config
+	// loader and must not be treated as variable dependencies.
 	doubleBraceRe.ReplaceAllStringFunc(s, func(match string) string {
 		m := doubleBraceRe.FindStringSubmatch(match)
-		if len(m) >= 2 {
-			addIfVar(m[1])
-		}
-		return match
-	})
-	dollarBraceRe.ReplaceAllStringFunc(s, func(match string) string {
-		m := dollarBraceRe.FindStringSubmatch(match)
 		if len(m) >= 2 {
 			addIfVar(m[1])
 		}

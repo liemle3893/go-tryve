@@ -38,6 +38,13 @@ func (a *MongoDBAdapter) Name() string { return "mongodb" }
 // Connect establishes the MongoDB client and resolves the target database handle.
 // It returns a ConnectionError when the URI is invalid or the driver fails to initialise.
 func (a *MongoDBAdapter) Connect(_ context.Context) error {
+	if a.connStr == "" {
+		return tryve.ConnectionError("mongodb", "connectionString must not be empty", nil)
+	}
+	if err := CheckUnresolvedEnvVars("mongodb", "connectionString", a.connStr); err != nil {
+		return err
+	}
+
 	client, err := mongo.Connect(options.Client().ApplyURI(a.connStr))
 	if err != nil {
 		return tryve.ConnectionError("mongodb", "failed to connect", err)

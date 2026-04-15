@@ -224,6 +224,7 @@ func runCmdHandler(cmd *cobra.Command, _ []string) error {
 
 	// Pre-warm: connect required adapters in parallel before the first test.
 	// This avoids paying connection latency during step execution.
+	// Connection failures are reported as warnings so the user sees them up front.
 	if !dryRun {
 		filtered := loadAndFilter()
 		needed := map[string]bool{}
@@ -234,17 +235,29 @@ func runCmdHandler(cmd *cobra.Command, _ []string) error {
 				}
 			}
 		}
+		type connResult struct {
+			name string
+			err  error
+		}
+		results := make(chan connResult, len(needed))
 		var wg sync.WaitGroup
 		for name := range needed {
 			if reg.Has(name) {
 				wg.Add(1)
 				go func(n string) {
 					defer wg.Done()
-					reg.Get(ctx, n) // triggers Connect
+					_, err := reg.Get(ctx, n)
+					if err != nil {
+						results <- connResult{name: n, err: err}
+					}
 				}(name)
 			}
 		}
 		wg.Wait()
+		close(results)
+		for r := range results {
+			fmt.Fprintf(os.Stderr, "WARN  adapter %q: %v\n", r.name, r.err)
+		}
 	}
 
 	// runOnce executes the full filtered test suite and returns the suite result.

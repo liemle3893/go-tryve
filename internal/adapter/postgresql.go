@@ -67,6 +67,9 @@ func (a *PostgreSQLAdapter) Connect(ctx context.Context) error {
 	if a.connectionString == "" {
 		return tryve.ConnectionError(postgresqlAdapterName, "connectionString must not be empty", nil)
 	}
+	if err := CheckUnresolvedEnvVars(postgresqlAdapterName, "connectionString", a.connectionString); err != nil {
+		return err
+	}
 
 	cfg, err := pgxpool.ParseConfig(a.connectionString)
 	if err != nil {

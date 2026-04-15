@@ -104,7 +104,7 @@ func TestRegistry_GetConnectionFailure(t *testing.T) {
 	ctx := context.Background()
 	reg := adapter.NewRegistry()
 
-	connectErr := errors.New("dial tcp refused")
+	connectErr := tryve.ConnectionError("api", "dial tcp refused", nil)
 	mock := &mockAdapter{name: "api", connectErr: connectErr}
 	reg.Register("api", mock)
 

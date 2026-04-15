@@ -64,6 +64,15 @@ func RunTest(
 
 	start := time.Now()
 
+	// result is set by the main body below; the deferred closure guarantees
+	// OnTestComplete fires on every exit path (including early failures).
+	var result *tryve.TestResult
+	defer func() {
+		if result != nil {
+			_ = rep.OnTestComplete(runCtx, td, result)
+		}
+	}()
+
 	// 4. Build the interpolation context seeded with config + test variables.
 	interpCtx := tryve.NewInterpolationContext()
 	interpCtx.BaseURL = baseURL
@@ -90,11 +99,13 @@ func RunTest(
 	if len(interpCtx.Variables) > 0 {
 		resolved, err := interpolate.ResolveVariables(interpCtx.Variables, interpCtx)
 		if err != nil {
-			return &tryve.TestResult{
-				Test:   td,
-				Status: tryve.StatusFailed,
-				Error:  fmt.Errorf("variable resolution failed: %w", err),
+			result = &tryve.TestResult{
+				Test:     td,
+				Status:   tryve.StatusFailed,
+				Duration: time.Since(start),
+				Error:    fmt.Errorf("variable resolution failed: %w", err),
 			}
+			return result
 		}
 		interpCtx.Variables = resolved
 	}
@@ -166,16 +177,13 @@ func RunTest(
 		status = tryve.StatusFailed
 	}
 
-	result := &tryve.TestResult{
+	result = &tryve.TestResult{
 		Test:     td,
 		Status:   status,
 		Duration: time.Since(start),
 		Steps:    steps,
 		Error:    runErr,
 	}
-
-	// 8. Notify reporter of completion.
-	_ = rep.OnTestComplete(runCtx, td, result)
 
 	return result
 }

@@ -57,6 +57,9 @@ func (a *RedisAdapter) Connect(_ context.Context) error {
 	if a.connStr == "" {
 		return tryve.ConnectionError("redis", "connect: connectionString is required", nil)
 	}
+	if err := CheckUnresolvedEnvVars("redis", "connectionString", a.connStr); err != nil {
+		return err
+	}
 
 	opts, err := goredis.ParseURL(a.connStr)
 	if err != nil {

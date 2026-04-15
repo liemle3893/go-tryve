@@ -2,10 +2,39 @@ package adapter
 
 import (
 	"context"
+	"fmt"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/liemle3893/go-tryve/internal/tryve"
 )
+
+// unresolvedEnvVarRe matches ${VAR_NAME} placeholders that were not resolved
+// during config loading (i.e. the environment variable was not set).
+var unresolvedEnvVarRe = regexp.MustCompile(`\$\{(\w+)\}`)
+
+// CheckUnresolvedEnvVars inspects value for leftover ${VAR} placeholders and
+// returns a clear ConnectionError naming every missing environment variable.
+// Returns nil when no placeholders remain.
+func CheckUnresolvedEnvVars(adapterName, fieldName, value string) error {
+	matches := unresolvedEnvVarRe.FindAllStringSubmatch(value, -1)
+	if len(matches) == 0 {
+		return nil
+	}
+	vars := make([]string, 0, len(matches))
+	for _, m := range matches {
+		vars = append(vars, m[1])
+	}
+	return tryve.ConnectionError(
+		adapterName,
+		fmt.Sprintf(
+			"%s contains unresolved environment variable(s): %s — set them in your shell or .env file",
+			fieldName, strings.Join(vars, ", "),
+		),
+		nil,
+	)
+}
 
 // Adapter is the core interface all protocol adapters must implement.
 // Each method must be safe to call concurrently from a single goroutine;
