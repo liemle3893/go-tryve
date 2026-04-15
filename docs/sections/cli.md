@@ -55,6 +55,7 @@ e2e run [options] [patterns...]
 | `--skip-setup` | Skip setup phase | `false` |
 | `--skip-teardown` | Skip teardown phase | `false` |
 | `--dry-run` | List tests without execution | `false` |
+| `--failed-only` | Rerun only previously failed tests | `false` |
 | `--reporter <type>` | Reporter type (repeatable) | `console` |
 | `-o, --output <path>` | Report output path | |
 | `--debug` | Enable debug logging | `false` |
@@ -137,6 +138,15 @@ e2e run --debug --verbose
 # List tests without running
 e2e run --dry-run
 e2e run --dry-run --grep "user"
+```
+
+**Rerun failures:**
+```bash
+# After a run with failures, rerun only those that failed
+e2e run --failed-only
+
+# Combine with other options
+e2e run --failed-only --retries 2
 ```
 
 **Test directory:**

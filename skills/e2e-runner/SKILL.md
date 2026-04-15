@@ -55,6 +55,7 @@ Run with: `tryve run --env local`
 | `-t, --timeout` | Per-test timeout in ms (0 = config default) |
 | `-r, --retries` | Retry count on failure (-1 = config default) |
 | `--bail` | Stop after first failure |
+| `--failed-only` | Rerun only previously failed tests |
 | `--dry-run` | List matching tests without execution |
 | `--skip-setup` | Skip setup phase |
 | `--skip-teardown` | Skip teardown phase |
