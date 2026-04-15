@@ -13,6 +13,8 @@ variables:
   random_num: "{{$random(1, 100)}}"
 ```
 
+> **Evaluated once per test:** Built-in functions in the `variables` block are called **exactly once** when the test starts. Every subsequent reference to `{{unique_id}}` returns the same resolved value for the entire test — across `setup`, `execute`, `verify`, and `teardown` phases. Functions used directly in step params (outside a `variables` block) are re-evaluated at each step.
+
 ---
 
 ## Identity Functions

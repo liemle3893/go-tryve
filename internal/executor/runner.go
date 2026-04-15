@@ -2,11 +2,13 @@ package executor
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/liemle3893/go-tryve/internal/adapter"
+	"github.com/liemle3893/go-tryve/internal/interpolate"
 	"github.com/liemle3893/go-tryve/internal/reporter"
 	"github.com/liemle3893/go-tryve/internal/tryve"
 )
@@ -81,6 +83,20 @@ func RunTest(
 	// Test-level variables override config variables.
 	for k, v := range td.Variables {
 		interpCtx.Variables[k] = v
+	}
+
+	// Resolve variable cross-references and built-in functions (e.g. $uuid()) once
+	// so all phases see the same generated values.
+	if len(interpCtx.Variables) > 0 {
+		resolved, err := interpolate.ResolveVariables(interpCtx.Variables, interpCtx)
+		if err != nil {
+			return &tryve.TestResult{
+				Test:   td,
+				Status: tryve.StatusFailed,
+				Error:  fmt.Errorf("variable resolution failed: %w", err),
+			}
+		}
+		interpCtx.Variables = resolved
 	}
 
 	// 5. Resolve retry settings.

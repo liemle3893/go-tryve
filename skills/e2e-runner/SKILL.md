@@ -166,6 +166,10 @@ run_id: "{{base_id}}_RUN"          # → "TEST_RUN"
 full_id: "{{run_id}}_{{$uuid()}}"  # → "TEST_RUN_<uuid>"
 # Circular references are detected and throw errors
 # {{baseUrl}} and captured refs are deferred to step time
+
+# Built-in functions in the variables block are evaluated ONCE at test
+# initialization — every phase (setup/execute/verify/teardown) sees the
+# same resolved value. Use this to keep IDs consistent across phases.
 ```
 
 ## Assertion Operators
@@ -274,7 +278,7 @@ Non-zero exit code is NOT an automatic failure — assert on `exitCode` explicit
     - path: "$.rowsAffected"
       equals: 1
 
-# Query rows
+# Query rows (returns {rows: [...], rowCount: N})
 - adapter: postgresql
   action: query
   sql: "SELECT * FROM users WHERE email = $1"
@@ -287,7 +291,7 @@ Non-zero exit code is NOT an automatic failure — assert on `exitCode` explicit
   capture:
     user_id: "$.rows[0].id"
 
-# Get single row
+# Get single row (returns row fields at top level; throws if 0 rows)
 - adapter: postgresql
   action: queryOne
   sql: "SELECT * FROM users WHERE id = $1"
@@ -298,7 +302,7 @@ Non-zero exit code is NOT an automatic failure — assert on `exitCode` explicit
     - path: "$.deleted_at"
       isNull: true
 
-# Count rows
+# Count rows (counts rows returned by the query, not a SQL COUNT aggregate)
 - adapter: postgresql
   action: count
   sql: "SELECT * FROM users WHERE active = true"

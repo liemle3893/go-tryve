@@ -130,6 +130,10 @@ variables:
   random_id: "{{$random(1000, 9999)}}"
 ```
 
+> **Evaluated once at test start:** Functions in the `variables` block are called exactly once when the test initialises. Every reference to `{{unique_email}}` — in `setup`, `execute`, `verify`, and `teardown` — resolves to the **same** generated value. Use this to keep IDs consistent across phases (e.g. INSERT in setup, GET in execute, DELETE in teardown all use the same UUID).
+>
+> Functions placed directly in step params (outside `variables`) are re-evaluated per step.
+
 ### Variable Cross-References
 
 Variables can reference other variables. The runner resolves cross-references automatically using dependency order:

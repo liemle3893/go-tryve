@@ -41,10 +41,11 @@ Execute SQL and return all rows.
   sql: "SELECT * FROM users WHERE status = $1"
   params: ["active"]
   capture:
-    first_user_id: "[0].id"
+    first_user_id: "$.rows[0].id"
   assert:
-    - row: 0
-      column: status
+    - path: "$.rowCount"
+      greaterThan: 0
+    - path: "$.rows[0].status"
       equals: "active"
 ```
 
@@ -61,53 +62,73 @@ Execute SQL and return exactly one row.
     db_email: "email"
     db_name: "name"
   assert:
-    - column: email
+    - path: "$.email"
       equals: "{{user_email}}"
 ```
 
 ## Action: `count`
 
-Count rows matching a query. The SQL must return a `count` column (e.g., via `SELECT COUNT(*)`). Returns the parsed integer count.
+Run a SELECT query and return the number of rows it produces as `{"count": N}`. Use a plain SELECT (not `SELECT COUNT(*)`); the adapter counts the returned rows itself.
 
 ```yaml
 - adapter: postgresql
   action: count
-  sql: "SELECT COUNT(*) FROM users WHERE status = $1"
+  sql: "SELECT * FROM users WHERE status = $1"
   params: ["active"]
+  assert:
+    - path: "$.count"
+      greaterThan: 0
 ```
 
-Note: The `count` action does not support `capture` or `assert`. Use the `query` action with assertions if you need to validate the count value.
+Note: If you need the value from a SQL `COUNT(*)` aggregate, use the `queryOne` action instead and assert on the returned column directly.
 
 ## PostgreSQL Assertions
 
+Assertions use JSONPath (`path:`) evaluated against the action's result data.
+
+- **`query`** returns `{ rows: [...], rowCount: N }` — use `$.rows[0].col`, `$.rowCount`, etc.
+- **`queryOne`** returns the first row's columns at the top level — use `$.col_name`.
+
 ```yaml
+# query assertions
 assert:
-  - row: 0                           # Row index (default: 0)
-    column: "email"                  # Column name
+  - path: "$.rowCount"
+    greaterThan: 0
+  - path: "$.rows[0].email"
     equals: "test@example.com"
-  - column: "age"
+  - path: "$.rows[0].age"
     greaterThan: 18
-    lessThan: 100
-  - column: "name"
-    contains: "John"
-    matches: "^[A-Z]"
-  - column: "deleted_at"
+  - path: "$.rows[0].deleted_at"
     isNull: true
-  - column: "id"
+
+# queryOne assertions (row fields at top level)
+assert:
+  - path: "$.email"
+    equals: "test@example.com"
+  - path: "$.id"
     isNotNull: true
 ```
 
 ## Value Capture
 
-Capture column values from query results:
+Capture values from query results using JSONPath:
 
 ```yaml
+# From queryOne — row fields are at top level
 - adapter: postgresql
   action: queryOne
   sql: "SELECT id, email FROM users WHERE id = $1"
   capture:
-    db_id: "id"                  # Column name
+    db_id: "id"           # short form, equivalent to $.id
     db_email: "email"
+
+# From query — access via $.rows[N].col
+- adapter: postgresql
+  action: query
+  sql: "SELECT id, email FROM users LIMIT 5"
+  capture:
+    first_id: "$.rows[0].id"
+    first_email: "$.rows[0].email"
 ```
 
 Use captured values with `{{captured.db_id}}` in subsequent steps.
