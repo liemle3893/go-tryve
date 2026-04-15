@@ -217,6 +217,8 @@ type FilterOptions struct {
 	Grep string
 	// Priority filters tests by exact priority string match.
 	Priority string
+	// Names, when non-empty, restricts tests to those whose name is in the set.
+	Names map[string]struct{}
 }
 
 // FilterTests returns the subset of tests that satisfy all non-empty filter criteria.
@@ -233,6 +235,11 @@ func FilterTests(tests []*tryve.TestDefinition, opts FilterOptions) []*tryve.Tes
 	}
 
 	for _, td := range tests {
+		if len(opts.Names) > 0 {
+			if _, ok := opts.Names[td.Name]; !ok {
+				continue
+			}
+		}
 		if !matchesTags(td, opts.Tags) {
 			continue
 		}

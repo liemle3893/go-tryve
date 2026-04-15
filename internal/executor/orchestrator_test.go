@@ -250,8 +250,49 @@ func TestOrchestrator_DependencyOrdering(t *testing.T) {
 	}
 }
 
-// TestOrchestrator_SkipOnDependencyFailure verifies that a test is skipped
-// when one of its dependencies failed.
+// TestFilterTests_ByNames verifies that FilterTests retains only tests whose
+// name appears in the Names set, ignoring tests not in the set.
+func TestFilterTests_ByNames(t *testing.T) {
+	allTests := []*tryve.TestDefinition{
+		newEchoTest("alpha"),
+		newEchoTest("beta"),
+		newEchoTest("gamma"),
+	}
+
+	names := map[string]struct{}{
+		"alpha": {},
+		"gamma": {},
+	}
+
+	filtered := executor.FilterTests(allTests, executor.FilterOptions{Names: names})
+
+	if len(filtered) != 2 {
+		t.Fatalf("expected 2 tests, got %d", len(filtered))
+	}
+	got := map[string]bool{}
+	for _, td := range filtered {
+		got[td.Name] = true
+	}
+	if !got["alpha"] || !got["gamma"] {
+		t.Errorf("unexpected filtered set: %v", got)
+	}
+}
+
+// TestFilterTests_NamesEmpty verifies that an empty Names set applies no name
+// filter (all tests pass through).
+func TestFilterTests_NamesEmpty(t *testing.T) {
+	allTests := []*tryve.TestDefinition{
+		newEchoTest("a"),
+		newEchoTest("b"),
+	}
+
+	filtered := executor.FilterTests(allTests, executor.FilterOptions{})
+
+	if len(filtered) != 2 {
+		t.Errorf("expected 2 tests with empty Names filter, got %d", len(filtered))
+	}
+}
+
 func TestOrchestrator_SkipOnDependencyFailure(t *testing.T) {
 	reg := newTestRegistry("")
 	var buf bytes.Buffer
