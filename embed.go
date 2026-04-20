@@ -17,3 +17,15 @@ var SkillsFS embed.FS
 //
 //go:embed docs/sections
 var DocsSectionsFS embed.FS
+
+// AutoflowSkillsFS contains the vendored autoflow skills that `tryve
+// install --autoflow` drops into .claude/skills/.
+//
+//go:embed skills/autoflow
+var AutoflowSkillsFS embed.FS
+
+// AutoflowAgentsFS contains the vendored autoflow agents for
+// .claude/agents/autoflow-*.md.
+//
+//go:embed agents/autoflow
+var AutoflowAgentsFS embed.FS

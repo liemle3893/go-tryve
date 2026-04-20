@@ -26,6 +26,7 @@ func NewRoot(version string) *cobra.Command {
 		newTestCmd(),
 		newDocCmd(),
 		newInstallCmd(),
+		newAutoflowCmd(),
 	)
 
 	return root

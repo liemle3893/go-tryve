@@ -12,34 +12,39 @@ import (
 )
 
 // newInstallCmd constructs the `install` sub-command which copies bundled
-// skills and documentation references into the user's project under
-// `.claude/skills/e2e-runner/`.
+// skills, documentation references and (optionally) the autoflow agents
+// + skills into the user's project under `.claude/`.
 func newInstallCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "install",
 		Short: "Install Claude Code skills into the current project",
-		Long: `Install the bundled Claude Code skill into .claude/skills/e2e-runner/
-in the current working directory.
+		Long: `Install the bundled Claude Code assets into the current project.
 
-Copies SKILL.md plus the documentation sections (as references/) from the
-tryve binary's embedded bundle. Use --skills (default) to install skills.`,
+  --skills     e2e-runner skill into .claude/skills/e2e-runner/
+  --autoflow   autoflow skills + agents into .claude/{skills,agents}/,
+               and auto-clean any legacy .claude/scripts/autoflow/ dir.
+
+Both flags may be combined. Without flags, prints usage.`,
 		Args: cobra.NoArgs,
 		RunE: installCmdHandler,
 	}
 
-	cmd.Flags().Bool("skills", false, "install Claude Code skills to .claude/skills/e2e-runner/")
+	cmd.Flags().Bool("skills", false, "install e2e-runner skill")
+	cmd.Flags().Bool("autoflow", false, "install autoflow skills + agents")
 	return cmd
 }
 
 // installCmdHandler implements the `install` command execution logic.
 func installCmdHandler(cmd *cobra.Command, _ []string) error {
 	skills, _ := cmd.Flags().GetBool("skills")
-	if !skills {
+	autoflow, _ := cmd.Flags().GetBool("autoflow")
+	if !skills && !autoflow {
 		out := cmd.OutOrStdout()
-		fmt.Fprintln(out, "Usage: tryve install --skills")
+		fmt.Fprintln(out, "Usage: tryve install [--skills] [--autoflow]")
 		fmt.Fprintln(out)
 		fmt.Fprintln(out, "Options:")
-		fmt.Fprintln(out, "  --skills    Install Claude Code skills to .claude/skills/e2e-runner/")
+		fmt.Fprintln(out, "  --skills     install e2e-runner skill to .claude/skills/e2e-runner/")
+		fmt.Fprintln(out, "  --autoflow   install autoflow skills + agents to .claude/{skills,agents}/")
 		return nil
 	}
 
@@ -48,26 +53,69 @@ func installCmdHandler(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("install: cannot determine working directory: %w", err)
 	}
 
+	if skills {
+		if err := installSkills(cmd, cwd); err != nil {
+			return err
+		}
+	}
+	if autoflow {
+		if err := installAutoflow(cmd, cwd); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// installSkills copies the e2e-runner skill + doc references (previous
+// default behaviour of `--skills`).
+func installSkills(cmd *cobra.Command, cwd string) error {
 	destDir := filepath.Join(cwd, ".claude", "skills", "e2e-runner")
 	if err := os.MkdirAll(destDir, 0o755); err != nil {
 		return fmt.Errorf("install: creating %s: %w", destDir, err)
 	}
-
-	// Copy the skill bundle (SKILL.md and any sibling files) from
-	// skills/e2e-runner into destDir.
 	if err := copyEmbedDir(assets.SkillsFS, "skills/e2e-runner", destDir, nil); err != nil {
 		return fmt.Errorf("install: copying skill bundle: %w", err)
 	}
-
-	// Copy the documentation sections into destDir/references, skipping the
-	// internal index.json which is not used by the skill itself.
 	refsDir := filepath.Join(destDir, "references")
 	skip := map[string]struct{}{"docs/sections/index.json": {}}
 	if err := copyEmbedDir(assets.DocsSectionsFS, "docs/sections", refsDir, skip); err != nil {
 		return fmt.Errorf("install: copying documentation references: %w", err)
 	}
-
 	fmt.Fprintf(cmd.OutOrStdout(), "Skills installed to %s\n", destDir)
+	return nil
+}
+
+// installAutoflow drops the autoflow skills + agents into .claude/ and
+// removes any legacy bash-script install directory.
+func installAutoflow(cmd *cobra.Command, cwd string) error {
+	skillsDst := filepath.Join(cwd, ".claude", "skills")
+	agentsDst := filepath.Join(cwd, ".claude", "agents")
+	if err := os.MkdirAll(skillsDst, 0o755); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(agentsDst, 0o755); err != nil {
+		return err
+	}
+
+	if err := copyEmbedDir(assets.AutoflowSkillsFS, "skills/autoflow", skillsDst, nil); err != nil {
+		return fmt.Errorf("install: copying autoflow skills: %w", err)
+	}
+	if err := copyEmbedDir(assets.AutoflowAgentsFS, "agents/autoflow", agentsDst, nil); err != nil {
+		return fmt.Errorf("install: copying autoflow agents: %w", err)
+	}
+
+	// Auto-clean the legacy bash-script layout so stale paths in old
+	// SKILL.md instances cannot be resolved and silently re-used.
+	legacy := filepath.Join(cwd, ".claude", "scripts", "autoflow")
+	if _, err := os.Stat(legacy); err == nil {
+		if err := os.RemoveAll(legacy); err != nil {
+			return fmt.Errorf("install: removing legacy %s: %w", legacy, err)
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "Removed legacy %s (replaced by tryve autoflow subcommands)\n", legacy)
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "Autoflow skills installed under %s\n", skillsDst)
+	fmt.Fprintf(cmd.OutOrStdout(), "Autoflow agents installed under %s\n", agentsDst)
 	return nil
 }
 

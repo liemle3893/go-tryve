@@ -5,67 +5,102 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build & Run Commands
 
 ```bash
-npm run build          # Compile TypeScript to dist/
-npm run clean          # Remove dist/
-npm test               # Run unit tests (vitest)
-npm run prepublishOnly # Clean + build (for publishing)
-npm run local:install  # Local installation
+make build             # Build ./bin/tryve
+make test              # Run all tests
+make test-v            # Tests with verbose output
+make lint              # golangci-lint
+make clean             # Remove build artifacts
 ```
 
 ## CLI Commands
 
+Top-level commands live under `internal/cli/`; the binary is built from `cmd/tryve/`.
+
 ```bash
-# Run tests
-./bin/e2e.js run                          # Run all tests
-./bin/e2e.js run --tag smoke --bail       # Filter by tag, stop on failure
+# Core runner
+tryve run                                 # Run all tests
+tryve run --tag smoke --bail              # Filter + early-exit
+tryve validate                            # Validate YAML test files
+tryve list                                # List discovered tests
+tryve health                              # Adapter connectivity check
+tryve init                                # Create e2e.config.yaml
+tryve test create <name>                  # Create test from template
 
-# Other commands
-./bin/e2e.js validate                     # Validate test file syntax
-./bin/e2e.js list                         # List discovered tests
-./bin/e2e.js health                       # Check adapter connectivity
-./bin/e2e.js init                         # Initialize e2e.config.yaml
-./bin/e2e.js test create <name>           # Create test from template
+# Docs
+tryve doc                                 # List doc sections
+tryve doc assertions                      # Assertions reference
+tryve doc adapters.http                   # HTTP adapter docs
 
-# Documentation
-./bin/e2e.js doc                          # List documentation sections
-./bin/e2e.js doc assertions               # Show assertions reference
-./bin/e2e.js doc adapters.http            # Show HTTP adapter docs
+# Install
+tryve install --skills                    # Install e2e-runner Claude skill
+tryve install --autoflow                  # Install autoflow skills + agents
+                                          # (auto-cleans legacy .claude/scripts/autoflow/)
 
-# Skills
-./bin/e2e.js install --skills             # Install Claude Code skills to project
+# Autoflow — ported from winx-autoflow, no bash scripts
+tryve autoflow jira config {set,get,del,show}
+tryve autoflow jira upload <issue-key> <file>...
+tryve autoflow jira download <issue-key> <dest-dir>
+tryve autoflow worktree bootstrap <worktree-path>
+tryve autoflow deliver {init,next,complete}
+tryve autoflow loop-state {init,append,read,round-count} <state-file>
+tryve autoflow scaffold-e2e --ticket KEY --area AREA --count N
+tryve autoflow doctor                     # Preflight checklist
 ```
 
 ## Shared Utilities (use these, don't reimplement)
 
+### Test runner
+
 New adapters and features **must** reuse these shared utilities:
 
-- **`base.adapter.ts`** — `measureDuration()` for timing, `captureValues()` for capture loops, `successResult()`/`failResult()` for return values, `logAction()`/`logResult()` for logging
-- **`assertion-runner.ts`** — `runAssertion(value, assertion, path)` handles `equals`, `contains`, `matches`, `exists`, `type`, `length`, `greaterThan`, `lessThan`, `isNull`, `isNotNull`. Use this instead of hand-rolling assertion logic.
+- **`internal/adapter/base.go`** — `measureDuration()` for timing, `captureValues()` for capture loops, `successResult()`/`failResult()` for return values, `logAction()`/`logResult()` for logging.
+- **`internal/assertion/runner.go`** — `Run(value, assertion, path)` handles `equals`, `contains`, `matches`, `exists`, `type`, `length`, `greaterThan`, `lessThan`, `isNull`, `isNotNull`. Use this instead of hand-rolling assertion logic.
+
+### Autoflow packages
+
+When extending the ported autoflow workflow, reuse these packages — do not recreate their logic in a CLI wrapper:
+
+- **`internal/autoflow/state/`** — JSON state managers (workflow-progress, loop-state, review-state, verify).
+- **`internal/autoflow/jira/`** — Jira config cache + REST v3 client (upload, download, myself).
+- **`internal/autoflow/worktree/`** — bootstrap + safe command allowlist.
+- **`internal/autoflow/deliver/`** — 13-step controller (Instruction type, step funcs, brief parser, gate helper).
+- **`internal/autoflow/e2e/`** — env loader, file lock, git-merge-and-run, loop wrapper.
+- **`internal/autoflow/report/`** — PR/Jira/execution report generators.
+- **`internal/autoflow/scaffold/`** — E2E test stub generator.
+- **`internal/autoflow/extract/`** — REVIEW-*.md parser for review-loop round data.
+- **`internal/autoflow/doctor/`** — preflight check battery.
+
+The CLI wrappers in `internal/cli/autoflow_*.go` are thin Cobra shells. Put real logic in the packages above.
 
 ## Documentation Sync Rule
 
 Every change to CLI commands, adapters, configuration, assertions, built-in functions, or YAML test syntax **must** also be reflected in **all three** of these locations:
 
 1. **Docs** — `docs/sections/` markdown files
-2. **CLI doc registry** — `docs/sections/index.json` (maps section names to files for `e2e doc <section>`)
-3. **Skill template** — `skills/e2e-runner/SKILL.md` (the source skill file shipped with the package)
+2. **CLI doc registry** — `docs/sections/index.json` (maps section names to files for `tryve doc <section>`)
+3. **Skill template** — `skills/e2e-runner/SKILL.md` (the source skill file shipped with the binary)
 
 ### How Skills Are Installed
 
-`e2e install --skills` (see `src/cli/install.command.ts`) copies files to the user's project:
+`tryve install --skills` (see `internal/cli/install.go`) copies files to the user's project:
 - `skills/e2e-runner/SKILL.md` → `.claude/skills/e2e-runner/SKILL.md`
 - `docs/sections/**` → `.claude/skills/e2e-runner/references/**`
 
-**Always edit `skills/e2e-runner/SKILL.md`** — this is the source of truth. Never edit `.claude/skills/` directly; those are generated output. The reference files under `.claude/skills/e2e-runner/references/` come from `docs/sections/` automatically at install time, so updating docs is sufficient for references.
+`tryve install --autoflow` copies:
+- `skills/autoflow/**` → `.claude/skills/autoflow-*/`
+- `agents/autoflow/**` → `.claude/agents/autoflow-*.md`
+- Removes any legacy `.claude/scripts/autoflow/` directory left by the old bash installer.
+
+**Always edit the sources** — `skills/e2e-runner/SKILL.md`, `skills/autoflow/**`, `agents/autoflow/**`. Never edit `.claude/...` directly; those are generated output.
 
 Relevant doc files:
 - `docs/sections/cli.md` — CLI commands and flags
 - `docs/sections/adapters/` — Per-adapter reference docs
-- `docs/sections/index.json` — CLI `doc` command section registry (must list every adapter)
-- `docs/sections/config.md` — Configuration (`e2e.config.yaml`) reference
-- `docs/sections/assertions.md` — Assertion operators and JSONPath syntax
-- `docs/sections/built-in-functions.md` — Built-in functions (`$uuid`, `$now`, `$totp`, etc.)
-- `docs/sections/yaml-test.md` — YAML test file syntax and structure
+- `docs/sections/index.json` — Section registry for `tryve doc`
+- `docs/sections/config.md` — `e2e.config.yaml` reference
+- `docs/sections/assertions.md` — Assertion operators and JSONPath
+- `docs/sections/built-in-functions.md` — Built-in functions
+- `docs/sections/yaml-test.md` — YAML test file syntax
 - `docs/sections/examples.md` — Usage examples
 
 ## Adding a New Adapter — Checklist
@@ -74,15 +109,34 @@ When adding a new adapter, **all** of these files must be created or updated:
 
 | File | Action |
 |------|--------|
-| `src/adapters/<name>.adapter.ts` | Create adapter extending `BaseAdapter` |
-| `src/adapters/index.ts` | Export the adapter class and types |
-| `src/adapters/adapter-registry.ts` | Register adapter in `initializeAdapters()`, add `get<Name>()`, update `parseAdapterType()` |
-| `src/types.ts` | Add config interface, add to `AdapterType` union, add to `EnvironmentConfig.adapters` |
-| `src/core/yaml-loader.ts` | Add to `VALID_ADAPTERS`, add validation case in `validateAdapterStep()` |
-| `src/cli/health.command.ts` | Add display name to `formatAdapterName()` |
+| `internal/adapter/<name>.go` | Create adapter implementing `adapter.Adapter` |
+| `internal/adapter/registry.go` | Register adapter in `Default()` / `BuildFromConfig()` |
+| `internal/config/config.go` | Add config struct, hook into `EnvironmentConfig.Adapters` |
+| `internal/loader/validation.go` | Add to `validAdapters`, add validation case |
+| `internal/cli/health.go` | Add display name |
 | `docs/sections/adapters/<name>.md` | Create full adapter documentation |
 | `docs/sections/adapters/index.md` | Add to adapter table and peer deps section |
-| `docs/sections/index.json` | Register `adapters.<name>` section for CLI `doc` command |
-| `skills/e2e-runner/SKILL.md` | Add adapter to syntax reference and links (source template) |
-| `tests/unit/<name>-adapter.test.ts` | Unit tests |
+| `docs/sections/index.json` | Register `adapters.<name>` |
+| `skills/e2e-runner/SKILL.md` | Add adapter to syntax reference and links |
+| `internal/adapter/<name>_test.go` | Unit tests |
 | `tests/e2e/adapters/TC-<NAME>-001.test.yaml` | E2E integration test |
+
+## Autoflow Port Reference
+
+The autoflow subcommand tree was ported from
+[`winx-autoflow`](https://github.com/the-winx-corp/winx-ai-autoflow) — ~4 KLOC
+of bash + Python collapsed into Go packages under `internal/autoflow/`.
+The full design doc lives at `.planning/autoflow-port/DESIGN.md`.
+
+Key contracts preserved during the port (all in `internal/autoflow/state/paths.go`):
+
+- `.planning/ticket/<KEY>/workflow-progress.json` — shape matches the bash jq
+  output (`ticket`, `started_at`, `worktree`, `branch`, `current_step`,
+  `completed`, `pr_url`, `gsd_quick_id`, `impl_plan_dir`, optional `title`).
+- `.planning/ticket/<KEY>/state/*.json` — loop / review state with
+  `{loop, ticket, max_rounds, rounds[]}`.
+- `.autoflow/jira-config.json` — `{cloudId, siteUrl, projectKey, email, cached_at}`.
+- `.autoflow/bootstrap.json` — `{language, base_branch, config_files, install_cmd, verify_cmd, build_cmd, test_cmd, services_cmd}`.
+
+Ticket keys are validated against `^[A-Z][A-Z0-9]+-\d+$` before use in any
+path-building operation.
