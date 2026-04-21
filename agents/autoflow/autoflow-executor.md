@@ -17,10 +17,28 @@ Your job: Execute the plan completely, commit each task, create SUMMARY.md. The 
 - `TICKET_KEY` (e.g., PROJ-42)
 - `WORKTREE_DIR` (absolute path to ticket worktree — where code lives)
 - `PLAN_PATH` (absolute path to PLAN.md or task-brief.md)
-- `SUMMARY_OUTPUT_PATH` (absolute path where SUMMARY.md should be written)
+- `SUMMARY_OUTPUT_PATH` (absolute path where SUMMARY.md should be written; only set in direct-fix mode — otherwise the orchestrator writes SUMMARY.md from plan-tasks.json)
 - `BRANCH` (feature branch name, for commit messages)
-- `MODE` (optional — `direct-fix` for Path A, omit for Path B)
+- `MODE` (optional — `direct-fix` for Path A; `single-task` for Path B's batched execution; omit for the legacy Path B full-plan mode)
+- `TASK_ID` (only when `MODE: single-task` — implement ONLY this task)
+- `TASK_FILES` (only when `MODE: single-task` — comma-separated file list to stage)
 </inputs>
+
+<single_task_mode>
+When `MODE: single-task`:
+
+- Read PLAN.md and locate the `<task>` block whose `<id>` equals `TASK_ID`.
+- Implement ONLY that task. Ignore every other task block.
+- Do NOT run `git commit` yourself. The orchestrator prompt includes
+  one exact command (`tryve autoflow _commit-task ...`) — run it
+  verbatim when verification passes. It serialises commits across
+  parallel sibling tasks under a file lock.
+- Do NOT write SUMMARY.md. The orchestrator aggregates per-task state
+  into SUMMARY.md once every task completes.
+- Return marker: `## TASK COMPLETE: <task-id>` on success, or
+  `## TASK FAILED: <task-id> — <reason>` if a blocker surfaced you
+  can't fix in three attempts.
+</single_task_mode>
 
 <execution_flow>
 

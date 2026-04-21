@@ -99,6 +99,19 @@ Write PLAN.md to `PLAN_OUTPUT_PATH` using the structure below.
 - Each task is independently verifiable
 - Order tasks by dependency (later tasks may depend on earlier ones)
 
+**Parallelism & dependencies — IMPORTANT:**
+- Give every task an `<id>` of the form `task-NN` (`task-01`, `task-02`, …).
+- Declare what each task waits on via `<deps>` — a comma-separated list
+  of task ids. Leave empty for root tasks that can start immediately.
+- The orchestrator runs tasks with no unmet deps **in parallel** (up to
+  5 concurrent executors), so MAXIMISE parallelism: mark two tasks as
+  deps of each other ONLY when one genuinely depends on the other's
+  output (shared type/file, sequential migration, etc.).
+- **Tasks in the same parallel batch MUST touch disjoint files.** The
+  shared worktree serialises commits but not edits — overlapping writes
+  by peer executors will clobber each other. If two tasks need the
+  same file, chain them with `<deps>`.
+
 **Task types:**
 - `auto` — execute without stopping (default)
 - `checkpoint:decision` — stop and ask user for architectural decision (Rule 4)
@@ -130,8 +143,10 @@ Key files (executor should read these first):
 ## Tasks
 
 <task>
+  <id>task-01</id>
   <name>[Task 1: descriptive name]</name>
   <files>[path/to/file1], [path/to/file2]</files>
+  <deps></deps>
   <action>
     [Specific implementation instructions. Reference actual types, functions, patterns.
      Be precise enough that the executor doesn't need to make architectural decisions.]
@@ -145,8 +160,10 @@ Key files (executor should read these first):
 </task>
 
 <task>
+  <id>task-02</id>
   <name>[Task 2: descriptive name]</name>
   <files>[path/to/file3]</files>
+  <deps>task-01</deps>
   <action>
     [Specific implementation instructions]
   </action>

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -31,6 +32,8 @@ func newAutoflowDeliverCmd() *cobra.Command {
 		newDeliverE2ERoundCmd(),
 		newDeliverReportCmd(),
 		newDeliverVerifyGatesCmd(),
+		newDeliverTimingsCmd(),
+		newDeliverCommitTaskCmd(),
 	)
 	return cmd
 }
@@ -318,6 +321,91 @@ func newDeliverReportCmd() *cobra.Command {
 	_ = c.MarkFlagRequired("ticket")
 	_ = c.MarkFlagRequired("branch")
 	return c
+}
+
+// _commit-task is called by single-task executors at the end of their
+// task. It serialises git add+commit across parallel executors sharing
+// one worktree, and records the resulting SHA into plan-tasks.json.
+func newDeliverCommitTaskCmd() *cobra.Command {
+	c := &cobra.Command{
+		Use:    "_commit-task",
+		Short:  "Internal: stage files, commit under a file lock, record SHA",
+		Hidden: true,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			root, err := state.RepoRoot()
+			if err != nil {
+				return err
+			}
+			key, _ := cmd.Flags().GetString("ticket")
+			id, _ := cmd.Flags().GetString("task-id")
+			msg, _ := cmd.Flags().GetString("message")
+			filesCSV, _ := cmd.Flags().GetString("files")
+			wt, _ := cmd.Flags().GetString("worktree")
+
+			var files []string
+			for _, f := range splitComma(filesCSV) {
+				files = append(files, f)
+			}
+
+			// Flip status to running (idempotent) so parallel peers see
+			// this task is in-flight and NextBatch skips it. If this
+			// errors with ErrTaskAlreadyDone, another run already
+			// committed — nothing to do.
+			if err := state.MarkTaskRunning(root, key, id); err != nil {
+				fmt.Fprintf(cmd.OutOrStdout(), "NOTE: %v\n", err)
+			}
+
+			sha, err := deliver.CommitTask(deliver.CommitTaskRequest{
+				Root:     root,
+				Key:      key,
+				TaskID:   id,
+				Message:  msg,
+				Files:    files,
+				Worktree: wt,
+			})
+			if err != nil {
+				_ = state.MarkTaskFailed(root, key, id, err.Error())
+				return err
+			}
+			if sha == "" {
+				fmt.Fprintf(cmd.OutOrStdout(), "TASK_COMMIT=(empty) TASK_ID=%s\n", id)
+			} else {
+				fmt.Fprintf(cmd.OutOrStdout(), "TASK_COMMIT=%s TASK_ID=%s\n", sha, id)
+			}
+			return nil
+		},
+	}
+	c.Flags().String("ticket", "", "")
+	c.Flags().String("task-id", "", "")
+	c.Flags().String("message", "", "")
+	c.Flags().String("files", "", "comma-separated list (relative to worktree; empty = all changes)")
+	c.Flags().String("worktree", "", "worktree path")
+	_ = c.MarkFlagRequired("ticket")
+	_ = c.MarkFlagRequired("task-id")
+	_ = c.MarkFlagRequired("message")
+	_ = c.MarkFlagRequired("worktree")
+	return c
+}
+
+func splitComma(s string) []string {
+	if s == "" {
+		return nil
+	}
+	parts := make([]string, 0, 4)
+	for _, p := range splitAndTrim(s, ",") {
+		if p != "" {
+			parts = append(parts, p)
+		}
+	}
+	return parts
+}
+
+func splitAndTrim(s, sep string) []string {
+	var out []string
+	for _, p := range strings.Split(s, sep) {
+		out = append(out, strings.TrimSpace(p))
+	}
+	return out
 }
 
 // _verify-gates runs the structural validator against the two canonical

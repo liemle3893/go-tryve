@@ -22,16 +22,26 @@ var allowedSetFields = []string{
 // matches the original jq output so the on-disk layout is unchanged across
 // the bash→Go migration.
 type Progress struct {
-	Ticket      string  `json:"ticket"`
-	StartedAt   string  `json:"started_at"`
-	Worktree    string  `json:"worktree"`
-	Branch      string  `json:"branch"`
-	CurrentStep int     `json:"current_step"`
-	Completed   []int   `json:"completed"`
-	PRURL       *string `json:"pr_url"`
-	GSDQuickID  *string `json:"gsd_quick_id"`
-	ImplPlanDir *string `json:"impl_plan_dir"`
-	Title       *string `json:"title,omitempty"`
+	Ticket      string                `json:"ticket"`
+	StartedAt   string                `json:"started_at"`
+	Worktree    string                `json:"worktree"`
+	Branch      string                `json:"branch"`
+	CurrentStep int                   `json:"current_step"`
+	Completed   []int                 `json:"completed"`
+	PRURL       *string               `json:"pr_url"`
+	GSDQuickID  *string               `json:"gsd_quick_id"`
+	ImplPlanDir *string               `json:"impl_plan_dir"`
+	Title       *string               `json:"title,omitempty"`
+	StepTimings map[string]StepTiming `json:"step_timings,omitempty"`
+}
+
+// StepTiming records when a single step was started and finished. Keys
+// in Progress.StepTimings are decimal step numbers as strings ("1".."13")
+// so the JSON reads naturally without imposing array ordering.
+type StepTiming struct {
+	StartedAt       string `json:"started_at,omitempty"`
+	EndedAt         string `json:"ended_at,omitempty"`
+	DurationSeconds int64  `json:"duration_seconds,omitempty"`
 }
 
 // ErrProgressExists is returned by InitProgress when the state file is
@@ -62,14 +72,18 @@ func InitProgress(root, key, worktree, branch string, force bool) (*Progress, er
 		}
 	}
 
+	now := time.Now().UTC().Format("2006-01-02T15:04:05Z")
 	p := &Progress{
 		Ticket:      key,
-		StartedAt:   time.Now().UTC().Format("2006-01-02T15:04:05Z"),
+		StartedAt:   now,
 		Worktree:    worktree,
 		Branch:      branch,
 		CurrentStep: 1,
 		Completed:   []int{},
 		// PRURL / GSDQuickID / ImplPlanDir left as nil → serialised as null.
+		StepTimings: map[string]StepTiming{
+			"1": {StartedAt: now},
+		},
 	}
 	if err := WriteJSONAtomic(path, p); err != nil {
 		return nil, err
@@ -128,7 +142,8 @@ func CompleteStep(root, key string, step int) error {
 	}
 
 	// Append (set-semantic) and sort.
-	if !slices.Contains(p.Completed, step) {
+	alreadyDone := slices.Contains(p.Completed, step)
+	if !alreadyDone {
 		p.Completed = append(p.Completed, step)
 	}
 	slices.Sort(p.Completed)
@@ -143,7 +158,67 @@ func CompleteStep(root, key string, step int) error {
 	}
 	p.CurrentStep = next
 
+	// Stamp timings. Only on the first completion of a step — re-completing
+	// is a no-op so we don't overwrite historical ended_at. Start next
+	// step's clock only if not already running.
+	if !alreadyDone {
+		now := time.Now().UTC().Format("2006-01-02T15:04:05Z")
+		if p.StepTimings == nil {
+			p.StepTimings = map[string]StepTiming{}
+		}
+		key := fmt.Sprintf("%d", step)
+		t := p.StepTimings[key]
+		if t.StartedAt == "" {
+			// Step completed without a recorded start — fall back to the
+			// previous step's ended_at, or to the ticket's started_at.
+			t.StartedAt = fallbackStart(p, step)
+		}
+		t.EndedAt = now
+		t.DurationSeconds = secondsBetween(t.StartedAt, t.EndedAt)
+		p.StepTimings[key] = t
+
+		if next > step {
+			nextKey := fmt.Sprintf("%d", next)
+			nt := p.StepTimings[nextKey]
+			if nt.StartedAt == "" {
+				nt.StartedAt = now
+				p.StepTimings[nextKey] = nt
+			}
+		}
+	}
+
 	return WriteJSONAtomic(ProgressFile(root, key), p)
+}
+
+// fallbackStart returns the most plausible started_at for a step that was
+// never stamped on entry: the previous step's ended_at, else the ticket's
+// own started_at.
+func fallbackStart(p *Progress, step int) string {
+	for i := step - 1; i >= 1; i-- {
+		if t, ok := p.StepTimings[fmt.Sprintf("%d", i)]; ok && t.EndedAt != "" {
+			return t.EndedAt
+		}
+	}
+	return p.StartedAt
+}
+
+// secondsBetween parses two ISO-8601 timestamps and returns the whole
+// seconds between them. Returns 0 on any parse error (timings are a
+// reporting aid — never block the write on a bad value).
+func secondsBetween(start, end string) int64 {
+	s, err := time.Parse("2006-01-02T15:04:05Z", start)
+	if err != nil {
+		return 0
+	}
+	e, err := time.Parse("2006-01-02T15:04:05Z", end)
+	if err != nil {
+		return 0
+	}
+	d := e.Sub(s).Round(time.Second)
+	if d < 0 {
+		return 0
+	}
+	return int64(d.Seconds())
 }
 
 // SetField updates one whitelisted field. Returns ErrUnknownField for

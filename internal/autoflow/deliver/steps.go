@@ -424,20 +424,124 @@ func (c *Controller) step05(key string, progress *state.Progress) *Instruction {
 		}
 	}
 
+	// PLAN.md exists → parallel-batched execution via plan-tasks.json.
+	return c.step05DispatchBatch(key, wt, br, planPath, summaryPath)
+}
+
+// step05DispatchBatch reads PLAN.md, recovers any stale "running" entries,
+// and decides what to emit next: a per-task dispatch, a parallel fan-out
+// of up to MaxParallelTasks dispatches, or SUMMARY.md + auto_complete
+// once every task is done. Dependencies drive ordering.
+func (c *Controller) step05DispatchBatch(key, wt, br, planPath, summaryPath string) *Instruction {
+	_ = summaryPath // SUMMARY.md path is derived inside WriteSummary; kept for signature symmetry.
+
+	plan, err := ParsePlan(planPath)
+	if err != nil {
+		return escalate("step 5: parse PLAN.md: " + err.Error())
+	}
+
+	// Clear any "running" entry that has no commit and no active lock
+	// holder — evidence the executor for it died without finishing.
+	if err := state.ResetStaleRunning(c.Root, key); err != nil {
+		return escalate("step 5: reset stale running: " + err.Error())
+	}
+
+	ps, err := state.ReadPlanState(c.Root, key)
+	if err != nil {
+		return escalate("step 5: read plan-tasks: " + err.Error())
+	}
+
+	// Failed tasks block progress → surface immediately so the user can
+	// either rewrite PLAN.md or reset the failed entry.
+	var failed []string
+	for id, r := range ps.Tasks {
+		if r.Status == state.TaskFailed {
+			failed = append(failed, id)
+		}
+	}
+	if len(failed) > 0 {
+		return escalate(fmt.Sprintf(
+			"step 5: %d task(s) marked failed: %s — fix PLAN.md or reset them in %s",
+			len(failed), strings.Join(failed, ", "), state.PlanTasksFile(c.Root, key)))
+	}
+
+	batch, status := NextBatch(plan, ps, MaxParallelTasks)
+	if status.AllDone {
+		if _, err := WriteSummary(c.Root, key); err != nil {
+			return escalate("step 5: write SUMMARY.md: " + err.Error())
+		}
+		return autoComplete(5, fmt.Sprintf(
+			"All %d plan tasks complete; SUMMARY.md written.", status.Total))
+	}
+	if len(batch) == 0 {
+		// Nothing ready but not all done — some task is "running" (owned
+		// by an executor from this round). Loop-true means the runtime
+		// only re-enters here after that dispatch drained, so this is a
+		// defensive branch.
+		return escalate(fmt.Sprintf(
+			"step 5: no tasks ready (done=%d/%d, running=%d) — check plan-tasks.json",
+			status.Done, status.Total, status.Running))
+	}
+
+	if len(batch) == 1 {
+		instr := c.buildExecutorDispatch(key, wt, br, planPath, batch[0])
+		instr.Loop = true
+		return instr
+	}
+
+	dispatches := make([]*Instruction, 0, len(batch))
+	for _, t := range batch {
+		dispatches = append(dispatches, c.buildExecutorDispatch(key, wt, br, planPath, t))
+	}
+	return &Instruction{
+		Action:      ActionDispatchParallel,
+		Step:        5,
+		Description: fmt.Sprintf("Execute %d plan tasks in parallel", len(batch)),
+		Dispatches:  dispatches,
+		Loop:        true,
+		Note:        "Spawn all executors in ONE message (multiple Agent tool uses). After they all finish, call next again to advance to the next batch.",
+	}
+}
+
+// buildExecutorDispatch produces one single-task executor instruction
+// with everything the agent needs to work on just that task: the plan
+// path for context, the task id to scope to, and the list of files it
+// is expected to modify (also used by the commit helper).
+func (c *Controller) buildExecutorDispatch(key, wt, br, planPath string, t Task) *Instruction {
+	files := strings.Join(t.Files, ",")
+	commitMsg := fmt.Sprintf("%s: %s (%s)", t.ID, t.Name, key)
+	commitCmd := fmt.Sprintf(
+		"%s autoflow _commit-task --ticket %s --task-id %s --worktree %s --message %s --files %s",
+		tryveCmd(), key, t.ID, shellQuote(wt), shellQuote(commitMsg), shellQuote(files))
+
+	prompt := strings.Join([]string{
+		"TICKET_KEY: " + key,
+		"WORKTREE_DIR: " + wt,
+		"PLAN_PATH: " + planPath,
+		"BRANCH: " + br,
+		"TASK_ID: " + t.ID,
+		"TASK_FILES: " + files,
+		"",
+		"MODE: single-task",
+		"Scope: implement ONLY the task whose <id> is " + t.ID + ".",
+		"Ignore all other <task> blocks in PLAN.md.",
+		"",
+		"When the task is verified, finalise with this exact command (do NOT run git commit yourself):",
+		"  " + commitCmd,
+		"The command serialises commits across parallel tasks and records the SHA for SUMMARY.md.",
+		"",
+		"Return marker on success: ## TASK COMPLETE: " + t.ID,
+		"Return marker on failure: ## TASK FAILED: " + t.ID + " — <reason>",
+		"",
+		"Follow your role definition.",
+	}, "\n")
+
 	return &Instruction{
 		Action:       ActionDispatch,
 		SubagentType: "autoflow-executor",
-		Description:  "Execute plan: " + key,
-		Prompt: strings.Join([]string{
-			"TICKET_KEY: " + key,
-			"WORKTREE_DIR: " + wt,
-			"PLAN_PATH: " + planPath,
-			"SUMMARY_OUTPUT_PATH: " + summaryPath,
-			"BRANCH: " + br,
-			"",
-			"Follow your role definition.",
-		}, "\n"),
-		ParseReturn: "## EXECUTION COMPLETE",
+		Description:  "Execute " + t.ID + ": " + t.Name,
+		Prompt:       prompt,
+		ParseReturn:  "## TASK COMPLETE: " + t.ID,
 	}
 }
 
