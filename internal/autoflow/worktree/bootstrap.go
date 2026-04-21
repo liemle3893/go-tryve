@@ -74,6 +74,14 @@ func Bootstrap(opts BootstrapOptions) error {
 		return fmt.Errorf("copy config files: %w", err)
 	}
 
+	includes, err := ReadIncludes(opts.MainDir)
+	if err != nil {
+		return fmt.Errorf("read %s: %w", IncludeFile, err)
+	}
+	if err := copyIncludes(opts.MainDir, opts.WorktreeDir, includes, opts.Stdout); err != nil {
+		return fmt.Errorf("copy includes: %w", err)
+	}
+
 	if cfg.InstallCmd != "" {
 		fmt.Fprintf(opts.Stdout, "\nRunning install: %s\n", cfg.InstallCmd)
 		if err := RunSafeCmd("install", cfg.InstallCmd, opts.WorktreeDir, opts.Prompter, opts.Stdout, opts.Stderr); err != nil {
