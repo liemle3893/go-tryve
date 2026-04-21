@@ -229,9 +229,32 @@ tryve health       Check adapter connectivity
 tryve init         Create e2e.config.yaml
 tryve test create  Create a test from template
 tryve doc          Browse built-in documentation
-tryve install      Install Claude Code skills
+tryve install      Install Claude Code skills (--skills, --autoflow)
+tryve autoflow     Jira-to-PR autoflow helpers (see below)
 tryve version      Print version
 ```
+
+### `tryve autoflow`
+
+A Go port of [`winx-autoflow`](https://github.com/the-winx-corp/winx-ai-autoflow).
+Adds a Jira-to-PR delivery workflow to the tryve binary with no external
+runtime dependencies (`git` and `gh` only).
+
+```
+tryve autoflow jira config {set,get,del,show}      Manage .autoflow/jira-config.json
+tryve autoflow jira upload <KEY> <file>...          Upload attachments to a Jira issue
+tryve autoflow jira download <KEY> <dir>            Download attachments from a Jira issue
+tryve autoflow worktree bootstrap <path>            Copy .claude + config files into a worktree
+tryve autoflow deliver {init,next,complete}         13-step delivery state machine
+tryve autoflow loop-state {init,append,read,round-count}   Generic agentic-loop state manager
+tryve autoflow scaffold-e2e --ticket KEY --area A --count N   Generate E2E test stubs
+tryve autoflow doctor                               Preflight checklist (git, gh, Jira, install layout)
+```
+
+Install skills + agents with `tryve install --autoflow` — this drops
+`.claude/skills/autoflow-*/` and `.claude/agents/autoflow-*.md` into the
+current project and removes any legacy `.claude/scripts/autoflow/` dir
+left by the old bash installer.
 
 ### `tryve run` Flags
 

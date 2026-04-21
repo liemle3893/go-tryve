@@ -168,6 +168,42 @@ func TestBuiltin_Env_Missing(t *testing.T) {
 	}
 }
 
+// TestBuiltin_Env_Default verifies that $env() returns the default when the variable is not set.
+func TestBuiltin_Env_Default(t *testing.T) {
+	os.Unsetenv("E2E_DEFINITELY_NOT_SET_VAR_XYZ")
+	got, err := interpolate.CallBuiltin("env", "E2E_DEFINITELY_NOT_SET_VAR_XYZ", "fallback_value")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "fallback_value" {
+		t.Errorf("expected %q, got %q", "fallback_value", got)
+	}
+}
+
+// TestBuiltin_Env_DefaultIgnoredWhenSet verifies that the default is ignored when the variable is set.
+func TestBuiltin_Env_DefaultIgnoredWhenSet(t *testing.T) {
+	t.Setenv("E2E_TEST_VAR_WITH_DEFAULT", "real_value")
+	got, err := interpolate.CallBuiltin("env", "E2E_TEST_VAR_WITH_DEFAULT", "fallback_value")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "real_value" {
+		t.Errorf("expected %q, got %q", "real_value", got)
+	}
+}
+
+// TestBuiltin_Env_EmptyDefault verifies that an empty string default is valid.
+func TestBuiltin_Env_EmptyDefault(t *testing.T) {
+	os.Unsetenv("E2E_DEFINITELY_NOT_SET_VAR_XYZ")
+	got, err := interpolate.CallBuiltin("env", "E2E_DEFINITELY_NOT_SET_VAR_XYZ", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "" {
+		t.Errorf("expected empty string, got %q", got)
+	}
+}
+
 // TestBuiltin_File verifies that $file() reads a temp file correctly.
 func TestBuiltin_File(t *testing.T) {
 	dir := t.TempDir()
