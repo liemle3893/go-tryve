@@ -14,7 +14,7 @@ Spawned by: autoflow-deliver skill (Step 3).
 <inputs>
 - `TICKET_KEY` (e.g. `PROJ-42`)
 - `REPO_ROOT` (absolute path to the main repo — where the task brief lives)
-- `TASK_BRIEF_PATH` (absolute path to `task-brief.md`, inside `REPO_ROOT/.planning/ticket/<KEY>/`)
+- `TASK_BRIEF_PATH` (absolute path to `task-brief.md`, inside `REPO_ROOT/.autoflow/ticket/<KEY>/`)
 - `AREA` (test area, e.g. `rewards`, `game-engine`)
 - `COUNT` (number of AC-driven test files to scaffold)
 - `WORKTREE_DIR` (absolute path to the ticket worktree — all test file writes happen here)

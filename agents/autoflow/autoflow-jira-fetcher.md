@@ -16,8 +16,8 @@ The orchestrator provides:
 - `TICKET_KEY` (e.g. `PROJ-42`)
 - `CLOUD_ID` (Atlassian cloud id, obtained via `tryve autoflow jira config get --field cloudId`)
 - `REPO_ROOT` (absolute path to the main repo — this is your working directory)
-- `OUTPUT_PATH` (absolute path to write `task-brief.md`, typically `${REPO_ROOT}/.planning/ticket/<KEY>/task-brief.md`)
-- `ATTACHMENTS_DIR` (absolute path for downloads, typically `${REPO_ROOT}/.planning/ticket/<KEY>/attachments/`)
+- `OUTPUT_PATH` (absolute path to write `task-brief.md`, typically `${REPO_ROOT}/.autoflow/ticket/<KEY>/task-brief.md`)
+- `ATTACHMENTS_DIR` (absolute path for downloads, typically `${REPO_ROOT}/.autoflow/ticket/<KEY>/attachments/`)
 </inputs>
 
 <working_directory>

@@ -18,7 +18,7 @@ import (
 type LoopOptions struct {
 	Local          LocalOptions
 	Ticket         string
-	StateFile      string // defaults to .planning/ticket/<KEY>/state/e2e-fix-state.json
+	StateFile      string // defaults to .autoflow/ticket/<KEY>/state/e2e-fix-state.json
 	MaxRounds      int    // defaults to 5
 	Diagnosis      []byte // optional — problems+fixes JSON for the previous round
 	SkipDiagnose   bool   // bypass the diagnosis requirement for round 2+

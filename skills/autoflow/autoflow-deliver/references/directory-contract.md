@@ -15,13 +15,13 @@ WORKTREE_DIR=$(cd ../<repo>-<ticket-key> && pwd)          # feature worktree
 
 | Location | Contains | Why |
 |----------|----------|-----|
-| `REPO_ROOT/.planning/ticket/<KEY>/` | Task brief, state files, feedback ledger, progress file | Must survive worktree create/remove; readable by orchestrator between dispatches |
+| `REPO_ROOT/.autoflow/ticket/<KEY>/` | Task brief, state files, feedback ledger, progress file | Must survive worktree create/remove; readable by orchestrator between dispatches |
 | `WORKTREE_DIR/src/`, `WORKTREE_DIR/tests/e2e/` | Source code and test files on the feature branch | REPO_ROOT is on the base branch — writing source there corrupts the wrong tree |
 
 ### Command routing
 
 - `git diff origin/${BASE_BRANCH}...HEAD` — MUST run from `WORKTREE_DIR` (diffs the wrong branch from REPO_ROOT)
-- `tryve autoflow loop-state` — MUST run from `REPO_ROOT` (finds state files in `.planning/ticket/<KEY>/state/`)
+- `tryve autoflow loop-state` — MUST run from `REPO_ROOT` (finds state files in `.autoflow/ticket/<KEY>/state/`)
 - `BASE_BRANCH` — read from `.autoflow/bootstrap.json`
 
 ### Step 1 exception
@@ -30,10 +30,10 @@ WORKTREE_DIR=$(cd ../<repo>-<ticket-key> && pwd)          # feature worktree
 
 ## State Directory Layout
 
-Per-ticket artifacts live under `.planning/ticket/<TICKET-KEY>/`:
+Per-ticket artifacts live under `.autoflow/ticket/<TICKET-KEY>/`:
 
 ```
-.planning/ticket/PROJ-42/
+.autoflow/ticket/PROJ-42/
 |-- attachments/                   # Step 1: downloaded from Jira
 |-- task-brief.md                  # Step 1: filled template
 |-- title.txt                      # Step 1: extracted title (sidecar, pre-init)
@@ -57,4 +57,4 @@ Per-ticket artifacts live under `.planning/ticket/<TICKET-KEY>/`:
     +-- REVIEW-FIX.md                   # Step 9: code fixer report
 ```
 
-All state is written under `.planning/ticket/<KEY>/state/` by the `tryve autoflow deliver` subcommands. Paths are the same whether the workflow runs from REPO_ROOT or the worktree.
+All state is written under `.autoflow/ticket/<KEY>/state/` by the `tryve autoflow deliver` subcommands. Paths are the same whether the workflow runs from REPO_ROOT or the worktree.

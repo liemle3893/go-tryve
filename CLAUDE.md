@@ -130,10 +130,10 @@ The full design doc lives at `.planning/autoflow-port/DESIGN.md`.
 
 Key contracts preserved during the port (all in `internal/autoflow/state/paths.go`):
 
-- `.planning/ticket/<KEY>/workflow-progress.json` — shape matches the bash jq
+- `.autoflow/ticket/<KEY>/workflow-progress.json` — shape matches the bash jq
   output (`ticket`, `started_at`, `worktree`, `branch`, `current_step`,
   `completed`, `pr_url`, `gsd_quick_id`, `impl_plan_dir`, optional `title`).
-- `.planning/ticket/<KEY>/state/*.json` — loop / review state with
+- `.autoflow/ticket/<KEY>/state/*.json` — loop / review state with
   `{loop, ticket, max_rounds, rounds[]}`.
 - `.autoflow/jira-config.json` — `{cloudId, siteUrl, projectKey, email, cached_at}`.
 - `.autoflow/bootstrap.json` — `{language, base_branch, config_files, install_cmd, verify_cmd, build_cmd, test_cmd, services_cmd}`.

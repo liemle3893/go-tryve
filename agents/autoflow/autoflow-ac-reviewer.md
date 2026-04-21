@@ -14,8 +14,8 @@ Spawned by: autoflow-deliver skill (Step 4) — max 3 rounds.
 <inputs>
 - `TICKET_KEY`
 - `REPO_ROOT` (absolute path to the main repo — where task brief + state file live)
-- `TASK_BRIEF_PATH` (absolute path, under `REPO_ROOT/.planning/ticket/<KEY>/`)
-- `STATE_FILE` (absolute path, under `REPO_ROOT/.planning/ticket/<KEY>/state/`)
+- `TASK_BRIEF_PATH` (absolute path, under `REPO_ROOT/.autoflow/ticket/<KEY>/`)
+- `STATE_FILE` (absolute path, under `REPO_ROOT/.autoflow/ticket/<KEY>/state/`)
 - `WORKTREE_DIR` (absolute path to the ticket worktree — where test files live)
 - `TEST_GLOB` (relative to `WORKTREE_DIR`, e.g. `tests/e2e/<AREA>/TC-<KEY>-*.test.yaml`)
 - `ROUND` (integer, 1-indexed, informational only — loop-state.sh assigns the real number)

@@ -46,18 +46,19 @@ func TestNext_Step1AutoCompletesWhenBriefExists(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Pre-init path: brief exists, progress file does not → step_02 synthesised.
+	// Pre-init path: brief exists, progress file does not → step_02 runs.
 	if instr.Step != 2 {
 		t.Errorf("expected step 2 after brief, got %d", instr.Step)
 	}
-	if instr.Action != ActionBash {
-		t.Errorf("expected bash action, got %s", instr.Action)
+	// step_02 now executes inline. Against a non-git tempdir it will
+	// escalate on `git fetch`, which confirms the routing without
+	// needing a fully-wired test repo — the integration test
+	// TestStep02_Integration covers the success path.
+	if instr.Action != ActionEscalate {
+		t.Errorf("expected escalate from git fetch in non-git tempdir, got %s", instr.Action)
 	}
-	joined := strings.Join(instr.Commands, " && ")
-	// Step 2 must call deliver init; the binary prefix comes from
-	// os.Executable() so we just check the autoflow subcommand.
-	if !strings.Contains(joined, "autoflow deliver init") {
-		t.Errorf("step_02 should call deliver init, got:\n%s", joined)
+	if !strings.Contains(instr.Reason, "git fetch") {
+		t.Errorf("escalate reason should mention git fetch, got %q", instr.Reason)
 	}
 }
 

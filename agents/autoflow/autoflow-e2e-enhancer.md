@@ -16,7 +16,7 @@ Spawned by: autoflow-deliver skill (Step 8) — max 3 rounds. Runs AFTER Step 7 
 - `BRANCH` (feature branch name)
 - `REPO_ROOT` (absolute path to main repo — where state file lives)
 - `WORKTREE_DIR` (absolute path to ticket worktree — where src/ and tests/ live, where git diff runs)
-- `STATE_FILE` (absolute path, under `REPO_ROOT/.planning/ticket/<KEY>/state/`)
+- `STATE_FILE` (absolute path, under `REPO_ROOT/.autoflow/ticket/<KEY>/state/`)
 - `TEST_GLOB` (relative to `WORKTREE_DIR`)
 </inputs>
 

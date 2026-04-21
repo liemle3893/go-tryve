@@ -17,7 +17,7 @@ type Options struct {
 	Ticket     string
 	Branch     string
 	PRURL      string
-	TicketDir  string // where the three .md files land; usually .planning/ticket/<KEY>/
+	TicketDir  string // where the three .md files land; usually .autoflow/ticket/<KEY>/
 	StateDir   string // state JSONs live here (TicketDir/state or legacy flat)
 	BaseBranch string // for the `git diff --name-only origin/<base>...HEAD` fallback
 

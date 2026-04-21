@@ -201,12 +201,12 @@ func TestProgress_JSONFieldOrder(t *testing.T) {
 func TestTicketPaths(t *testing.T) {
 	root := "/tmp/root"
 	got := TicketDir(root, "PROJ-42")
-	want := filepath.Join(root, ".planning", "ticket", "PROJ-42")
+	want := filepath.Join(root, ".autoflow", "ticket", "PROJ-42")
 	if got != want {
 		t.Errorf("TicketDir: got %q, want %q", got, want)
 	}
 	got = ProgressFile(root, "PROJ-42")
-	want = filepath.Join(root, ".planning", "ticket", "PROJ-42", "workflow-progress.json")
+	want = filepath.Join(root, ".autoflow", "ticket", "PROJ-42", "workflow-progress.json")
 	if got != want {
 		t.Errorf("ProgressFile: got %q, want %q", got, want)
 	}

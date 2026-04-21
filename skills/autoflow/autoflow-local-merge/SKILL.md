@@ -48,7 +48,7 @@ For each matching worktree, check if a `workflow-progress.json` exists to show d
 # For each worktree path, check for progress file
 # The ticket key is derived from the branch name
 TICKET_KEY=$(echo "<branch>" | sed -E 's#^(jira-iss|feat)/##' | cut -d'-' -f1-2 | tr '[:lower:]' '[:upper:]')
-PROGRESS_FILE=".planning/ticket/${TICKET_KEY}/workflow-progress.json"
+PROGRESS_FILE=".autoflow/ticket/${TICKET_KEY}/workflow-progress.json"
 
 if [ -f "$PROGRESS_FILE" ]; then
     STEP=$(jq -r '.current_step // "?"' "$PROGRESS_FILE")

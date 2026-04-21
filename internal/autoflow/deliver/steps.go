@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -113,59 +114,128 @@ func (c *Controller) step02(key string, progress *state.Progress) *Instruction {
 		}
 	}
 
+	// Step 2 runs entirely inside the controller. We create the worktree,
+	// bootstrap it, and seed workflow-progress.json in-process — no bash
+	// round-trip. Progress output goes to a dedicated log file so the JSON
+	// `deliver next` prints stays clean.
+	title := key
+	if progress != nil && progress.Title != nil && *progress.Title != "" {
+		title = *progress.Title
+	}
+
 	cfg, _ := worktree.ReadConfig(c.Root)
 	if cfg == nil {
 		cfg = &worktree.Config{}
 	}
 	worktree.AutoDetect(cfg, c.Root)
 	baseBranch := cfg.BaseBranch
-
-	title := key
-	if progress != nil && progress.Title != nil && *progress.Title != "" {
-		title = *progress.Title
+	if baseBranch == "" {
+		baseBranch = "main"
 	}
 
-	lower := strings.ToLower(key)
-	qKey := shellQuote(key)
-	qBase := shellQuote(baseBranch)
-	qTitle := shellQuote(title)
-	qLower := shellQuote(lower)
-
-	// Build a slug from the title so the branch name is human-readable.
-	slugCmd := fmt.Sprintf(
-		`echo %s | tr "[:upper:]" "[:lower:]" | tr -cs "[:alnum:]" "-" | cut -c1-40 | sed "s/-$//"`,
-		qTitle,
+	slug := makeSlug(title)
+	branch := fmt.Sprintf("jira-iss/%s-%s", strings.ToLower(key), slug)
+	worktreeDir := fmt.Sprintf("%s-%s",
+		filepath.Join(filepath.Dir(c.Root), filepath.Base(c.Root)),
+		strings.ToLower(key),
 	)
 
-	commands := []string{
-		fmt.Sprintf(`cd "%s"`, c.Root),
-		fmt.Sprintf(`TICKET_LOWER=%s`, qLower),
-		fmt.Sprintf(`SLUG=$(%s)`, slugCmd),
-		`BRANCH="jira-iss/${TICKET_LOWER}-${SLUG}"`,
-		fmt.Sprintf(`WORKTREE_DIR="$(dirname "%s")/$(basename "%s")-${TICKET_LOWER}"`, c.Root, c.Root),
-		fmt.Sprintf(`git fetch origin %s`, qBase),
-		fmt.Sprintf(`git worktree add "$WORKTREE_DIR" -b "$BRANCH" "origin/%s"`, baseBranch),
-		fmt.Sprintf(`%s autoflow worktree bootstrap "$WORKTREE_DIR"`, tryveCmd()),
-		fmt.Sprintf(`%s autoflow deliver init --ticket %s --worktree "$WORKTREE_DIR" --branch "$BRANCH"`, tryveCmd(), qKey),
-		fmt.Sprintf(`%s autoflow deliver _set-field --ticket %s --field title --value %s`, tryveCmd(), qKey, qTitle),
-		fmt.Sprintf(`%s autoflow deliver _complete-step --ticket %s --step 1`, tryveCmd(), qKey),
-		`echo "WORKTREE_DIR=$WORKTREE_DIR"`,
-		`echo "BRANCH=$BRANCH"`,
+	logPath := filepath.Join(state.TicketDir(c.Root, key), "step-02.log")
+	if err := os.MkdirAll(filepath.Dir(logPath), 0o755); err != nil {
+		return escalate("step 2: mkdir ticket dir: " + err.Error())
+	}
+	logFile, err := os.OpenFile(logPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
+	if err != nil {
+		return escalate("step 2: open log: " + err.Error())
+	}
+	defer logFile.Close()
+	fmt.Fprintf(logFile, "step 2 for %s — branch %s worktree %s\n", key, branch, worktreeDir)
+
+	// 1. Fetch the base branch.
+	if err := runGit(logFile, c.Root, "fetch", "origin", baseBranch); err != nil {
+		return escalate("step 2: git fetch origin " + baseBranch + ": " + err.Error() + " (see " + logPath + ")")
 	}
 
-	return &Instruction{
-		Action:      ActionBash,
-		Description: "Create worktree for " + key,
-		Commands:    commands,
-		OnFailure:   "escalate",
-		PostActions: []PostAction{{
-			Action:         "jira_transition",
-			Ticket:         key,
-			FromStatus:     "To Do",
-			ToStatus:       "In Development",
-			TransitionName: "start dev",
-		}},
+	// 2. Create the linked worktree. Idempotent — an existing dir at
+	//    worktreeDir is checked via progress.Worktree above, so reaching
+	//    here with the dir already present is a sign of a prior partial
+	//    run and we bail so the operator can diagnose.
+	if _, err := os.Stat(worktreeDir); err == nil {
+		return escalate(fmt.Sprintf(
+			"step 2: worktree path %s already exists but progress has no record of it — remove it or recover manually",
+			worktreeDir))
 	}
+	if err := runGit(logFile, c.Root, "worktree", "add", worktreeDir, "-b", branch, "origin/"+baseBranch); err != nil {
+		return escalate("step 2: git worktree add: " + err.Error() + " (see " + logPath + ")")
+	}
+
+	// 3. Bootstrap the worktree (copy .claude, config files, install+verify).
+	if err := worktree.Bootstrap(worktree.BootstrapOptions{
+		MainDir:     c.Root,
+		WorktreeDir: worktreeDir,
+		Config:      cfg,
+		Prompter:    worktree.NonInteractivePrompter{},
+		Stdout:      logFile,
+		Stderr:      logFile,
+	}); err != nil {
+		return escalate("step 2: bootstrap: " + err.Error() + " (see " + logPath + ")")
+	}
+
+	// 4. Seed workflow-progress.json and record step 1 as complete.
+	if _, err := state.InitProgress(c.Root, key, worktreeDir, branch, false); err != nil {
+		return escalate("step 2: init progress: " + err.Error())
+	}
+	if err := state.SetField(c.Root, key, "title", title); err != nil {
+		return escalate("step 2: set title: " + err.Error())
+	}
+	if err := state.CompleteStep(c.Root, key, 1); err != nil {
+		return escalate("step 2: mark step 1 complete: " + err.Error())
+	}
+
+	ac := autoComplete(2, fmt.Sprintf("Worktree created at %s on branch %s", worktreeDir, branch))
+	ac.PostActions = []PostAction{{
+		Action:         "jira_transition",
+		Ticket:         key,
+		FromStatus:     "To Do",
+		ToStatus:       "In Development",
+		TransitionName: "start dev",
+	}}
+	return ac
+}
+
+// makeSlug turns a ticket title into a branch-safe slug: lowercase, all
+// non-alphanumeric runs collapsed to '-', trimmed to 40 chars, trailing
+// dash stripped.
+func makeSlug(title string) string {
+	lower := strings.ToLower(title)
+	var b strings.Builder
+	lastDash := true
+	for _, r := range lower {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+			lastDash = false
+		} else if !lastDash {
+			b.WriteByte('-')
+			lastDash = true
+		}
+	}
+	out := b.String()
+	if len(out) > 40 {
+		out = out[:40]
+	}
+	return strings.TrimRight(out, "-")
+}
+
+// runGit executes a git subcommand with stdout+stderr teed to logOut. The
+// git working directory is dir — callers should pass the main repo root
+// for worktree operations.
+func runGit(logOut *os.File, dir string, args ...string) error {
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	cmd.Stdout = logOut
+	cmd.Stderr = logOut
+	fmt.Fprintf(logOut, "+ git %s (cwd=%s)\n", strings.Join(args, " "), dir)
+	return cmd.Run()
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -210,7 +280,7 @@ func (c *Controller) step04(key string, progress *state.Progress) *Instruction {
 			Commands: []string{
 				fmt.Sprintf(`cd "%s"`, c.Root),
 				fmt.Sprintf(
-					`%s autoflow loop-state init ".planning/ticket/%s/state/coverage-review-state.json" --loop coverage-review --ticket %s --max-rounds 3`,
+					`%s autoflow loop-state init ".autoflow/ticket/%s/state/coverage-review-state.json" --loop coverage-review --ticket %s --max-rounds 3`,
 					tryveCmd(), key, shellQuote(key),
 				),
 			},
@@ -876,7 +946,7 @@ func (c *Controller) step12(key string, progress *state.Progress) *Instruction {
 			br,
 		),
 		fmt.Sprintf(
-			`[ -n "$PR_NUMBER" ] && [ -f ".planning/ticket/%s/PR-BODY.md" ] && gh pr edit "$PR_NUMBER" --body "$(cat ".planning/ticket/%s/PR-BODY.md")" || true`,
+			`[ -n "$PR_NUMBER" ] && [ -f ".autoflow/ticket/%s/PR-BODY.md" ] && gh pr edit "$PR_NUMBER" --body "$(cat ".autoflow/ticket/%s/PR-BODY.md")" || true`,
 			key, key,
 		),
 	}
@@ -899,7 +969,7 @@ func (c *Controller) step13(key string, progress *state.Progress) *Instruction {
 		Description: "Update Jira for " + key,
 		Commands: []string{
 			fmt.Sprintf(`cd "%s"`, c.Root),
-			fmt.Sprintf(`%s autoflow jira upload %s ".planning/ticket/%s/EXECUTION-REPORT.md"`,
+			fmt.Sprintf(`%s autoflow jira upload %s ".autoflow/ticket/%s/EXECUTION-REPORT.md"`,
 				tryveCmd(), shellQuote(key), key),
 			`echo "Jira updated. Transition to In Code Review manually or via MCP."`,
 		},

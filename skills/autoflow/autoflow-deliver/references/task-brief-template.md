@@ -1,6 +1,6 @@
 # Task Brief Template
 
-Fill this template and save to `.planning/ticket/<TICKET-KEY>/task-brief.md`:
+Fill this template and save to `.autoflow/ticket/<TICKET-KEY>/task-brief.md`:
 
 ```markdown
 # Task Brief: <TICKET-KEY>
