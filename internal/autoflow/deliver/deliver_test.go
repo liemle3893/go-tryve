@@ -81,9 +81,24 @@ func TestNext_DoneWhenAllCompleted(t *testing.T) {
 	}
 }
 
+// seedBrief drops a minimal task-brief.md under the ticket dir so step-1
+// preconditions pass in tests that are only exercising later steps.
+func seedBrief(t *testing.T, root, key string) {
+	t.Helper()
+	dir := state.TicketDir(root, key)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "task-brief.md"), []byte("# brief"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestComplete_PreInitWritesSidecar(t *testing.T) {
 	root := t.TempDir()
 	c := NewController(root)
+	seedBrief(t, root, "PROJ-1")
+
 	resp, err := c.Complete("PROJ-1", CompleteOpts{Title: "My Title"})
 	if err != nil {
 		t.Fatal(err)
@@ -100,9 +115,23 @@ func TestComplete_PreInitWritesSidecar(t *testing.T) {
 	}
 }
 
+func TestComplete_PreInitRejectsWithoutBrief(t *testing.T) {
+	root := t.TempDir()
+	c := NewController(root)
+	// No seedBrief — Complete should refuse.
+	_, err := c.Complete("PROJ-1", CompleteOpts{Title: "X"})
+	if err == nil {
+		t.Fatal("expected precondition error, got nil")
+	}
+	if !strings.Contains(err.Error(), "task-brief.md") {
+		t.Errorf("error should mention task-brief.md, got %v", err)
+	}
+}
+
 func TestComplete_AfterInitAdvances(t *testing.T) {
 	root := t.TempDir()
 	c := NewController(root)
+	seedBrief(t, root, "PROJ-1")
 	_, _ = state.InitProgress(root, "PROJ-1", "/wt", "b", false)
 	resp, err := c.Complete("PROJ-1", CompleteOpts{})
 	if err != nil {

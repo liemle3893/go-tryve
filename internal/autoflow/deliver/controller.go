@@ -114,7 +114,13 @@ func (c *Controller) Complete(key string, opts CompleteOpts) (*CompleteResponse,
 	}
 
 	if progress == nil {
-		// Pre-init: step 1 complete, step 2 not yet started.
+		// Pre-init: the LLM claims step 1 (fetch brief) is done. Verify
+		// task-brief.md is actually on disk before accepting the claim,
+		// otherwise the next `next` call loops back to step 1 and the
+		// caller is left wondering why.
+		if err := VerifyStepComplete(c.Root, key, 1, nil); err != nil {
+			return nil, err
+		}
 		if opts.Title != "" {
 			sidecar := filepath.Join(state.TicketDir(c.Root, key), "title.txt")
 			if err := os.MkdirAll(filepath.Dir(sidecar), 0o755); err != nil {
@@ -128,6 +134,21 @@ func (c *Controller) Complete(key string, opts CompleteOpts) (*CompleteResponse,
 	}
 
 	current := progress.CurrentStep
+	// For step 11 specifically, accept --pr-url from the caller BEFORE
+	// running the precondition so the same call can supply the required
+	// artifact and mark the step done in one shot.
+	if current == 11 && opts.PRURL != "" {
+		if err := state.SetField(c.Root, key, "pr_url", opts.PRURL); err != nil {
+			return nil, err
+		}
+		// Refresh the in-memory view so the precondition sees the update.
+		progress, _ = state.ReadProgress(c.Root, key)
+		// Avoid re-setting pr_url later.
+		opts.PRURL = ""
+	}
+	if err := VerifyStepComplete(c.Root, key, current, progress); err != nil {
+		return nil, err
+	}
 	if err := state.CompleteStep(c.Root, key, current); err != nil {
 		return nil, err
 	}
