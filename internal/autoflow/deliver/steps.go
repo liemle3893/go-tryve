@@ -156,14 +156,36 @@ func (c *Controller) step02(key string, progress *state.Progress) *Instruction {
 		return escalate("step 2: git fetch origin " + baseBranch + ": " + err.Error() + " (see " + logPath + ")")
 	}
 
-	// 2. Create the linked worktree. Idempotent — an existing dir at
-	//    worktreeDir is checked via progress.Worktree above, so reaching
-	//    here with the dir already present is a sign of a prior partial
-	//    run and we bail so the operator can diagnose.
+	// 2. Create the linked worktree — unless a prior partial run already
+	//    left one behind. In that case, if git confirms the dir is a
+	//    registered linked worktree of this main repo we ADOPT it
+	//    (seed progress pointing at it + mark step 1 done); only
+	//    escalate when the dir exists but git doesn't know about it.
 	if _, err := os.Stat(worktreeDir); err == nil {
-		return escalate(fmt.Sprintf(
-			"step 2: worktree path %s already exists but progress has no record of it — remove it or recover manually",
-			worktreeDir))
+		existingBranch, ok := findRegisteredWorktree(c.Root, worktreeDir)
+		if !ok {
+			return escalate(fmt.Sprintf(
+				"step 2: %s exists but git does not register it as a linked worktree of %s — remove it manually or run `git worktree add` yourself",
+				worktreeDir, c.Root))
+		}
+		if _, err := state.InitProgress(c.Root, key, worktreeDir, existingBranch, false); err != nil {
+			return escalate("step 2: adopt existing worktree — init progress: " + err.Error())
+		}
+		if err := state.SetField(c.Root, key, "title", title); err != nil {
+			return escalate("step 2: adopt existing worktree — set title: " + err.Error())
+		}
+		if err := state.CompleteStep(c.Root, key, 1); err != nil {
+			return escalate("step 2: adopt existing worktree — mark step 1 complete: " + err.Error())
+		}
+		ac := autoComplete(2, fmt.Sprintf("Adopted existing worktree at %s on branch %s", worktreeDir, existingBranch))
+		ac.PostActions = []PostAction{{
+			Action:         "jira_transition",
+			Ticket:         key,
+			FromStatus:     "To Do",
+			ToStatus:       "In Development",
+			TransitionName: "start dev",
+		}}
+		return ac
 	}
 	if err := runGit(logFile, c.Root, "worktree", "add", worktreeDir, "-b", branch, "origin/"+baseBranch); err != nil {
 		return escalate("step 2: git worktree add: " + err.Error() + " (see " + logPath + ")")

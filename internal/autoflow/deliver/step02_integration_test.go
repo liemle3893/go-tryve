@@ -97,6 +97,107 @@ func TestStep02_Integration(t *testing.T) {
 	}
 }
 
+// TestStep02_AdoptsOrphanWorktree — the worktree exists on disk + git
+// registers it + progress is missing (partial prior run). step_02
+// should adopt the existing worktree rather than escalating.
+func TestStep02_AdoptsOrphanWorktree(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not on PATH")
+	}
+	dir := t.TempDir()
+	main := filepath.Join(dir, "project")
+	origin := filepath.Join(dir, "origin.git")
+	sh(t, dir, "git", "init", "--bare", origin)
+	sh(t, dir, "git", "clone", origin, main)
+	sh(t, main, "git", "config", "user.email", "t@x")
+	sh(t, main, "git", "config", "user.name", "t")
+	sh(t, main, "git", "commit", "--allow-empty", "-m", "seed")
+	sh(t, main, "git", "branch", "-M", "main")
+	sh(t, main, "git", "push", "-u", "origin", "main")
+
+	// Seed brief so next() synthesises step_02.
+	briefDir := filepath.Join(main, ".autoflow", "ticket", "PROJ-1")
+	if err := os.MkdirAll(briefDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(briefDir, "task-brief.md"),
+		[]byte("---\ntitle: Orphan feature\n---\n# Orphan\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a linked worktree MANUALLY at the path step_02 would choose,
+	// simulating a partial prior run that left it behind. No progress
+	// file is written.
+	wtPath := filepath.Join(dir, "project-proj-1")
+	sh(t, main, "git", "worktree", "add", wtPath, "-b", "jira-iss/proj-1-orphan", "origin/main")
+
+	c := NewController(main)
+	instr, err := c.Next("PROJ-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if instr.Action != ActionAutoComplete {
+		log, _ := os.ReadFile(filepath.Join(briefDir, "step-02.log"))
+		t.Fatalf("want auto_complete (adoption), got %s reason=%q\nlog:\n%s",
+			instr.Action, instr.Reason, log)
+	}
+	if !strings.Contains(instr.Reason, "Adopted") {
+		t.Errorf("reason should say Adopted: %q", instr.Reason)
+	}
+
+	// Progress should now exist and point at the adopted worktree.
+	p, err := state.ReadProgress(main, "PROJ-1")
+	if err != nil || p == nil {
+		t.Fatalf("progress not seeded: %v %+v", err, p)
+	}
+	if p.Worktree != wtPath {
+		t.Errorf("progress.worktree = %q, want %q", p.Worktree, wtPath)
+	}
+	if p.Branch != "jira-iss/proj-1-orphan" {
+		t.Errorf("progress.branch = %q, want jira-iss/proj-1-orphan", p.Branch)
+	}
+}
+
+// TestStep02_EscalatesOnUnregisteredDir — the path exists but git does
+// not know it as a linked worktree (could be any random dir). Escalate,
+// don't adopt blindly.
+func TestStep02_EscalatesOnUnregisteredDir(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not on PATH")
+	}
+	dir := t.TempDir()
+	main := filepath.Join(dir, "project")
+	origin := filepath.Join(dir, "origin.git")
+	sh(t, dir, "git", "init", "--bare", origin)
+	sh(t, dir, "git", "clone", origin, main)
+	sh(t, main, "git", "config", "user.email", "t@x")
+	sh(t, main, "git", "config", "user.name", "t")
+	sh(t, main, "git", "commit", "--allow-empty", "-m", "seed")
+	sh(t, main, "git", "branch", "-M", "main")
+	sh(t, main, "git", "push", "-u", "origin", "main")
+
+	briefDir := filepath.Join(main, ".autoflow", "ticket", "PROJ-1")
+	_ = os.MkdirAll(briefDir, 0o755)
+	_ = os.WriteFile(filepath.Join(briefDir, "task-brief.md"), []byte("---\ntitle: x\n---\n"), 0o644)
+
+	// Create a plain directory at the target path — NOT a git worktree.
+	wtPath := filepath.Join(dir, "project-proj-1")
+	_ = os.MkdirAll(wtPath, 0o755)
+	_ = os.WriteFile(filepath.Join(wtPath, "some-random-file.txt"), []byte("x"), 0o644)
+
+	c := NewController(main)
+	instr, err := c.Next("PROJ-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if instr.Action != ActionEscalate {
+		t.Errorf("want escalate for unregistered dir, got %s", instr.Action)
+	}
+	if !strings.Contains(instr.Reason, "does not register") {
+		t.Errorf("reason should describe the unregistered state: %q", instr.Reason)
+	}
+}
+
 // TestStep02_IdempotentWhenWorktreeExists — if progress already records a
 // worktree and it exists on disk, step_02 auto-completes without trying to
 // fetch/create anything.
