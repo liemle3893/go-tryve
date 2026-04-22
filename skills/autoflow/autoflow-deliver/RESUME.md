@@ -24,7 +24,7 @@ All loop steps use artifact-based phase detection — the controller reads state
 - **Step 4 (AC coverage):** Reads `coverage-review-state.json` for round status.
 - **Step 5 (Implement):** Checks if `PLAN.md` exists (plan done) or `SUMMARY.md` exists (execution done).
 - **Step 6 (Build gate):** Reads `build-gate-state.json` for attempt count and last result.
-- **Step 7 (E2E tests):** Reads `e2e-fix-state.json` for round status and fix markers.
+- **Step 7 (E2E tests):** Runs tests in the worktree; no merge to base branch. Reads `e2e-fix-state.json` for round status and fix markers.
 - **Step 9 (Review + fix):** Checks which `REVIEW-*.md` files exist and whether `REVIEW-FIX.md` was written.
 
 ### No Progress File
