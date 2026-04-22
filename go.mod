@@ -1,4 +1,4 @@
-module github.com/liemle3893/go-tryve
+module github.com/liemle3893/autoflow
 
 go 1.25.0
 

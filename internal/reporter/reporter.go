@@ -5,7 +5,7 @@ package reporter
 import (
 	"context"
 
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/core"
 )
 
 // Reporter is the single interface every output sink must satisfy. Each method
@@ -13,15 +13,15 @@ import (
 // use but should not block the test runner — heavy I/O should be buffered.
 type Reporter interface {
 	// OnSuiteStart is called once before any tests execute.
-	OnSuiteStart(ctx context.Context, suite *tryve.SuiteResult) error
+	OnSuiteStart(ctx context.Context, suite *core.SuiteResult) error
 	// OnTestStart is called immediately before a test begins.
-	OnTestStart(ctx context.Context, test *tryve.TestDefinition) error
+	OnTestStart(ctx context.Context, test *core.TestDefinition) error
 	// OnStepComplete is called after each step finishes, regardless of outcome.
-	OnStepComplete(ctx context.Context, step *tryve.StepDefinition, outcome *tryve.StepOutcome) error
+	OnStepComplete(ctx context.Context, step *core.StepDefinition, outcome *core.StepOutcome) error
 	// OnTestComplete is called after a test finishes with its final result.
-	OnTestComplete(ctx context.Context, test *tryve.TestDefinition, result *tryve.TestResult) error
+	OnTestComplete(ctx context.Context, test *core.TestDefinition, result *core.TestResult) error
 	// OnSuiteComplete is called once after all tests have finished.
-	OnSuiteComplete(ctx context.Context, suite *tryve.SuiteResult, result *tryve.SuiteResult) error
+	OnSuiteComplete(ctx context.Context, suite *core.SuiteResult, result *core.SuiteResult) error
 	// Flush writes any buffered output and should be called before the process exits.
 	Flush() error
 }
@@ -39,7 +39,7 @@ func NewMulti(reporters ...Reporter) *Multi {
 }
 
 // OnSuiteStart dispatches the event to all reporters.
-func (m *Multi) OnSuiteStart(ctx context.Context, suite *tryve.SuiteResult) error {
+func (m *Multi) OnSuiteStart(ctx context.Context, suite *core.SuiteResult) error {
 	for _, r := range m.reporters {
 		_ = r.OnSuiteStart(ctx, suite)
 	}
@@ -47,7 +47,7 @@ func (m *Multi) OnSuiteStart(ctx context.Context, suite *tryve.SuiteResult) erro
 }
 
 // OnTestStart dispatches the event to all reporters.
-func (m *Multi) OnTestStart(ctx context.Context, test *tryve.TestDefinition) error {
+func (m *Multi) OnTestStart(ctx context.Context, test *core.TestDefinition) error {
 	for _, r := range m.reporters {
 		_ = r.OnTestStart(ctx, test)
 	}
@@ -55,7 +55,7 @@ func (m *Multi) OnTestStart(ctx context.Context, test *tryve.TestDefinition) err
 }
 
 // OnStepComplete dispatches the event to all reporters.
-func (m *Multi) OnStepComplete(ctx context.Context, step *tryve.StepDefinition, outcome *tryve.StepOutcome) error {
+func (m *Multi) OnStepComplete(ctx context.Context, step *core.StepDefinition, outcome *core.StepOutcome) error {
 	for _, r := range m.reporters {
 		_ = r.OnStepComplete(ctx, step, outcome)
 	}
@@ -63,7 +63,7 @@ func (m *Multi) OnStepComplete(ctx context.Context, step *tryve.StepDefinition, 
 }
 
 // OnTestComplete dispatches the event to all reporters.
-func (m *Multi) OnTestComplete(ctx context.Context, test *tryve.TestDefinition, result *tryve.TestResult) error {
+func (m *Multi) OnTestComplete(ctx context.Context, test *core.TestDefinition, result *core.TestResult) error {
 	for _, r := range m.reporters {
 		_ = r.OnTestComplete(ctx, test, result)
 	}
@@ -71,7 +71,7 @@ func (m *Multi) OnTestComplete(ctx context.Context, test *tryve.TestDefinition, 
 }
 
 // OnSuiteComplete dispatches the event to all reporters.
-func (m *Multi) OnSuiteComplete(ctx context.Context, suite *tryve.SuiteResult, result *tryve.SuiteResult) error {
+func (m *Multi) OnSuiteComplete(ctx context.Context, suite *core.SuiteResult, result *core.SuiteResult) error {
 	for _, r := range m.reporters {
 		_ = r.OnSuiteComplete(ctx, suite, result)
 	}

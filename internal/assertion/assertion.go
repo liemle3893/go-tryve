@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/core"
 )
 
 // knownHTTPKeys lists top-level keys that receive special handling in map-format assertions.
@@ -49,7 +49,7 @@ var operatorNames = map[string]bool{
 //   - map[string]any — HTTP-style with keys: status, statusRange, headers, json, body, duration,
 //     or a direct {path, operator: value} block
 //   - []any — generic slice of {path, operator: value} items
-func RunAssertions(data map[string]any, assertDef any) ([]tryve.AssertionOutcome, error) {
+func RunAssertions(data map[string]any, assertDef any) ([]core.AssertionOutcome, error) {
 	if assertDef == nil {
 		return nil, nil
 	}
@@ -65,8 +65,8 @@ func RunAssertions(data map[string]any, assertDef any) ([]tryve.AssertionOutcome
 }
 
 // runMapAssertions handles the HTTP-style map format.
-func runMapAssertions(data map[string]any, def map[string]any) ([]tryve.AssertionOutcome, error) {
-	var outcomes []tryve.AssertionOutcome
+func runMapAssertions(data map[string]any, def map[string]any) ([]core.AssertionOutcome, error) {
+	var outcomes []core.AssertionOutcome
 
 	// status — single number or []any oneOf check.
 	if statusDef, ok := def["status"]; ok {
@@ -79,7 +79,7 @@ func runMapAssertions(data map[string]any, def map[string]any) ([]tryve.Assertio
 		default:
 			// Single-value equals check.
 			r := Match("equals", actual, statusDef)
-			outcomes = append(outcomes, tryve.AssertionOutcome{
+			outcomes = append(outcomes, core.AssertionOutcome{
 				Path:     "status",
 				Operator: "equals",
 				Expected: statusDef,
@@ -102,7 +102,7 @@ func runMapAssertions(data map[string]any, def map[string]any) ([]tryve.Assertio
 			for wantName, wantVal := range hm {
 				actual := headerLookup(actualHeaders, wantName)
 				r := Match("equals", actual, wantVal)
-				outcomes = append(outcomes, tryve.AssertionOutcome{
+				outcomes = append(outcomes, core.AssertionOutcome{
 					Path:     "headers." + wantName,
 					Operator: "equals",
 					Expected: wantVal,
@@ -140,7 +140,7 @@ func runMapAssertions(data map[string]any, def map[string]any) ([]tryve.Assertio
 			bodyStr := fmt.Sprintf("%v", data["body"])
 			for op, val := range bm {
 				r := Match(op, bodyStr, val)
-				outcomes = append(outcomes, tryve.AssertionOutcome{
+				outcomes = append(outcomes, core.AssertionOutcome{
 					Path:     "body",
 					Operator: op,
 					Expected: val,
@@ -158,7 +158,7 @@ func runMapAssertions(data map[string]any, def map[string]any) ([]tryve.Assertio
 			actual := data["duration"]
 			for op, val := range dm {
 				r := Match(op, actual, val)
-				outcomes = append(outcomes, tryve.AssertionOutcome{
+				outcomes = append(outcomes, core.AssertionOutcome{
 					Path:     "duration",
 					Operator: op,
 					Expected: val,
@@ -182,7 +182,7 @@ func runMapAssertions(data map[string]any, def map[string]any) ([]tryve.Assertio
 				continue
 			}
 			r := Match(key, actual, val)
-			outcomes = append(outcomes, tryve.AssertionOutcome{
+			outcomes = append(outcomes, core.AssertionOutcome{
 				Path:     pathStr,
 				Operator: key,
 				Expected: val,
@@ -201,7 +201,7 @@ func runMapAssertions(data map[string]any, def map[string]any) ([]tryve.Assertio
 			}
 			if operatorNames[key] {
 				r := Match(key, data, val)
-				outcomes = append(outcomes, tryve.AssertionOutcome{
+				outcomes = append(outcomes, core.AssertionOutcome{
 					Path:     "$",
 					Operator: key,
 					Expected: val,
@@ -218,8 +218,8 @@ func runMapAssertions(data map[string]any, def map[string]any) ([]tryve.Assertio
 
 // runSliceAssertions handles the generic []any format where each item is a
 // map[string]any with a "path" key and one or more operator keys.
-func runSliceAssertions(data map[string]any, items []any) ([]tryve.AssertionOutcome, error) {
-	var outcomes []tryve.AssertionOutcome
+func runSliceAssertions(data map[string]any, items []any) ([]core.AssertionOutcome, error) {
+	var outcomes []core.AssertionOutcome
 	for _, item := range items {
 		m, ok := item.(map[string]any)
 		if !ok {
@@ -237,7 +237,7 @@ func runSliceAssertions(data map[string]any, items []any) ([]tryve.AssertionOutc
 				continue
 			}
 			r := Match(key, actual, val)
-			outcomes = append(outcomes, tryve.AssertionOutcome{
+			outcomes = append(outcomes, core.AssertionOutcome{
 				Path:     pathStr,
 				Operator: key,
 				Expected: val,
@@ -251,11 +251,11 @@ func runSliceAssertions(data map[string]any, items []any) ([]tryve.AssertionOutc
 }
 
 // assertOneOf checks that actual equals one value in the allowed slice.
-func assertOneOf(path string, actual any, allowed []any) tryve.AssertionOutcome {
+func assertOneOf(path string, actual any, allowed []any) core.AssertionOutcome {
 	normalActual := normalizeNumeric(actual)
 	for _, v := range allowed {
 		if fmt.Sprintf("%v", normalizeNumeric(v)) == fmt.Sprintf("%v", normalActual) {
-			return tryve.AssertionOutcome{
+			return core.AssertionOutcome{
 				Path:     path,
 				Operator: "oneOf",
 				Expected: allowed,
@@ -264,7 +264,7 @@ func assertOneOf(path string, actual any, allowed []any) tryve.AssertionOutcome 
 			}
 		}
 	}
-	return tryve.AssertionOutcome{
+	return core.AssertionOutcome{
 		Path:     path,
 		Operator: "oneOf",
 		Expected: allowed,
@@ -275,10 +275,10 @@ func assertOneOf(path string, actual any, allowed []any) tryve.AssertionOutcome 
 }
 
 // assertStatusRange checks that actual status is within [min, max] inclusive.
-func assertStatusRange(actual any, rangeDef any) tryve.AssertionOutcome {
+func assertStatusRange(actual any, rangeDef any) core.AssertionOutcome {
 	arr, ok := rangeDef.([]any)
 	if !ok || len(arr) < 2 {
-		return tryve.AssertionOutcome{
+		return core.AssertionOutcome{
 			Path:     "statusRange",
 			Operator: "statusRange",
 			Expected: rangeDef,
@@ -291,7 +291,7 @@ func assertStatusRange(actual any, rangeDef any) tryve.AssertionOutcome {
 	max := toFloat64(arr[1])
 	val := toFloat64(actual)
 	if val >= min && val <= max {
-		return tryve.AssertionOutcome{
+		return core.AssertionOutcome{
 			Path:     "statusRange",
 			Operator: "statusRange",
 			Expected: rangeDef,
@@ -299,7 +299,7 @@ func assertStatusRange(actual any, rangeDef any) tryve.AssertionOutcome {
 			Passed:   true,
 		}
 	}
-	return tryve.AssertionOutcome{
+	return core.AssertionOutcome{
 		Path:     "statusRange",
 		Operator: "statusRange",
 		Expected: rangeDef,

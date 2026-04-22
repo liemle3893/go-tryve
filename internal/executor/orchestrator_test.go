@@ -5,10 +5,10 @@ import (
 	"context"
 	"testing"
 
-	"github.com/liemle3893/go-tryve/internal/config"
-	"github.com/liemle3893/go-tryve/internal/executor"
-	"github.com/liemle3893/go-tryve/internal/reporter"
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/config"
+	"github.com/liemle3893/autoflow/internal/executor"
+	"github.com/liemle3893/autoflow/internal/reporter"
+	"github.com/liemle3893/autoflow/internal/core"
 )
 
 // newOrchestratorConfig returns a minimal LoadedConfig suitable for orchestrator tests.
@@ -28,11 +28,11 @@ func newOrchestratorConfig() *config.LoadedConfig {
 // newEchoTest builds a trivial TestDefinition with a shell/exec echo step.
 // name is used for both the test Name and the echo payload so it can be
 // identified in results.
-func newEchoTest(name string, tags ...string) *tryve.TestDefinition {
-	return &tryve.TestDefinition{
+func newEchoTest(name string, tags ...string) *core.TestDefinition {
+	return &core.TestDefinition{
 		Name: name,
 		Tags: tags,
-		Execute: []tryve.StepDefinition{
+		Execute: []core.StepDefinition{
 			{
 				ID:      name + "-step",
 				Adapter: "shell",
@@ -44,10 +44,10 @@ func newEchoTest(name string, tags ...string) *tryve.TestDefinition {
 }
 
 // newFailingTest builds a TestDefinition whose execute step always exits non-zero.
-func newFailingTest(name string) *tryve.TestDefinition {
-	return &tryve.TestDefinition{
+func newFailingTest(name string) *core.TestDefinition {
+	return &core.TestDefinition{
 		Name: name,
-		Execute: []tryve.StepDefinition{
+		Execute: []core.StepDefinition{
 			{
 				ID:      name + "-step",
 				Adapter: "shell",
@@ -73,7 +73,7 @@ func TestOrchestrator_RunAll(t *testing.T) {
 
 	orch := executor.NewOrchestrator(reg, rep, cfg)
 
-	tests := []*tryve.TestDefinition{
+	tests := []*core.TestDefinition{
 		newEchoTest("test-a"),
 		newEchoTest("test-b"),
 	}
@@ -109,7 +109,7 @@ func TestOrchestrator_BailOnFailure(t *testing.T) {
 	orch := executor.NewOrchestrator(reg, rep, cfg)
 	orch.SetBail(true)
 
-	tests := []*tryve.TestDefinition{
+	tests := []*core.TestDefinition{
 		newFailingTest("fail-first"),
 		newEchoTest("should-be-skipped"),
 	}
@@ -135,7 +135,7 @@ func TestOrchestrator_BailOnFailure(t *testing.T) {
 // TestOrchestrator_FilterByTag verifies that FilterTests retains only tests
 // whose tag list intersects the requested tags.
 func TestOrchestrator_FilterByTag(t *testing.T) {
-	allTests := []*tryve.TestDefinition{
+	allTests := []*core.TestDefinition{
 		newEchoTest("smoke-a", "smoke", "regression"),
 		newEchoTest("regression-only", "regression"),
 		newEchoTest("smoke-b", "smoke"),
@@ -166,7 +166,7 @@ func TestOrchestrator_FilterByTag(t *testing.T) {
 // TestOrchestrator_FilterByGrep verifies that FilterTests retains only tests
 // whose name matches the given pattern (regex or substring).
 func TestOrchestrator_FilterByGrep(t *testing.T) {
-	allTests := []*tryve.TestDefinition{
+	allTests := []*core.TestDefinition{
 		newEchoTest("API Login"),
 		newEchoTest("API Logout"),
 		newEchoTest("UI Dashboard"),
@@ -190,11 +190,11 @@ func TestOrchestrator_FilterByGrep(t *testing.T) {
 // TestOrchestrator_FilterByPriority verifies that FilterTests retains only
 // tests whose Priority matches the requested value exactly.
 func TestOrchestrator_FilterByPriority(t *testing.T) {
-	allTests := []*tryve.TestDefinition{
-		{Name: "critical", Priority: tryve.PriorityP0},
-		{Name: "high", Priority: tryve.PriorityP1},
-		{Name: "medium", Priority: tryve.PriorityP2},
-		{Name: "low", Priority: tryve.PriorityP3},
+	allTests := []*core.TestDefinition{
+		{Name: "critical", Priority: core.PriorityP0},
+		{Name: "high", Priority: core.PriorityP1},
+		{Name: "medium", Priority: core.PriorityP2},
+		{Name: "low", Priority: core.PriorityP3},
 		{Name: "no-priority"},
 	}
 
@@ -222,10 +222,10 @@ func TestOrchestrator_DependencyOrdering(t *testing.T) {
 	orch := executor.NewOrchestrator(reg, rep, cfg)
 
 	// Intentionally pass tests in reverse dependency order to confirm topo sort.
-	dependent := &tryve.TestDefinition{
+	dependent := &core.TestDefinition{
 		Name:    "dependent",
 		Depends: []string{"prerequisite"},
-		Execute: []tryve.StepDefinition{
+		Execute: []core.StepDefinition{
 			{
 				ID:      "dep-step",
 				Adapter: "shell",
@@ -236,7 +236,7 @@ func TestOrchestrator_DependencyOrdering(t *testing.T) {
 	}
 	prerequisite := newEchoTest("prerequisite")
 
-	result := orch.Run(context.Background(), []*tryve.TestDefinition{dependent, prerequisite})
+	result := orch.Run(context.Background(), []*core.TestDefinition{dependent, prerequisite})
 
 	if result == nil {
 		t.Fatal("expected non-nil SuiteResult")
@@ -261,10 +261,10 @@ func TestOrchestrator_SkipOnDependencyFailure(t *testing.T) {
 	orch := executor.NewOrchestrator(reg, rep, cfg)
 
 	failing := newFailingTest("prereq-fail")
-	dependent := &tryve.TestDefinition{
+	dependent := &core.TestDefinition{
 		Name:    "should-skip",
 		Depends: []string{"prereq-fail"},
-		Execute: []tryve.StepDefinition{
+		Execute: []core.StepDefinition{
 			{
 				ID:      "dep-step",
 				Adapter: "shell",
@@ -274,7 +274,7 @@ func TestOrchestrator_SkipOnDependencyFailure(t *testing.T) {
 		},
 	}
 
-	result := orch.Run(context.Background(), []*tryve.TestDefinition{failing, dependent})
+	result := orch.Run(context.Background(), []*core.TestDefinition{failing, dependent})
 
 	if result == nil {
 		t.Fatal("expected non-nil SuiteResult")

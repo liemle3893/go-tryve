@@ -8,8 +8,8 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/liemle3893/go-tryve/internal/autoflow/jira"
-	"github.com/liemle3893/go-tryve/internal/autoflow/worktree"
+	"github.com/liemle3893/autoflow/internal/autoflow/jira"
+	"github.com/liemle3893/autoflow/internal/autoflow/worktree"
 )
 
 // checkBinary verifies that name is runnable. description is shown
@@ -70,7 +70,7 @@ func checkJIRAConfig(root string) Checker {
 		if err != nil {
 			if errors.Is(err, jira.ErrNoConfig) {
 				r.Status = Fail
-				r.Detail = "not cached — run `tryve autoflow jira config set ...`"
+				r.Detail = "not cached — run `autoflow jira config set ...`"
 				return r
 			}
 			r.Status = Fail
@@ -125,7 +125,7 @@ func checkJIRAReachable(root string) Checker {
 }
 
 // checkBootstrap is a soft check — bootstrap.json is nice to have but
-// not required unless the user plans to run `tryve autoflow worktree
+// not required unless the user plans to run `autoflow worktree
 // bootstrap`.
 func checkBootstrap(root string) Checker {
 	return func(ctx context.Context) Result {
@@ -145,7 +145,7 @@ func checkBootstrap(root string) Checker {
 }
 
 // checkSkillsInstalled verifies .claude/skills/autoflow-deliver/SKILL.md
-// exists. That one file is a reliable signal that `tryve install --autoflow`
+// exists. That one file is a reliable signal that `autoflow install --autoflow`
 // has been run.
 func checkSkillsInstalled(root string) Checker {
 	return func(ctx context.Context) Result {
@@ -153,7 +153,7 @@ func checkSkillsInstalled(root string) Checker {
 		path := filepath.Join(root, ".claude", "skills", "autoflow-deliver", "SKILL.md")
 		if _, err := os.Stat(path); err != nil {
 			r.Status = Fail
-			r.Detail = "run `tryve install --autoflow` in this repo"
+			r.Detail = "run `autoflow install --autoflow` in this repo"
 			return r
 		}
 		r.Status = OK
@@ -170,7 +170,7 @@ func checkAgentsInstalled(root string) Checker {
 		path := filepath.Join(root, ".claude", "agents", "autoflow-jira-fetcher.md")
 		if _, err := os.Stat(path); err != nil {
 			r.Status = Fail
-			r.Detail = "run `tryve install --autoflow` in this repo"
+			r.Detail = "run `autoflow install --autoflow` in this repo"
 			return r
 		}
 		r.Status = OK
@@ -187,7 +187,7 @@ func checkNoLegacyScripts(root string) Checker {
 		path := filepath.Join(root, ".claude", "scripts", "autoflow")
 		if _, err := os.Stat(path); err == nil {
 			r.Status = Warn
-			r.Detail = "`.claude/scripts/autoflow/` exists — remove it and re-run `tryve install --autoflow`"
+			r.Detail = "`.claude/scripts/autoflow/` exists — remove it and re-run `autoflow install --autoflow`"
 			return r
 		}
 		r.Status = OK

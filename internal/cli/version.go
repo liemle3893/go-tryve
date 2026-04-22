@@ -11,10 +11,10 @@ import (
 func newVersionCmd(version string) *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",
-		Short: "Print the tryve version",
+		Short: "Print the autoflow version",
 		Args:  cobra.NoArgs,
 		Run: func(cmd *cobra.Command, _ []string) {
-			fmt.Fprintf(cmd.OutOrStdout(), "tryve %s\n", version)
+			fmt.Fprintf(cmd.OutOrStdout(), "autoflow %s\n", version)
 		},
 	}
 }

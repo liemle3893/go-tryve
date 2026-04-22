@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/core"
 	"gopkg.in/yaml.v3"
 )
 
@@ -23,7 +23,7 @@ var knownStepFields = map[string]struct{}{
 }
 
 // ParseFile reads the YAML test definition at path and returns a fully populated
-// *tryve.TestDefinition.
+// *core.TestDefinition.
 //
 // Adapter-specific fields (e.g. url, method, command, topic) sit at the top
 // level of each step in the YAML format rather than under a "params" key.
@@ -31,10 +31,10 @@ var knownStepFields = map[string]struct{}{
 //
 // Step IDs are assigned as "{phase}-{index}" (e.g. "execute-0").
 // SourceFile is set to the resolved absolute path of the file.
-func ParseFile(path string) (*tryve.TestDefinition, error) {
+func ParseFile(path string) (*core.TestDefinition, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, tryve.ConfigError(
+		return nil, core.ConfigError(
 			fmt.Sprintf("cannot read test file %q", path),
 			"verify the file exists and is readable",
 			err,
@@ -42,9 +42,9 @@ func ParseFile(path string) (*tryve.TestDefinition, error) {
 	}
 
 	// Unmarshal into typed struct for top-level fields.
-	var td tryve.TestDefinition
+	var td core.TestDefinition
 	if err := yaml.Unmarshal(data, &td); err != nil {
-		return nil, tryve.ConfigError(
+		return nil, core.ConfigError(
 			fmt.Sprintf("cannot parse test file %q", path),
 			"verify the YAML syntax is valid",
 			err,
@@ -54,7 +54,7 @@ func ParseFile(path string) (*tryve.TestDefinition, error) {
 	// Unmarshal into a raw map for full access to unknown step-level keys.
 	var raw map[string]any
 	if err := yaml.Unmarshal(data, &raw); err != nil {
-		return nil, tryve.ConfigError(
+		return nil, core.ConfigError(
 			fmt.Sprintf("cannot parse test file %q (raw pass)", path),
 			"verify the YAML syntax is valid",
 			err,
@@ -64,7 +64,7 @@ func ParseFile(path string) (*tryve.TestDefinition, error) {
 	// Parse each phase from the raw map and enrich the typed struct.
 	phases := []struct {
 		name  string
-		steps *[]tryve.StepDefinition
+		steps *[]core.StepDefinition
 	}{
 		{"setup", &td.Setup},
 		{"execute", &td.Execute},
@@ -82,7 +82,7 @@ func ParseFile(path string) (*tryve.TestDefinition, error) {
 			continue
 		}
 
-		parsed := make([]tryve.StepDefinition, len(stepList))
+		parsed := make([]core.StepDefinition, len(stepList))
 		for i, rawStep := range stepList {
 			stepMap, ok := rawStep.(map[string]any)
 			if !ok {
@@ -108,8 +108,8 @@ func ParseFile(path string) (*tryve.TestDefinition, error) {
 
 // parseStep converts a raw YAML map for a single step into a StepDefinition.
 // Known fields are set directly; all remaining keys are stored in Params.
-func parseStep(m map[string]any) tryve.StepDefinition {
-	var s tryve.StepDefinition
+func parseStep(m map[string]any) core.StepDefinition {
+	var s core.StepDefinition
 	s.Params = make(map[string]any)
 
 	for k, v := range m {

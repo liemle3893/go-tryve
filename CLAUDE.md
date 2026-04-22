@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build & Run Commands
 
 ```bash
-make build             # Build ./bin/tryve
+make build             # Build ./bin/autoflow
 make test              # Run all tests
 make test-v            # Tests with verbose output
 make lint              # golangci-lint
@@ -14,37 +14,37 @@ make clean             # Remove build artifacts
 
 ## CLI Commands
 
-Top-level commands live under `internal/cli/`; the binary is built from `cmd/tryve/`.
+Top-level commands live under `internal/cli/`; the binary is built from `cmd/autoflow/`.
 
 ```bash
 # Core runner
-tryve run                                 # Run all tests
-tryve run --tag smoke --bail              # Filter + early-exit
-tryve validate                            # Validate YAML test files
-tryve list                                # List discovered tests
-tryve health                              # Adapter connectivity check
-tryve init                                # Create e2e.config.yaml
-tryve test create <name>                  # Create test from template
+autoflow e2e run                                 # Run all tests
+autoflow e2e run --tag smoke --bail              # Filter + early-exit
+autoflow e2e validate                            # Validate YAML test files
+autoflow e2e list                                # List discovered tests
+autoflow e2e health                              # Adapter connectivity check
+autoflow e2e init                                # Create e2e.config.yaml
+autoflow e2e test create <name>                  # Create test from template
 
 # Docs
-tryve doc                                 # List doc sections
-tryve doc assertions                      # Assertions reference
-tryve doc adapters.http                   # HTTP adapter docs
+autoflow e2e doc                                 # List doc sections
+autoflow e2e doc assertions                      # Assertions reference
+autoflow e2e doc adapters.http                   # HTTP adapter docs
 
 # Install
-tryve install --skills                    # Install e2e-runner Claude skill
-tryve install --autoflow                  # Install autoflow skills + agents
+autoflow install --skills                    # Install e2e-runner Claude skill
+autoflow install --autoflow                  # Install autoflow skills + agents
                                           # (auto-cleans legacy .claude/scripts/autoflow/)
 
 # Autoflow — ported from winx-autoflow, no bash scripts
-tryve autoflow jira config {set,get,del,show}
-tryve autoflow jira upload <issue-key> <file>...
-tryve autoflow jira download <issue-key> <dest-dir>
-tryve autoflow worktree bootstrap <worktree-path>
-tryve autoflow deliver {init,next,complete}
-tryve autoflow loop-state {init,append,read,round-count} <state-file>
-tryve autoflow scaffold-e2e --ticket KEY --area AREA --count N
-tryve autoflow doctor                     # Preflight checklist
+autoflow jira config {set,get,del,show}
+autoflow jira upload <issue-key> <file>...
+autoflow jira download <issue-key> <dest-dir>
+autoflow worktree bootstrap <worktree-path>
+autoflow deliver {init,next,complete}
+autoflow loop-state {init,append,read,round-count} <state-file>
+autoflow scaffold-e2e --ticket KEY --area AREA --count N
+autoflow doctor                     # Preflight checklist
 ```
 
 ## Shared Utilities (use these, don't reimplement)
@@ -77,16 +77,16 @@ The CLI wrappers in `internal/cli/autoflow_*.go` are thin Cobra shells. Put real
 Every change to CLI commands, adapters, configuration, assertions, built-in functions, or YAML test syntax **must** also be reflected in **all three** of these locations:
 
 1. **Docs** — `docs/sections/` markdown files
-2. **CLI doc registry** — `docs/sections/index.json` (maps section names to files for `tryve doc <section>`)
+2. **CLI doc registry** — `docs/sections/index.json` (maps section names to files for `autoflow e2e doc <section>`)
 3. **Skill template** — `skills/e2e-runner/SKILL.md` (the source skill file shipped with the binary)
 
 ### How Skills Are Installed
 
-`tryve install --skills` (see `internal/cli/install.go`) copies files to the user's project:
+`autoflow install --skills` (see `internal/cli/install.go`) copies files to the user's project:
 - `skills/e2e-runner/SKILL.md` → `.claude/skills/e2e-runner/SKILL.md`
 - `docs/sections/**` → `.claude/skills/e2e-runner/references/**`
 
-`tryve install --autoflow` copies:
+`autoflow install --autoflow` copies:
 - `skills/autoflow/**` → `.claude/skills/autoflow-*/`
 - `agents/autoflow/**` → `.claude/agents/autoflow-*.md`
 - Removes any legacy `.claude/scripts/autoflow/` directory left by the old bash installer.
@@ -96,7 +96,7 @@ Every change to CLI commands, adapters, configuration, assertions, built-in func
 Relevant doc files:
 - `docs/sections/cli.md` — CLI commands and flags
 - `docs/sections/adapters/` — Per-adapter reference docs
-- `docs/sections/index.json` — Section registry for `tryve doc`
+- `docs/sections/index.json` — Section registry for `autoflow e2e doc`
 - `docs/sections/config.md` — `e2e.config.yaml` reference
 - `docs/sections/assertions.md` — Assertion operators and JSONPath
 - `docs/sections/built-in-functions.md` — Built-in functions

@@ -1,4 +1,4 @@
-# Tryve
+# Autoflow
 
 A YAML-driven, multi-protocol end-to-end test runner. Write tests in YAML, run them against HTTP APIs and databases, and get results in console, JUnit, HTML, or JSON.
 
@@ -9,7 +9,7 @@ Single binary. Zero runtime dependencies. Cross-platform.
 ### Shell (Linux / macOS)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/liemle3893/go-tryve/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/liemle3893/go-autoflow/main/install.sh | sh
 ```
 
 Options: `--dir /custom/path` to change install location, `--version v2.0.0` to pin a version.
@@ -17,7 +17,7 @@ Options: `--dir /custom/path` to change install location, `--version v2.0.0` to 
 ### PowerShell (Windows)
 
 ```powershell
-irm https://raw.githubusercontent.com/liemle3893/go-tryve/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/liemle3893/go-autoflow/main/install.ps1 | iex
 ```
 
 Options: `-Dir C:\custom\path` to change install location, `-Version v2.0.0` to pin a version.
@@ -25,31 +25,31 @@ Options: `-Dir C:\custom\path` to change install location, `-Version v2.0.0` to 
 ### Go Install
 
 ```bash
-go install github.com/liemle3893/go-tryve/cmd/tryve@latest
+go install github.com/liemle3893/go-autoflow/cmd/autoflow@latest
 ```
 
 ### From Source
 
 ```bash
-git clone https://github.com/liemle3893/go-tryve.git
-cd go-tryve
-make build    # binary at ./bin/tryve
+git clone https://github.com/liemle3893/go-autoflow.git
+cd go-autoflow
+make build    # binary at ./bin/autoflow
 ```
 
 ## Quick Start
 
 ```bash
 # Create a config file
-tryve init
+autoflow e2e init
 
 # Create a test
-tryve test create my-api-test
+autoflow e2e test create my-api-test
 
 # Run all tests
-tryve run
+autoflow e2e run
 
 # Run with filters
-tryve run --tag smoke --bail
+autoflow e2e run --tag smoke --bail
 ```
 
 ## Writing Tests
@@ -222,41 +222,41 @@ Use `${functionName(args)}` in any string value.
 ### Commands
 
 ```
-tryve run          Run tests
-tryve validate     Validate test file syntax
-tryve list         List discovered tests
-tryve health       Check adapter connectivity
-tryve init         Create e2e.config.yaml
-tryve test create  Create a test from template
-tryve doc          Browse built-in documentation
-tryve install      Install Claude Code skills (--skills, --autoflow)
-tryve autoflow     Jira-to-PR autoflow helpers (see below)
-tryve version      Print version
+autoflow e2e run          Run tests
+autoflow e2e validate     Validate test file syntax
+autoflow e2e list         List discovered tests
+autoflow e2e health       Check adapter connectivity
+autoflow e2e init         Create e2e.config.yaml
+autoflow e2e test create  Create a test from template
+autoflow e2e doc          Browse built-in documentation
+autoflow install      Install Claude Code skills (--skills, --autoflow)
+autoflow     Jira-to-PR autoflow helpers (see below)
+autoflow version      Print version
 ```
 
-### `tryve autoflow`
+### `autoflow autoflow`
 
 A Go port of [`winx-autoflow`](https://github.com/the-winx-corp/winx-ai-autoflow).
-Adds a Jira-to-PR delivery workflow to the tryve binary with no external
+Adds a Jira-to-PR delivery workflow to the autoflow binary with no external
 runtime dependencies (`git` and `gh` only).
 
 ```
-tryve autoflow jira config {set,get,del,show}      Manage .autoflow/jira-config.json
-tryve autoflow jira upload <KEY> <file>...          Upload attachments to a Jira issue
-tryve autoflow jira download <KEY> <dir>            Download attachments from a Jira issue
-tryve autoflow worktree bootstrap <path>            Copy .claude + config files into a worktree
-tryve autoflow deliver {init,next,complete}         13-step delivery state machine
-tryve autoflow loop-state {init,append,read,round-count}   Generic agentic-loop state manager
-tryve autoflow scaffold-e2e --ticket KEY --area A --count N   Generate E2E test stubs
-tryve autoflow doctor                               Preflight checklist (git, gh, Jira, install layout)
+autoflow jira config {set,get,del,show}      Manage .autoflow/jira-config.json
+autoflow jira upload <KEY> <file>...          Upload attachments to a Jira issue
+autoflow jira download <KEY> <dir>            Download attachments from a Jira issue
+autoflow worktree bootstrap <path>            Copy .claude + config files into a worktree
+autoflow deliver {init,next,complete}         13-step delivery state machine
+autoflow loop-state {init,append,read,round-count}   Generic agentic-loop state manager
+autoflow scaffold-e2e --ticket KEY --area A --count N   Generate E2E test stubs
+autoflow doctor                               Preflight checklist (git, gh, Jira, install layout)
 ```
 
-Install skills + agents with `tryve install --autoflow` — this drops
+Install skills + agents with `autoflow install --autoflow` — this drops
 `.claude/skills/autoflow-*/` and `.claude/agents/autoflow-*.md` into the
 current project and removes any legacy `.claude/scripts/autoflow/` dir
 left by the old bash installer.
 
-### `tryve run` Flags
+### `autoflow e2e run` Flags
 
 | Flag | Short | Description | Default |
 |------|-------|-------------|---------|
@@ -290,7 +290,7 @@ left by the old bash installer.
 
 ```bash
 # Multiple reporters
-tryve run --reporter console --reporter junit -o reports/results.xml
+autoflow e2e run --reporter console --reporter junit -o reports/results.xml
 ```
 
 ## Programmatic Usage (Go)
@@ -303,7 +303,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/liemle3893/go-tryve/pkg/runner"
+    "github.com/liemle3893/go-autoflow/pkg/runner"
 )
 
 func main() {
@@ -329,7 +329,7 @@ func main() {
 ## Development
 
 ```bash
-make build       # Build binary to bin/tryve
+make build       # Build binary to bin/autoflow
 make test        # Run all tests
 make test-v      # Run tests with verbose output
 make lint        # Run golangci-lint

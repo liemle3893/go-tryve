@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/liemle3893/go-tryve/internal/autoflow/state"
+	"github.com/liemle3893/autoflow/internal/autoflow/state"
 )
 
 // TestStep02_Integration exercises step_02 end-to-end against a real git

@@ -7,7 +7,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/core"
 )
 
 // MongoDBAdapter executes MongoDB operations against a target database.
@@ -40,7 +40,7 @@ func (a *MongoDBAdapter) Name() string { return "mongodb" }
 func (a *MongoDBAdapter) Connect(_ context.Context) error {
 	client, err := mongo.Connect(options.Client().ApplyURI(a.connStr))
 	if err != nil {
-		return tryve.ConnectionError("mongodb", "failed to connect", err)
+		return core.ConnectionError("mongodb", "failed to connect", err)
 	}
 	a.client = client
 	a.database = client.Database(a.dbName)
@@ -51,7 +51,7 @@ func (a *MongoDBAdapter) Connect(_ context.Context) error {
 func (a *MongoDBAdapter) Close(ctx context.Context) error {
 	if a.client != nil {
 		if err := a.client.Disconnect(ctx); err != nil {
-			return tryve.ConnectionError("mongodb", "failed to disconnect", err)
+			return core.ConnectionError("mongodb", "failed to disconnect", err)
 		}
 	}
 	return nil
@@ -60,7 +60,7 @@ func (a *MongoDBAdapter) Close(ctx context.Context) error {
 // Health performs a lightweight ping to verify the server is reachable.
 func (a *MongoDBAdapter) Health(ctx context.Context) error {
 	if err := a.client.Ping(ctx, nil); err != nil {
-		return tryve.ConnectionError("mongodb", "health check failed", err)
+		return core.ConnectionError("mongodb", "health check failed", err)
 	}
 	return nil
 }
@@ -69,10 +69,10 @@ func (a *MongoDBAdapter) Health(ctx context.Context) error {
 // All actions require a "collection" string parameter.
 // Supported actions: insertOne, insertMany, findOne, find, updateOne, updateMany,
 // deleteOne, deleteMany, count, aggregate.
-func (a *MongoDBAdapter) Execute(ctx context.Context, action string, params map[string]any) (*tryve.StepResult, error) {
+func (a *MongoDBAdapter) Execute(ctx context.Context, action string, params map[string]any) (*core.StepResult, error) {
 	collName, err := getStr(params, "collection")
 	if err != nil {
-		return nil, tryve.AdapterError("mongodb", action, "missing required param: collection", err)
+		return nil, core.AdapterError("mongodb", action, "missing required param: collection", err)
 	}
 	coll := a.database.Collection(collName)
 
@@ -98,7 +98,7 @@ func (a *MongoDBAdapter) Execute(ctx context.Context, action string, params map[
 	case "aggregate":
 		return a.aggregate(ctx, coll, params)
 	default:
-		return nil, tryve.AdapterError(
+		return nil, core.AdapterError(
 			"mongodb", action,
 			fmt.Sprintf("unsupported action %q", action),
 			nil,
@@ -109,10 +109,10 @@ func (a *MongoDBAdapter) Execute(ctx context.Context, action string, params map[
 // insertOne inserts a single document into the collection.
 // Params: "document" (map[string]any, required).
 // Returns: {"insertedId": id}.
-func (a *MongoDBAdapter) insertOne(ctx context.Context, coll *mongo.Collection, params map[string]any) (*tryve.StepResult, error) {
+func (a *MongoDBAdapter) insertOne(ctx context.Context, coll *mongo.Collection, params map[string]any) (*core.StepResult, error) {
 	doc, ok := params["document"]
 	if !ok || doc == nil {
-		return nil, tryve.AdapterError("mongodb", "insertOne", "missing required param: document", nil)
+		return nil, core.AdapterError("mongodb", "insertOne", "missing required param: document", nil)
 	}
 
 	var result *mongo.InsertOneResult
@@ -122,7 +122,7 @@ func (a *MongoDBAdapter) insertOne(ctx context.Context, coll *mongo.Collection, 
 		return doErr
 	})
 	if err != nil {
-		return nil, tryve.AdapterError("mongodb", "insertOne", "operation failed", err)
+		return nil, core.AdapterError("mongodb", "insertOne", "operation failed", err)
 	}
 
 	data := map[string]any{
@@ -134,15 +134,15 @@ func (a *MongoDBAdapter) insertOne(ctx context.Context, coll *mongo.Collection, 
 // insertMany inserts multiple documents into the collection.
 // Params: "documents" ([]any or []map[string]any, required).
 // Returns: {"insertedIds": []any}.
-func (a *MongoDBAdapter) insertMany(ctx context.Context, coll *mongo.Collection, params map[string]any) (*tryve.StepResult, error) {
+func (a *MongoDBAdapter) insertMany(ctx context.Context, coll *mongo.Collection, params map[string]any) (*core.StepResult, error) {
 	raw, ok := params["documents"]
 	if !ok || raw == nil {
-		return nil, tryve.AdapterError("mongodb", "insertMany", "missing required param: documents", nil)
+		return nil, core.AdapterError("mongodb", "insertMany", "missing required param: documents", nil)
 	}
 
 	docs, err := toSliceOfAny(raw)
 	if err != nil {
-		return nil, tryve.AdapterError("mongodb", "insertMany", "param \"documents\" must be a slice", err)
+		return nil, core.AdapterError("mongodb", "insertMany", "param \"documents\" must be a slice", err)
 	}
 
 	var result *mongo.InsertManyResult
@@ -152,7 +152,7 @@ func (a *MongoDBAdapter) insertMany(ctx context.Context, coll *mongo.Collection,
 		return doErr
 	})
 	if opErr != nil {
-		return nil, tryve.AdapterError("mongodb", "insertMany", "operation failed", opErr)
+		return nil, core.AdapterError("mongodb", "insertMany", "operation failed", opErr)
 	}
 
 	data := map[string]any{
@@ -164,7 +164,7 @@ func (a *MongoDBAdapter) insertMany(ctx context.Context, coll *mongo.Collection,
 // findOne retrieves a single document matching the filter.
 // Params: "filter" (map[string]any, defaults to empty filter).
 // Returns: {"document": map[string]any}.
-func (a *MongoDBAdapter) findOne(ctx context.Context, coll *mongo.Collection, params map[string]any) (*tryve.StepResult, error) {
+func (a *MongoDBAdapter) findOne(ctx context.Context, coll *mongo.Collection, params map[string]any) (*core.StepResult, error) {
 	filter := filterParam(params)
 
 	var doc map[string]any
@@ -172,7 +172,7 @@ func (a *MongoDBAdapter) findOne(ctx context.Context, coll *mongo.Collection, pa
 		return coll.FindOne(ctx, filter).Decode(&doc)
 	})
 	if err != nil {
-		return nil, tryve.AdapterError("mongodb", "findOne", "operation failed", err)
+		return nil, core.AdapterError("mongodb", "findOne", "operation failed", err)
 	}
 
 	data := map[string]any{
@@ -184,7 +184,7 @@ func (a *MongoDBAdapter) findOne(ctx context.Context, coll *mongo.Collection, pa
 // find retrieves all documents matching the filter.
 // Params: "filter" (map[string]any, defaults to empty filter).
 // Returns: {"documents": []map[string]any, "count": float64}.
-func (a *MongoDBAdapter) find(ctx context.Context, coll *mongo.Collection, params map[string]any) (*tryve.StepResult, error) {
+func (a *MongoDBAdapter) find(ctx context.Context, coll *mongo.Collection, params map[string]any) (*core.StepResult, error) {
 	filter := filterParam(params)
 
 	var docs []map[string]any
@@ -196,7 +196,7 @@ func (a *MongoDBAdapter) find(ctx context.Context, coll *mongo.Collection, param
 		return cursor.All(ctx, &docs)
 	})
 	if err != nil {
-		return nil, tryve.AdapterError("mongodb", "find", "operation failed", err)
+		return nil, core.AdapterError("mongodb", "find", "operation failed", err)
 	}
 
 	if docs == nil {
@@ -212,11 +212,11 @@ func (a *MongoDBAdapter) find(ctx context.Context, coll *mongo.Collection, param
 // updateOne updates the first document matching the filter.
 // Params: "filter" (map[string]any), "update" (map[string]any, required).
 // Returns: {"matchedCount": float64, "modifiedCount": float64}.
-func (a *MongoDBAdapter) updateOne(ctx context.Context, coll *mongo.Collection, params map[string]any) (*tryve.StepResult, error) {
+func (a *MongoDBAdapter) updateOne(ctx context.Context, coll *mongo.Collection, params map[string]any) (*core.StepResult, error) {
 	filter := filterParam(params)
 	update, ok := params["update"]
 	if !ok || update == nil {
-		return nil, tryve.AdapterError("mongodb", "updateOne", "missing required param: update", nil)
+		return nil, core.AdapterError("mongodb", "updateOne", "missing required param: update", nil)
 	}
 
 	var result *mongo.UpdateResult
@@ -226,7 +226,7 @@ func (a *MongoDBAdapter) updateOne(ctx context.Context, coll *mongo.Collection, 
 		return doErr
 	})
 	if err != nil {
-		return nil, tryve.AdapterError("mongodb", "updateOne", "operation failed", err)
+		return nil, core.AdapterError("mongodb", "updateOne", "operation failed", err)
 	}
 
 	data := map[string]any{
@@ -239,11 +239,11 @@ func (a *MongoDBAdapter) updateOne(ctx context.Context, coll *mongo.Collection, 
 // updateMany updates all documents matching the filter.
 // Params: "filter" (map[string]any), "update" (map[string]any, required).
 // Returns: {"matchedCount": float64, "modifiedCount": float64}.
-func (a *MongoDBAdapter) updateMany(ctx context.Context, coll *mongo.Collection, params map[string]any) (*tryve.StepResult, error) {
+func (a *MongoDBAdapter) updateMany(ctx context.Context, coll *mongo.Collection, params map[string]any) (*core.StepResult, error) {
 	filter := filterParam(params)
 	update, ok := params["update"]
 	if !ok || update == nil {
-		return nil, tryve.AdapterError("mongodb", "updateMany", "missing required param: update", nil)
+		return nil, core.AdapterError("mongodb", "updateMany", "missing required param: update", nil)
 	}
 
 	var result *mongo.UpdateResult
@@ -253,7 +253,7 @@ func (a *MongoDBAdapter) updateMany(ctx context.Context, coll *mongo.Collection,
 		return doErr
 	})
 	if err != nil {
-		return nil, tryve.AdapterError("mongodb", "updateMany", "operation failed", err)
+		return nil, core.AdapterError("mongodb", "updateMany", "operation failed", err)
 	}
 
 	data := map[string]any{
@@ -266,7 +266,7 @@ func (a *MongoDBAdapter) updateMany(ctx context.Context, coll *mongo.Collection,
 // deleteOne removes the first document matching the filter.
 // Params: "filter" (map[string]any, defaults to empty filter).
 // Returns: {"deletedCount": float64}.
-func (a *MongoDBAdapter) deleteOne(ctx context.Context, coll *mongo.Collection, params map[string]any) (*tryve.StepResult, error) {
+func (a *MongoDBAdapter) deleteOne(ctx context.Context, coll *mongo.Collection, params map[string]any) (*core.StepResult, error) {
 	filter := filterParam(params)
 
 	var result *mongo.DeleteResult
@@ -276,7 +276,7 @@ func (a *MongoDBAdapter) deleteOne(ctx context.Context, coll *mongo.Collection, 
 		return doErr
 	})
 	if err != nil {
-		return nil, tryve.AdapterError("mongodb", "deleteOne", "operation failed", err)
+		return nil, core.AdapterError("mongodb", "deleteOne", "operation failed", err)
 	}
 
 	data := map[string]any{
@@ -288,7 +288,7 @@ func (a *MongoDBAdapter) deleteOne(ctx context.Context, coll *mongo.Collection, 
 // deleteMany removes all documents matching the filter.
 // Params: "filter" (map[string]any, defaults to empty filter).
 // Returns: {"deletedCount": float64}.
-func (a *MongoDBAdapter) deleteMany(ctx context.Context, coll *mongo.Collection, params map[string]any) (*tryve.StepResult, error) {
+func (a *MongoDBAdapter) deleteMany(ctx context.Context, coll *mongo.Collection, params map[string]any) (*core.StepResult, error) {
 	filter := filterParam(params)
 
 	var result *mongo.DeleteResult
@@ -298,7 +298,7 @@ func (a *MongoDBAdapter) deleteMany(ctx context.Context, coll *mongo.Collection,
 		return doErr
 	})
 	if err != nil {
-		return nil, tryve.AdapterError("mongodb", "deleteMany", "operation failed", err)
+		return nil, core.AdapterError("mongodb", "deleteMany", "operation failed", err)
 	}
 
 	data := map[string]any{
@@ -310,7 +310,7 @@ func (a *MongoDBAdapter) deleteMany(ctx context.Context, coll *mongo.Collection,
 // count returns the number of documents matching the filter.
 // Params: "filter" (map[string]any, defaults to empty filter).
 // Returns: {"count": float64}.
-func (a *MongoDBAdapter) count(ctx context.Context, coll *mongo.Collection, params map[string]any) (*tryve.StepResult, error) {
+func (a *MongoDBAdapter) count(ctx context.Context, coll *mongo.Collection, params map[string]any) (*core.StepResult, error) {
 	filter := filterParam(params)
 
 	var n int64
@@ -320,7 +320,7 @@ func (a *MongoDBAdapter) count(ctx context.Context, coll *mongo.Collection, para
 		return doErr
 	})
 	if err != nil {
-		return nil, tryve.AdapterError("mongodb", "count", "operation failed", err)
+		return nil, core.AdapterError("mongodb", "count", "operation failed", err)
 	}
 
 	data := map[string]any{
@@ -332,15 +332,15 @@ func (a *MongoDBAdapter) count(ctx context.Context, coll *mongo.Collection, para
 // aggregate executes an aggregation pipeline against the collection.
 // Params: "pipeline" ([]any or []map[string]any, required).
 // Returns: {"documents": []map[string]any}.
-func (a *MongoDBAdapter) aggregate(ctx context.Context, coll *mongo.Collection, params map[string]any) (*tryve.StepResult, error) {
+func (a *MongoDBAdapter) aggregate(ctx context.Context, coll *mongo.Collection, params map[string]any) (*core.StepResult, error) {
 	raw, ok := params["pipeline"]
 	if !ok || raw == nil {
-		return nil, tryve.AdapterError("mongodb", "aggregate", "missing required param: pipeline", nil)
+		return nil, core.AdapterError("mongodb", "aggregate", "missing required param: pipeline", nil)
 	}
 
 	pipeline, err := toSliceOfAny(raw)
 	if err != nil {
-		return nil, tryve.AdapterError("mongodb", "aggregate", "param \"pipeline\" must be a slice", err)
+		return nil, core.AdapterError("mongodb", "aggregate", "param \"pipeline\" must be a slice", err)
 	}
 
 	var docs []map[string]any
@@ -352,7 +352,7 @@ func (a *MongoDBAdapter) aggregate(ctx context.Context, coll *mongo.Collection, 
 		return cursor.All(ctx, &docs)
 	})
 	if opErr != nil {
-		return nil, tryve.AdapterError("mongodb", "aggregate", "operation failed", opErr)
+		return nil, core.AdapterError("mongodb", "aggregate", "operation failed", opErr)
 	}
 
 	if docs == nil {

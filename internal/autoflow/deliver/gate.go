@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/liemle3893/go-tryve/internal/autoflow/state"
+	"github.com/liemle3893/autoflow/internal/autoflow/state"
 )
 
 // buildGateState is the JSON shape of build-gate-state.json. Matches the

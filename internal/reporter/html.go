@@ -8,13 +8,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/core"
 )
 
 // reportEntry pairs a test definition with its final result for template rendering.
 type reportEntry struct {
-	Test   *tryve.TestDefinition
-	Result *tryve.TestResult
+	Test   *core.TestDefinition
+	Result *core.TestResult
 }
 
 // HTML is a Reporter implementation that accumulates test results during a run
@@ -33,7 +33,7 @@ func NewHTML(outputPath string) *HTML {
 }
 
 // OnSuiteStart records the suite start time.
-func (h *HTML) OnSuiteStart(_ context.Context, _ *tryve.SuiteResult) error {
+func (h *HTML) OnSuiteStart(_ context.Context, _ *core.SuiteResult) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.suiteStart = time.Now()
@@ -41,17 +41,17 @@ func (h *HTML) OnSuiteStart(_ context.Context, _ *tryve.SuiteResult) error {
 }
 
 // OnTestStart is a no-op for the HTML reporter; results are captured on completion.
-func (h *HTML) OnTestStart(_ context.Context, _ *tryve.TestDefinition) error {
+func (h *HTML) OnTestStart(_ context.Context, _ *core.TestDefinition) error {
 	return nil
 }
 
 // OnStepComplete is a no-op for the HTML reporter; step data arrives via OnTestComplete.
-func (h *HTML) OnStepComplete(_ context.Context, _ *tryve.StepDefinition, _ *tryve.StepOutcome) error {
+func (h *HTML) OnStepComplete(_ context.Context, _ *core.StepDefinition, _ *core.StepOutcome) error {
 	return nil
 }
 
 // OnTestComplete appends the completed test and its result to the internal accumulator.
-func (h *HTML) OnTestComplete(_ context.Context, test *tryve.TestDefinition, result *tryve.TestResult) error {
+func (h *HTML) OnTestComplete(_ context.Context, test *core.TestDefinition, result *core.TestResult) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.entries = append(h.entries, reportEntry{Test: test, Result: result})
@@ -59,7 +59,7 @@ func (h *HTML) OnTestComplete(_ context.Context, test *tryve.TestDefinition, res
 }
 
 // OnSuiteComplete records the suite end time.
-func (h *HTML) OnSuiteComplete(_ context.Context, _ *tryve.SuiteResult, _ *tryve.SuiteResult) error {
+func (h *HTML) OnSuiteComplete(_ context.Context, _ *core.SuiteResult, _ *core.SuiteResult) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.suiteEnd = time.Now()
@@ -114,11 +114,11 @@ func (h *HTML) Flush() error {
 func (h *HTML) counts() (passed, failed, skipped int) {
 	for _, e := range h.entries {
 		switch e.Result.Status {
-		case tryve.StatusPassed:
+		case core.StatusPassed:
 			passed++
-		case tryve.StatusFailed:
+		case core.StatusFailed:
 			failed++
-		case tryve.StatusSkipped:
+		case core.StatusSkipped:
 			skipped++
 		}
 	}
@@ -137,26 +137,26 @@ func (h *HTML) suiteDuration() string {
 func templateFuncs() template.FuncMap {
 	return template.FuncMap{
 		// statusClass maps a TestStatus to a CSS class name.
-		"statusClass": func(s tryve.TestStatus) string {
+		"statusClass": func(s core.TestStatus) string {
 			switch s {
-			case tryve.StatusPassed:
+			case core.StatusPassed:
 				return "pass"
-			case tryve.StatusFailed:
+			case core.StatusFailed:
 				return "fail"
-			case tryve.StatusSkipped:
+			case core.StatusSkipped:
 				return "skip"
 			default:
 				return "skip"
 			}
 		},
 		// statusLabel returns an uppercase display label for a TestStatus.
-		"statusLabel": func(s tryve.TestStatus) string {
+		"statusLabel": func(s core.TestStatus) string {
 			switch s {
-			case tryve.StatusPassed:
+			case core.StatusPassed:
 				return "PASS"
-			case tryve.StatusFailed:
+			case core.StatusFailed:
 				return "FAIL"
-			case tryve.StatusSkipped:
+			case core.StatusSkipped:
 				return "SKIP"
 			default:
 				return string(s)
@@ -176,7 +176,7 @@ const htmlTemplate = `<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tryve Test Report</title>
+  <title>Autoflow Test Report</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -294,7 +294,7 @@ const htmlTemplate = `<!DOCTYPE html>
 </head>
 <body>
   <header>
-    <h1>Tryve Test Report</h1>
+    <h1>Autoflow Test Report</h1>
     <div class="meta">Generated: {{.GeneratedAt}} &nbsp;|&nbsp; Duration: {{.Duration}}</div>
   </header>
 
@@ -355,6 +355,6 @@ const htmlTemplate = `<!DOCTYPE html>
     </ul>
   </div>
 
-  <footer>Tryve Test Report</footer>
+  <footer>Autoflow Test Report</footer>
 </body>
 </html>`

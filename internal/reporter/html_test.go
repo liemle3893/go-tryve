@@ -8,13 +8,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/liemle3893/go-tryve/internal/reporter"
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/reporter"
+	"github.com/liemle3893/autoflow/internal/core"
 )
 
 // makeStep is a helper that builds a minimal StepDefinition for use in tests.
-func makeStep(action, description string) *tryve.StepDefinition {
-	return &tryve.StepDefinition{
+func makeStep(action, description string) *core.StepDefinition {
+	return &core.StepDefinition{
 		ID:          action + "-id",
 		Action:      action,
 		Description: description,
@@ -56,8 +56,8 @@ func TestHTMLReporter_ContainsTitle(t *testing.T) {
 		t.Fatalf("failed to read output file: %v", err)
 	}
 
-	if !strings.Contains(string(content), "Tryve Test Report") {
-		t.Errorf("expected output to contain %q", "Tryve Test Report")
+	if !strings.Contains(string(content), "Autoflow Test Report") {
+		t.Errorf("expected output to contain %q", "Autoflow Test Report")
 	}
 }
 
@@ -71,17 +71,17 @@ func TestHTMLReporter_ContainsTestNames(t *testing.T) {
 	h := reporter.NewHTML(outPath)
 
 	ctx := context.Background()
-	testA := &tryve.TestDefinition{Name: "login-flow", Description: "Tests the login path"}
-	testB := &tryve.TestDefinition{Name: "checkout-flow", Description: "Tests the checkout path"}
+	testA := &core.TestDefinition{Name: "login-flow", Description: "Tests the login path"}
+	testB := &core.TestDefinition{Name: "checkout-flow", Description: "Tests the checkout path"}
 
-	resultA := &tryve.TestResult{
+	resultA := &core.TestResult{
 		Test:     testA,
-		Status:   tryve.StatusPassed,
+		Status:   core.StatusPassed,
 		Duration: 120 * time.Millisecond,
 	}
-	resultB := &tryve.TestResult{
+	resultB := &core.TestResult{
 		Test:     testB,
-		Status:   tryve.StatusFailed,
+		Status:   core.StatusFailed,
 		Duration: 300 * time.Millisecond,
 	}
 
@@ -120,16 +120,16 @@ func TestHTMLReporter_ContainsPassedAndFailed(t *testing.T) {
 
 	ctx := context.Background()
 
-	testPass := &tryve.TestDefinition{Name: "healthy-check"}
-	testFail := &tryve.TestDefinition{Name: "broken-service"}
+	testPass := &core.TestDefinition{Name: "healthy-check"}
+	testFail := &core.TestDefinition{Name: "broken-service"}
 
-	if err := h.OnTestComplete(ctx, testPass, &tryve.TestResult{
-		Test: testPass, Status: tryve.StatusPassed, Duration: 50 * time.Millisecond,
+	if err := h.OnTestComplete(ctx, testPass, &core.TestResult{
+		Test: testPass, Status: core.StatusPassed, Duration: 50 * time.Millisecond,
 	}); err != nil {
 		t.Fatalf("OnTestComplete(pass): %v", err)
 	}
-	if err := h.OnTestComplete(ctx, testFail, &tryve.TestResult{
-		Test: testFail, Status: tryve.StatusFailed, Duration: 80 * time.Millisecond,
+	if err := h.OnTestComplete(ctx, testFail, &core.TestResult{
+		Test: testFail, Status: core.StatusFailed, Duration: 80 * time.Millisecond,
 	}); err != nil {
 		t.Fatalf("OnTestComplete(fail): %v", err)
 	}
@@ -163,18 +163,18 @@ func TestHTMLReporter_StepsAndAssertions(t *testing.T) {
 	ctx := context.Background()
 
 	step := makeStep("http.request", "Call the API")
-	test := &tryve.TestDefinition{Name: "api-test"}
-	result := &tryve.TestResult{
+	test := &core.TestDefinition{Name: "api-test"}
+	result := &core.TestResult{
 		Test:     test,
-		Status:   tryve.StatusFailed,
+		Status:   core.StatusFailed,
 		Duration: 200 * time.Millisecond,
-		Steps: []tryve.StepOutcome{
+		Steps: []core.StepOutcome{
 			{
 				Step:     step,
-				Phase:    tryve.PhaseVerify,
-				Status:   tryve.StatusFailed,
+				Phase:    core.PhaseVerify,
+				Status:   core.StatusFailed,
 				Duration: 150 * time.Millisecond,
-				Assertions: []tryve.AssertionOutcome{
+				Assertions: []core.AssertionOutcome{
 					{
 						Path:     "$.status",
 						Operator: "equals",
@@ -224,10 +224,10 @@ func TestHTMLReporter_SkippedTest(t *testing.T) {
 	h := reporter.NewHTML(outPath)
 	ctx := context.Background()
 
-	test := &tryve.TestDefinition{Name: "optional-feature", Skip: true, SkipReason: "not ready"}
-	result := &tryve.TestResult{
+	test := &core.TestDefinition{Name: "optional-feature", Skip: true, SkipReason: "not ready"}
+	result := &core.TestResult{
 		Test:     test,
-		Status:   tryve.StatusSkipped,
+		Status:   core.StatusSkipped,
 		Duration: 0,
 	}
 
@@ -281,10 +281,10 @@ func TestHTMLReporter_LifecycleNoError(t *testing.T) {
 	h := reporter.NewHTML(filepath.Join(dir, "report.html"))
 	ctx := context.Background()
 
-	suite := &tryve.SuiteResult{}
-	test := &tryve.TestDefinition{Name: "smoke-test"}
+	suite := &core.SuiteResult{}
+	test := &core.TestDefinition{Name: "smoke-test"}
 	step := makeStep("shell.exec", "")
-	outcome := &tryve.StepOutcome{Step: step, Status: tryve.StatusPassed, Duration: 10 * time.Millisecond}
+	outcome := &core.StepOutcome{Step: step, Status: core.StatusPassed, Duration: 10 * time.Millisecond}
 
 	if err := h.OnSuiteStart(ctx, suite); err != nil {
 		t.Errorf("OnSuiteStart: %v", err)
@@ -295,8 +295,8 @@ func TestHTMLReporter_LifecycleNoError(t *testing.T) {
 	if err := h.OnStepComplete(ctx, step, outcome); err != nil {
 		t.Errorf("OnStepComplete: %v", err)
 	}
-	if err := h.OnTestComplete(ctx, test, &tryve.TestResult{
-		Test: test, Status: tryve.StatusPassed, Duration: 10 * time.Millisecond,
+	if err := h.OnTestComplete(ctx, test, &core.TestResult{
+		Test: test, Status: core.StatusPassed, Duration: 10 * time.Millisecond,
 	}); err != nil {
 		t.Errorf("OnTestComplete: %v", err)
 	}

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/core"
 )
 
 // ANSI escape codes used by the Console reporter.
@@ -72,13 +72,13 @@ func (c *Console) styled(text, style string) string {
 }
 
 // OnSuiteStart prints the header.
-func (c *Console) OnSuiteStart(_ context.Context, _ *tryve.SuiteResult) error {
-	fmt.Fprintln(c.w, c.styled("Tryve Test Runner", ansiBold))
+func (c *Console) OnSuiteStart(_ context.Context, _ *core.SuiteResult) error {
+	fmt.Fprintln(c.w, c.styled("Autoflow Test Runner", ansiBold))
 	return nil
 }
 
 // OnTestStart prints the test name when verbose.
-func (c *Console) OnTestStart(_ context.Context, test *tryve.TestDefinition) error {
+func (c *Console) OnTestStart(_ context.Context, test *core.TestDefinition) error {
 	if c.verbose {
 		fmt.Fprintf(c.w, "\n%s\n", c.styled("RUN "+test.Name, ansiCyan))
 	}
@@ -86,13 +86,13 @@ func (c *Console) OnTestStart(_ context.Context, test *tryve.TestDefinition) err
 }
 
 // OnStepComplete prints step results with varying detail levels.
-func (c *Console) OnStepComplete(_ context.Context, _ *tryve.StepDefinition, outcome *tryve.StepOutcome) error {
+func (c *Console) OnStepComplete(_ context.Context, _ *core.StepDefinition, outcome *core.StepOutcome) error {
 	if !c.verbose {
 		return nil
 	}
 
 	var marker string
-	if outcome.Status == tryve.StatusPassed {
+	if outcome.Status == core.StatusPassed {
 		marker = c.styled("+", ansiGreen)
 	} else {
 		marker = c.styled("x", ansiRed)
@@ -107,7 +107,7 @@ func (c *Console) OnStepComplete(_ context.Context, _ *tryve.StepDefinition, out
 	}
 
 	// Show errors and failed assertions for failed steps.
-	if outcome.Status == tryve.StatusFailed || outcome.Status == tryve.StatusWarned {
+	if outcome.Status == core.StatusFailed || outcome.Status == core.StatusWarned {
 		if outcome.Error != nil {
 			fmt.Fprintf(c.w, "      %s %v\n", c.styled("ERR", ansiRed), outcome.Error)
 		}
@@ -123,7 +123,7 @@ func (c *Console) OnStepComplete(_ context.Context, _ *tryve.StepDefinition, out
 }
 
 // printDebugData outputs full request/response details for a step.
-func (c *Console) printDebugData(outcome *tryve.StepOutcome) {
+func (c *Console) printDebugData(outcome *core.StepOutcome) {
 	step := outcome.Step
 	// Use resolved params (post-interpolation) for debug, fall back to step.Params
 	params := outcome.ResolvedParams
@@ -264,14 +264,14 @@ func (c *Console) printEventDebug(params, data map[string]any, dim string) {
 }
 
 // OnTestComplete prints PASS/FAIL/SKIP with duration.
-func (c *Console) OnTestComplete(_ context.Context, test *tryve.TestDefinition, result *tryve.TestResult) error {
+func (c *Console) OnTestComplete(_ context.Context, test *core.TestDefinition, result *core.TestResult) error {
 	var label string
 	switch result.Status {
-	case tryve.StatusPassed:
+	case core.StatusPassed:
 		label = c.styled("PASS", ansiGreen)
-	case tryve.StatusFailed:
+	case core.StatusFailed:
 		label = c.styled("FAIL", ansiRed)
-	case tryve.StatusSkipped:
+	case core.StatusSkipped:
 		label = c.styled("SKIP", ansiYellow)
 	default:
 		label = string(result.Status)
@@ -280,11 +280,11 @@ func (c *Console) OnTestComplete(_ context.Context, test *tryve.TestDefinition, 
 	fmt.Fprintf(c.w, "%s %s (%s)\n", label, test.Name, result.Duration)
 
 	// Collect failed test info for the final summary.
-	if result.Status == tryve.StatusFailed {
+	if result.Status == core.StatusFailed {
 		info := failedTestInfo{name: test.Name}
 		// Find the first failed step.
 		for _, step := range result.Steps {
-			if step.Status != tryve.StatusFailed {
+			if step.Status != core.StatusFailed {
 				continue
 			}
 			info.stepID = step.Step.ID
@@ -312,7 +312,7 @@ func (c *Console) OnTestComplete(_ context.Context, test *tryve.TestDefinition, 
 }
 
 // OnSuiteComplete prints the summary with failed test details.
-func (c *Console) OnSuiteComplete(_ context.Context, _ *tryve.SuiteResult, result *tryve.SuiteResult) error {
+func (c *Console) OnSuiteComplete(_ context.Context, _ *core.SuiteResult, result *core.SuiteResult) error {
 	fmt.Fprintln(c.w)
 	fmt.Fprintln(c.w, c.styled("────────────────────────────────────────────────────────────", ansiDim))
 	fmt.Fprintln(c.w)
@@ -386,7 +386,7 @@ func (c *Console) Flush() error {
 }
 
 // stepDescription builds a human-readable label for a step.
-func stepDescription(outcome *tryve.StepOutcome) string {
+func stepDescription(outcome *core.StepOutcome) string {
 	step := outcome.Step
 	if step.Description != "" {
 		return step.Description

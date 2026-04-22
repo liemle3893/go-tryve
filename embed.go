@@ -1,5 +1,5 @@
 // Package assets embeds the skills bundle and documentation sections so they
-// can be installed into a user's project by the `tryve install --skills`
+// can be installed into a user's project by the `autoflow install --skills`
 // command without requiring access to the source tree at runtime.
 package assets
 
@@ -18,7 +18,7 @@ var SkillsFS embed.FS
 //go:embed docs/sections
 var DocsSectionsFS embed.FS
 
-// AutoflowSkillsFS contains the vendored autoflow skills that `tryve
+// AutoflowSkillsFS contains the vendored autoflow skills that `autoflow
 // install --autoflow` drops into .claude/skills/.
 //
 //go:embed skills/autoflow

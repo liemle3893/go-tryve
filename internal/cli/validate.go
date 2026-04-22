@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/liemle3893/go-tryve/internal/loader"
+	"github.com/liemle3893/autoflow/internal/loader"
 )
 
 // newValidateCmd constructs the `validate` sub-command which parses and

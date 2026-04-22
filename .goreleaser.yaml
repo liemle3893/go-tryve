@@ -1,6 +1,6 @@
 version: 2
 
-project_name: tryve
+project_name: autoflow
 
 before:
   hooks:
@@ -8,9 +8,9 @@ before:
     - go test ./...
 
 builds:
-  - id: tryve
-    main: ./cmd/tryve
-    binary: tryve
+  - id: autoflow
+    main: ./cmd/autoflow
+    binary: autoflow
     env:
       - CGO_ENABLED=0
     ldflags:
@@ -24,8 +24,8 @@ builds:
       - arm64
 
 archives:
-  - id: tryve
-    name_template: "tryve_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+  - id: autoflow
+    name_template: "autoflow_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     format_overrides:
       - goos: windows
         format: zip
@@ -44,6 +44,6 @@ changelog:
 release:
   github:
     owner: liemle3893
-    name: go-tryve
+    name: autoflow
   draft: false
   prerelease: auto

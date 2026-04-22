@@ -13,13 +13,13 @@ This guide walks you through installing and running your first E2E test.
 ### As a Project Dependency
 
 ```bash
-npm install @liemle3893/go-tryve
+npm install @liemle3893/go-autoflow
 ```
 
 ### Global Installation
 
 ```bash
-npm install -g @liemle3893/go-tryve
+npm install -g @liemle3893/go-autoflow
 ```
 
 ## Quick Setup

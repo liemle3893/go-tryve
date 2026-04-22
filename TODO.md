@@ -388,7 +388,7 @@ e2e run --capture-traffic -o ./traffic/
 
 **Target API**:
 ```typescript
-import { test, http, postgresql } from '@liemle3893/go-tryve';
+import { test, http, postgresql } from '@liemle3893/go-autoflow';
 
 export default test('TC-USER-001')
   .description('User CRUD operations')

@@ -1,4 +1,4 @@
-package tryve_test
+package core_test
 
 import (
 	"errors"
@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/core"
 )
 
-// TestTryveError_Error_MessageOnly verifies Error() returns only the message when no cause is set.
-func TestTryveError_Error_MessageOnly(t *testing.T) {
-	err := &tryve.TryveError{
+// TestError_Error_MessageOnly verifies Error() returns only the message when no cause is set.
+func TestError_Error_MessageOnly(t *testing.T) {
+	err := &core.Error{
 		Code:    "TEST_CODE",
 		Message: "something went wrong",
 	}
@@ -22,10 +22,10 @@ func TestTryveError_Error_MessageOnly(t *testing.T) {
 	}
 }
 
-// TestTryveError_Error_WithCause verifies Error() returns "message: cause" when a cause is present.
-func TestTryveError_Error_WithCause(t *testing.T) {
+// TestError_Error_WithCause verifies Error() returns "message: cause" when a cause is present.
+func TestError_Error_WithCause(t *testing.T) {
 	cause := fmt.Errorf("root cause")
-	err := &tryve.TryveError{
+	err := &core.Error{
 		Code:    "TEST_CODE",
 		Message: "something went wrong",
 		Cause:   cause,
@@ -37,10 +37,10 @@ func TestTryveError_Error_WithCause(t *testing.T) {
 	}
 }
 
-// TestTryveError_ErrorsIs verifies errors.Is() can find the wrapped cause.
-func TestTryveError_ErrorsIs(t *testing.T) {
+// TestError_ErrorsIs verifies errors.Is() can find the wrapped cause.
+func TestError_ErrorsIs(t *testing.T) {
 	sentinel := fmt.Errorf("sentinel error")
-	err := &tryve.TryveError{
+	err := &core.Error{
 		Code:    "TEST_CODE",
 		Message: "wrapper",
 		Cause:   sentinel,
@@ -50,17 +50,17 @@ func TestTryveError_ErrorsIs(t *testing.T) {
 	}
 }
 
-// TestTryveError_ErrorsAs verifies errors.As() can match a TryveError type.
-func TestTryveError_ErrorsAs(t *testing.T) {
-	inner := &tryve.TryveError{
+// TestError_ErrorsAs verifies errors.As() can match a Error type.
+func TestError_ErrorsAs(t *testing.T) {
+	inner := &core.Error{
 		Code:    "INNER_CODE",
 		Message: "inner error",
 	}
 	outer := fmt.Errorf("outer: %w", inner)
 
-	var target *tryve.TryveError
+	var target *core.Error
 	if !errors.As(outer, &target) {
-		t.Errorf("errors.As() should match TryveError type")
+		t.Errorf("errors.As() should match Error type")
 	}
 	if target.Code != "INNER_CODE" {
 		t.Errorf("errors.As() target Code = %q, want %q", target.Code, "INNER_CODE")
@@ -70,7 +70,7 @@ func TestTryveError_ErrorsAs(t *testing.T) {
 // TestConfigError verifies ConfigError sets the correct code and fields.
 func TestConfigError(t *testing.T) {
 	cause := fmt.Errorf("file not found")
-	err := tryve.ConfigError("bad config", "check path", cause)
+	err := core.ConfigError("bad config", "check path", cause)
 	if err.Code != "CONFIG_ERROR" {
 		t.Errorf("Code = %q, want %q", err.Code, "CONFIG_ERROR")
 	}
@@ -87,7 +87,7 @@ func TestConfigError(t *testing.T) {
 
 // TestValidationError verifies ValidationError sets the correct code and fields.
 func TestValidationError(t *testing.T) {
-	err := tryve.ValidationError("invalid field", "use correct type", nil)
+	err := core.ValidationError("invalid field", "use correct type", nil)
 	if err.Code != "VALIDATION_ERROR" {
 		t.Errorf("Code = %q, want %q", err.Code, "VALIDATION_ERROR")
 	}
@@ -102,7 +102,7 @@ func TestValidationError(t *testing.T) {
 // TestConnectionError verifies ConnectionError sets the correct code, message, and hint format.
 func TestConnectionError(t *testing.T) {
 	cause := fmt.Errorf("dial tcp refused")
-	err := tryve.ConnectionError("http", "connection refused", cause)
+	err := core.ConnectionError("http", "connection refused", cause)
 	if err.Code != "CONNECTION_ERROR" {
 		t.Errorf("Code = %q, want %q", err.Code, "CONNECTION_ERROR")
 	}
@@ -117,7 +117,7 @@ func TestConnectionError(t *testing.T) {
 
 // TestExecutionError verifies ExecutionError sets the correct code and hint format.
 func TestExecutionError(t *testing.T) {
-	err := tryve.ExecutionError("step-1", "action failed", nil)
+	err := core.ExecutionError("step-1", "action failed", nil)
 	if err.Code != "EXECUTION_ERROR" {
 		t.Errorf("Code = %q, want %q", err.Code, "EXECUTION_ERROR")
 	}
@@ -129,7 +129,7 @@ func TestExecutionError(t *testing.T) {
 
 // TestAssertionError verifies AssertionError sets the correct code and constructs the message.
 func TestAssertionError(t *testing.T) {
-	err := tryve.AssertionError("$.status", "equals", 200, 404)
+	err := core.AssertionError("$.status", "equals", 200, 404)
 	if err.Code != "ASSERTION_ERROR" {
 		t.Errorf("Code = %q, want %q", err.Code, "ASSERTION_ERROR")
 	}
@@ -144,7 +144,7 @@ func TestAssertionError(t *testing.T) {
 
 // TestTimeoutError verifies TimeoutError sets the correct code, message, and hint.
 func TestTimeoutError(t *testing.T) {
-	err := tryve.TimeoutError("HTTP request", 30*time.Second)
+	err := core.TimeoutError("HTTP request", 30*time.Second)
 	if err.Code != "TIMEOUT_ERROR" {
 		t.Errorf("Code = %q, want %q", err.Code, "TIMEOUT_ERROR")
 	}
@@ -159,7 +159,7 @@ func TestTimeoutError(t *testing.T) {
 
 // TestInterpolationError verifies InterpolationError sets the correct code and message.
 func TestInterpolationError(t *testing.T) {
-	err := tryve.InterpolationError("${unknown}", "variable not found")
+	err := core.InterpolationError("${unknown}", "variable not found")
 	if err.Code != "INTERPOLATION_ERROR" {
 		t.Errorf("Code = %q, want %q", err.Code, "INTERPOLATION_ERROR")
 	}
@@ -171,7 +171,7 @@ func TestInterpolationError(t *testing.T) {
 // TestAdapterError verifies AdapterError sets the correct code and constructs the message.
 func TestAdapterError(t *testing.T) {
 	cause := fmt.Errorf("network error")
-	err := tryve.AdapterError("http", "GET", "request failed", cause)
+	err := core.AdapterError("http", "GET", "request failed", cause)
 	if err.Code != "ADAPTER_ERROR" {
 		t.Errorf("Code = %q, want %q", err.Code, "ADAPTER_ERROR")
 	}

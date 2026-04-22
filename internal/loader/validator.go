@@ -3,7 +3,7 @@ package loader
 import (
 	"fmt"
 
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/core"
 )
 
 // validAdapters is the set of adapter names recognised by the runner.
@@ -38,11 +38,11 @@ var validPriorities = map[string]struct{}{
 //   - retries must be in [0, 5]
 //   - every step must reference a valid adapter and specify an action
 //   - per-adapter field requirements (url, command, sql, collection, topic, etc.)
-func Validate(td *tryve.TestDefinition) []error {
+func Validate(td *core.TestDefinition) []error {
 	var errs []error
 
 	if td.Name == "" {
-		errs = append(errs, tryve.ValidationError(
+		errs = append(errs, core.ValidationError(
 			"test name is required",
 			"add a 'name' field to the test file",
 			nil,
@@ -50,7 +50,7 @@ func Validate(td *tryve.TestDefinition) []error {
 	}
 
 	if len(td.Execute) == 0 {
-		errs = append(errs, tryve.ValidationError(
+		errs = append(errs, core.ValidationError(
 			"at least one execute step is required",
 			"add steps under the 'execute' phase",
 			nil,
@@ -58,7 +58,7 @@ func Validate(td *tryve.TestDefinition) []error {
 	}
 
 	if _, ok := validPriorities[string(td.Priority)]; !ok {
-		errs = append(errs, tryve.ValidationError(
+		errs = append(errs, core.ValidationError(
 			fmt.Sprintf("invalid priority %q; must be one of P0, P1, P2, P3 or empty", td.Priority),
 			"set priority to P0, P1, P2, or P3",
 			nil,
@@ -67,7 +67,7 @@ func Validate(td *tryve.TestDefinition) []error {
 
 	const maxTimeout = 300000
 	if td.Timeout < 0 || td.Timeout > maxTimeout {
-		errs = append(errs, tryve.ValidationError(
+		errs = append(errs, core.ValidationError(
 			fmt.Sprintf("timeout %d is out of range; must be between 0 and %d", td.Timeout, maxTimeout),
 			"set timeout to a value between 0 and 300000 ms",
 			nil,
@@ -76,7 +76,7 @@ func Validate(td *tryve.TestDefinition) []error {
 
 	const maxRetries = 5
 	if td.Retries < -1 || td.Retries > maxRetries {
-		errs = append(errs, tryve.ValidationError(
+		errs = append(errs, core.ValidationError(
 			fmt.Sprintf("retries %d is out of range; must be between 0 and %d", td.Retries, maxRetries),
 			"set retries to a value between 0 and 5",
 			nil,
@@ -85,7 +85,7 @@ func Validate(td *tryve.TestDefinition) []error {
 
 	allPhases := []struct {
 		name  string
-		steps []tryve.StepDefinition
+		steps []core.StepDefinition
 	}{
 		{"setup", td.Setup},
 		{"execute", td.Execute},
@@ -107,11 +107,11 @@ func Validate(td *tryve.TestDefinition) []error {
 }
 
 // validateStep validates a single step and returns any errors found.
-func validateStep(ref string, step *tryve.StepDefinition) []error {
+func validateStep(ref string, step *core.StepDefinition) []error {
 	var errs []error
 
 	if _, ok := validAdapters[step.Adapter]; !ok {
-		errs = append(errs, tryve.ValidationError(
+		errs = append(errs, core.ValidationError(
 			fmt.Sprintf("step %s: unknown adapter %q", ref, step.Adapter),
 			fmt.Sprintf("use one of: http, postgresql, mongodb, redis, kafka, eventhub, shell"),
 			nil,
@@ -121,7 +121,7 @@ func validateStep(ref string, step *tryve.StepDefinition) []error {
 	}
 
 	if step.Action == "" {
-		errs = append(errs, tryve.ValidationError(
+		errs = append(errs, core.ValidationError(
 			fmt.Sprintf("step %s: action is required", ref),
 			"set the 'action' field on the step",
 			nil,
@@ -133,7 +133,7 @@ func validateStep(ref string, step *tryve.StepDefinition) []error {
 }
 
 // validateAdapterConstraints enforces per-adapter action and field rules.
-func validateAdapterConstraints(ref string, step *tryve.StepDefinition) []error {
+func validateAdapterConstraints(ref string, step *core.StepDefinition) []error {
 	var errs []error
 	params := step.Params
 
@@ -180,9 +180,9 @@ func validateAdapterConstraints(ref string, step *tryve.StepDefinition) []error 
 
 // requireAction returns an error when the step action does not match the single
 // allowed action for the adapter.
-func requireAction(ref string, step *tryve.StepDefinition, allowed string) []error {
+func requireAction(ref string, step *core.StepDefinition, allowed string) []error {
 	if step.Action != "" && step.Action != allowed {
-		return []error{tryve.ValidationError(
+		return []error{core.ValidationError(
 			fmt.Sprintf("step %s: adapter %q only supports action %q, got %q",
 				ref, step.Adapter, allowed, step.Action),
 			fmt.Sprintf("set action to %q", allowed),
@@ -194,7 +194,7 @@ func requireAction(ref string, step *tryve.StepDefinition, allowed string) []err
 
 // requireOneOfActions returns an error when the step action is not in the
 // allowed set for the adapter.
-func requireOneOfActions(ref string, step *tryve.StepDefinition, allowed ...string) []error {
+func requireOneOfActions(ref string, step *core.StepDefinition, allowed ...string) []error {
 	if step.Action == "" {
 		return nil // caught by the generic "action required" check
 	}
@@ -203,7 +203,7 @@ func requireOneOfActions(ref string, step *tryve.StepDefinition, allowed ...stri
 			return nil
 		}
 	}
-	return []error{tryve.ValidationError(
+	return []error{core.ValidationError(
 		fmt.Sprintf("step %s: adapter %q does not support action %q", ref, step.Adapter, step.Action),
 		fmt.Sprintf("valid actions for %s: %v", step.Adapter, allowed),
 		nil,
@@ -213,7 +213,7 @@ func requireOneOfActions(ref string, step *tryve.StepDefinition, allowed ...stri
 // requireParam returns an error when the named key is absent or empty in params.
 func requireParam(ref string, params map[string]any, key string) []error {
 	if params == nil {
-		return []error{tryve.ValidationError(
+		return []error{core.ValidationError(
 			fmt.Sprintf("step %s: required param %q is missing", ref, key),
 			fmt.Sprintf("add %q to the step", key),
 			nil,
@@ -221,7 +221,7 @@ func requireParam(ref string, params map[string]any, key string) []error {
 	}
 	v, ok := params[key]
 	if !ok || v == nil || v == "" {
-		return []error{tryve.ValidationError(
+		return []error{core.ValidationError(
 			fmt.Sprintf("step %s: required param %q is missing or empty", ref, key),
 			fmt.Sprintf("set %q in the step", key),
 			nil,

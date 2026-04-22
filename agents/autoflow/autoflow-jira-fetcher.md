@@ -14,7 +14,7 @@ Spawned by: autoflow-deliver skill (Step 1).
 <inputs>
 The orchestrator provides:
 - `TICKET_KEY` (e.g. `PROJ-42`)
-- `CLOUD_ID` (Atlassian cloud id, obtained via `tryve autoflow jira config get --field cloudId`)
+- `CLOUD_ID` (Atlassian cloud id, obtained via `autoflow jira config get --field cloudId`)
 - `REPO_ROOT` (absolute path to the main repo — this is your working directory)
 - `OUTPUT_PATH` (absolute path to write `task-brief.md`, typically `${REPO_ROOT}/.autoflow/ticket/<KEY>/task-brief.md`)
 - `ATTACHMENTS_DIR` (absolute path for downloads, typically `${REPO_ROOT}/.autoflow/ticket/<KEY>/attachments/`)
@@ -31,7 +31,7 @@ The orchestrator provides:
 4. `mcp__atlassian__searchJiraIssuesUsingJql` with `parent = <TICKET-KEY>` for subtasks.
 5. Download attachments:
    ```bash
-   tryve autoflow jira download <TICKET-KEY> <ATTACHMENTS_DIR>
+   autoflow jira download <TICKET-KEY> <ATTACHMENTS_DIR>
    ```
 6. Read each downloaded image with the Read tool so your brief can describe them accurately.
 7. Fill the Task Brief template (below) and Write it to `OUTPUT_PATH`.

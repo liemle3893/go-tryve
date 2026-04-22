@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/liemle3893/go-tryve/internal/loader"
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/loader"
+	"github.com/liemle3893/autoflow/internal/core"
 )
 
 // --- helpers ---
@@ -186,7 +186,7 @@ teardown:
 
 	phaseChecks := []struct {
 		phase string
-		steps []tryve.StepDefinition
+		steps []core.StepDefinition
 		wantID string
 	}{
 		{"setup", td.Setup, "setup-0"},
@@ -249,8 +249,8 @@ execute:
 // TestValidate_MissingName verifies that a TestDefinition with an empty name
 // produces a validation error.
 func TestValidate_MissingName(t *testing.T) {
-	td := &tryve.TestDefinition{
-		Execute: []tryve.StepDefinition{
+	td := &core.TestDefinition{
+		Execute: []core.StepDefinition{
 			{Adapter: "http", Action: "request", Params: map[string]any{"url": "https://example.com"}},
 		},
 	}
@@ -274,9 +274,9 @@ func TestValidate_MissingName(t *testing.T) {
 // TestValidate_InvalidAdapter verifies that a step referencing an unknown
 // adapter type is rejected.
 func TestValidate_InvalidAdapter(t *testing.T) {
-	td := &tryve.TestDefinition{
+	td := &core.TestDefinition{
 		Name: "TC-INVALID-ADAPTER",
-		Execute: []tryve.StepDefinition{
+		Execute: []core.StepDefinition{
 			{Adapter: "ftp", Action: "upload"},
 		},
 	}
@@ -300,9 +300,9 @@ func TestValidate_InvalidAdapter(t *testing.T) {
 // TestValidate_HTTPMissingURL verifies that an HTTP step without a url in Params
 // produces a validation error.
 func TestValidate_HTTPMissingURL(t *testing.T) {
-	td := &tryve.TestDefinition{
+	td := &core.TestDefinition{
 		Name: "TC-HTTP-NO-URL",
-		Execute: []tryve.StepDefinition{
+		Execute: []core.StepDefinition{
 			{Adapter: "http", Action: "request", Params: map[string]any{}},
 		},
 	}

@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/liemle3893/go-tryve/internal/adapter"
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/adapter"
+	"github.com/liemle3893/autoflow/internal/core"
 )
 
 // TestNewPostgreSQLAdapter_Defaults verifies that the constructor returns a
@@ -60,7 +60,7 @@ func TestNewPostgreSQLAdapter_EmptyConfig(t *testing.T) {
 }
 
 // TestPostgreSQLAdapter_InvalidAction verifies that an unsupported action name
-// returns a *tryve.TryveError with code ADAPTER_ERROR without requiring a live
+// returns a *core.Error with code ADAPTER_ERROR without requiring a live
 // database connection.
 func TestPostgreSQLAdapter_InvalidAction(t *testing.T) {
 	a := adapter.NewPostgreSQLAdapter(map[string]any{
@@ -74,12 +74,12 @@ func TestPostgreSQLAdapter_InvalidAction(t *testing.T) {
 		t.Fatal("expected error for unsupported action, got nil")
 	}
 
-	var tryveErr *tryve.TryveError
-	if !errors.As(err, &tryveErr) {
-		t.Fatalf("expected *tryve.TryveError, got %T: %v", err, err)
+	var coreErr *core.Error
+	if !errors.As(err, &coreErr) {
+		t.Fatalf("expected *core.Error, got %T: %v", err, err)
 	}
-	if tryveErr.Code != "ADAPTER_ERROR" {
-		t.Fatalf("expected code ADAPTER_ERROR, got %s", tryveErr.Code)
+	if coreErr.Code != "ADAPTER_ERROR" {
+		t.Fatalf("expected code ADAPTER_ERROR, got %s", coreErr.Code)
 	}
 }
 
@@ -121,12 +121,12 @@ func assertMissingSQLParam(t *testing.T, action string) {
 		t.Fatalf("action %q: expected error for missing sql param, got nil", action)
 	}
 
-	var tryveErr *tryve.TryveError
-	if !errors.As(err, &tryveErr) {
-		t.Fatalf("action %q: expected *tryve.TryveError, got %T: %v", action, err, err)
+	var coreErr *core.Error
+	if !errors.As(err, &coreErr) {
+		t.Fatalf("action %q: expected *core.Error, got %T: %v", action, err, err)
 	}
-	if tryveErr.Code != "ADAPTER_ERROR" {
-		t.Fatalf("action %q: expected code ADAPTER_ERROR, got %s", action, tryveErr.Code)
+	if coreErr.Code != "ADAPTER_ERROR" {
+		t.Fatalf("action %q: expected code ADAPTER_ERROR, got %s", action, coreErr.Code)
 	}
 }
 
@@ -144,12 +144,12 @@ func TestPostgreSQLAdapter_WrongSQLParamType(t *testing.T) {
 		t.Fatal("expected error for wrong sql param type, got nil")
 	}
 
-	var tryveErr *tryve.TryveError
-	if !errors.As(err, &tryveErr) {
-		t.Fatalf("expected *tryve.TryveError, got %T: %v", err, err)
+	var coreErr *core.Error
+	if !errors.As(err, &coreErr) {
+		t.Fatalf("expected *core.Error, got %T: %v", err, err)
 	}
-	if tryveErr.Code != "ADAPTER_ERROR" {
-		t.Fatalf("expected code ADAPTER_ERROR, got %s", tryveErr.Code)
+	if coreErr.Code != "ADAPTER_ERROR" {
+		t.Fatalf("expected code ADAPTER_ERROR, got %s", coreErr.Code)
 	}
 }
 
@@ -167,11 +167,11 @@ func TestPostgreSQLAdapter_EmptySQLParam(t *testing.T) {
 		t.Fatal("expected error for empty sql param, got nil")
 	}
 
-	var tryveErr *tryve.TryveError
-	if !errors.As(err, &tryveErr) {
-		t.Fatalf("expected *tryve.TryveError, got %T: %v", err, err)
+	var coreErr *core.Error
+	if !errors.As(err, &coreErr) {
+		t.Fatalf("expected *core.Error, got %T: %v", err, err)
 	}
-	if tryveErr.Code != "ADAPTER_ERROR" {
-		t.Fatalf("expected code ADAPTER_ERROR, got %s", tryveErr.Code)
+	if coreErr.Code != "ADAPTER_ERROR" {
+		t.Fatalf("expected code ADAPTER_ERROR, got %s", coreErr.Code)
 	}
 }

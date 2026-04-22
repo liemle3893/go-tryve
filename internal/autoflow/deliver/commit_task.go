@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/liemle3893/go-tryve/internal/autoflow/e2e"
-	"github.com/liemle3893/go-tryve/internal/autoflow/state"
+	"github.com/liemle3893/autoflow/internal/autoflow/e2e"
+	"github.com/liemle3893/autoflow/internal/autoflow/state"
 )
 
 // CommitTaskRequest bundles the parameters for a per-task commit.

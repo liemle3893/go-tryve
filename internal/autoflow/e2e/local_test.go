@@ -3,7 +3,7 @@ package e2e
 import (
 	"testing"
 
-	"github.com/liemle3893/go-tryve/pkg/runner"
+	"github.com/liemle3893/autoflow/pkg/runner"
 )
 
 func TestApplyTestSelection_Tag(t *testing.T) {

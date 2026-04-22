@@ -7,20 +7,20 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/liemle3893/go-tryve/internal/adapter"
-	"github.com/liemle3893/go-tryve/internal/assertion"
-	"github.com/liemle3893/go-tryve/internal/interpolate"
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/adapter"
+	"github.com/liemle3893/autoflow/internal/assertion"
+	"github.com/liemle3893/autoflow/internal/interpolate"
+	"github.com/liemle3893/autoflow/internal/core"
 )
 
 const maxBackoffDelay = 30 * time.Second
 
 // failedOutcome constructs a StatusFailed StepOutcome for the given step and error.
 // duration is the elapsed time since step execution began (including any pre-delay).
-func failedOutcome(step *tryve.StepDefinition, err error, duration time.Duration) *tryve.StepOutcome {
-	return &tryve.StepOutcome{
+func failedOutcome(step *core.StepDefinition, err error, duration time.Duration) *core.StepOutcome {
+	return &core.StepOutcome{
 		Step:     step,
-		Status:   tryve.StatusFailed,
+		Status:   core.StatusFailed,
 		Error:    err,
 		Duration: duration,
 	}
@@ -29,15 +29,15 @@ func failedOutcome(step *tryve.StepDefinition, err error, duration time.Duration
 // warnedOutcome constructs a StatusWarned StepOutcome with assertion results attached.
 // It is used when continueOnError is true and a failure would otherwise block the test.
 func warnedOutcome(
-	step *tryve.StepDefinition,
-	result *tryve.StepResult,
-	outcomes []tryve.AssertionOutcome,
+	step *core.StepDefinition,
+	result *core.StepResult,
+	outcomes []core.AssertionOutcome,
 	err error,
 	duration time.Duration,
-) *tryve.StepOutcome {
-	return &tryve.StepOutcome{
+) *core.StepOutcome {
+	return &core.StepOutcome{
 		Step:       step,
-		Status:     tryve.StatusWarned,
+		Status:     core.StatusWarned,
 		Result:     result,
 		Assertions: outcomes,
 		Error:      err,
@@ -47,14 +47,14 @@ func warnedOutcome(
 
 // passedOutcome constructs a StatusPassed StepOutcome with assertion results attached.
 func passedOutcome(
-	step *tryve.StepDefinition,
-	result *tryve.StepResult,
-	outcomes []tryve.AssertionOutcome,
+	step *core.StepDefinition,
+	result *core.StepResult,
+	outcomes []core.AssertionOutcome,
 	duration time.Duration,
-) *tryve.StepOutcome {
-	return &tryve.StepOutcome{
+) *core.StepOutcome {
+	return &core.StepOutcome{
 		Step:       step,
-		Status:     tryve.StatusPassed,
+		Status:     core.StatusPassed,
 		Result:     result,
 		Assertions: outcomes,
 		Duration:   duration,
@@ -70,10 +70,10 @@ func passedOutcome(
 // outcome status instead.
 func ExecuteStep(
 	ctx context.Context,
-	step *tryve.StepDefinition,
+	step *core.StepDefinition,
 	registry *adapter.Registry,
-	interpCtx *tryve.InterpolationContext,
-) (*tryve.StepOutcome, error) {
+	interpCtx *core.InterpolationContext,
+) (*core.StepOutcome, error) {
 	start := time.Now()
 
 	// 1. Pre-delay: honour step.Delay (milliseconds), respect context cancellation.
@@ -91,7 +91,7 @@ func ExecuteStep(
 	resolvedParams, err := interpolate.ResolveMap(step.Params, interpCtx)
 	if err != nil {
 		elapsed := time.Since(start)
-		return failedOutcome(step, tryve.InterpolationError(step.Action, err.Error()), elapsed), nil
+		return failedOutcome(step, core.InterpolationError(step.Action, err.Error()), elapsed), nil
 	}
 
 	// 3. Get adapter from registry (connects lazily on first access).
@@ -102,7 +102,7 @@ func ExecuteStep(
 	}
 
 	// Store resolved params for debug display.
-	storeResolved := func(o *tryve.StepOutcome) *tryve.StepOutcome {
+	storeResolved := func(o *core.StepOutcome) *core.StepOutcome {
 		o.ResolvedParams = resolvedParams
 		return o
 	}
@@ -143,7 +143,7 @@ func ExecuteStep(
 	// 6. Assert: evaluate assertion definitions against result data.
 	//    Assertions may reference interpolated values (e.g. equals: "{{captured.id}}"),
 	//    so they must be resolved first.
-	var assertionOutcomes []tryve.AssertionOutcome
+	var assertionOutcomes []core.AssertionOutcome
 	if step.Assert != nil && result != nil && result.Data != nil {
 		resolvedAssert, _ := resolveAssertDef(step.Assert, interpCtx)
 		outcomes, err := assertion.RunAssertions(result.Data, resolvedAssert)
@@ -160,13 +160,13 @@ func ExecuteStep(
 		for _, o := range outcomes {
 			if !o.Passed {
 				elapsed = time.Since(start)
-				assertErr := tryve.AssertionError(o.Path, o.Operator, o.Expected, o.Actual)
+				assertErr := core.AssertionError(o.Path, o.Operator, o.Expected, o.Actual)
 				if step.ContinueOnError {
 					return warnedOutcome(step, result, outcomes, assertErr, elapsed), nil
 				}
-				return &tryve.StepOutcome{
+				return &core.StepOutcome{
 					Step:       step,
-					Status:     tryve.StatusFailed,
+					Status:     core.StatusFailed,
 					Result:     result,
 					Assertions: outcomes,
 					Error:      assertErr,
@@ -186,7 +186,7 @@ func ExecuteStep(
 				if len(stderr) > 200 {
 					stderr = stderr[:200] + "..."
 				}
-				execErr := tryve.ExecutionError(step.ID,
+				execErr := core.ExecutionError(step.ID,
 					fmt.Sprintf("command exited with code %d: %s", int(exitCode), stderr), nil)
 				if step.ContinueOnError {
 					return warnedOutcome(step, result, assertionOutcomes, execErr, elapsed), nil
@@ -227,13 +227,13 @@ func backoffDelay(base time.Duration, attempt int) time.Duration {
 // (0 on first-attempt success).
 func ExecuteStepWithRetry(
 	ctx context.Context,
-	step *tryve.StepDefinition,
+	step *core.StepDefinition,
 	registry *adapter.Registry,
-	interpCtx *tryve.InterpolationContext,
+	interpCtx *core.InterpolationContext,
 	maxRetries int,
 	baseDelay time.Duration,
-) (*tryve.StepOutcome, int) {
-	var outcome *tryve.StepOutcome
+) (*core.StepOutcome, int) {
+	var outcome *core.StepOutcome
 	retries := 0
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
@@ -246,7 +246,7 @@ func ExecuteStepWithRetry(
 		}
 
 		// Return immediately on success or warned (continueOnError) outcomes.
-		if outcome.Status == tryve.StatusPassed || outcome.Status == tryve.StatusWarned {
+		if outcome.Status == core.StatusPassed || outcome.Status == core.StatusWarned {
 			return outcome, retries
 		}
 
@@ -269,7 +269,7 @@ func ExecuteStepWithRetry(
 }
 
 // resolveAssertDef interpolates values inside assertion definitions.
-func resolveAssertDef(assertDef any, ctx *tryve.InterpolationContext) (any, error) {
+func resolveAssertDef(assertDef any, ctx *core.InterpolationContext) (any, error) {
 	switch def := assertDef.(type) {
 	case map[string]any:
 		return interpolate.ResolveMap(def, ctx)

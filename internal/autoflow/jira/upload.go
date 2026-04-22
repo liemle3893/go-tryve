@@ -11,7 +11,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/liemle3893/go-tryve/internal/autoflow/state"
+	"github.com/liemle3893/autoflow/internal/autoflow/state"
 )
 
 // UploadResult is one line of the upload manifest printed to stdout.

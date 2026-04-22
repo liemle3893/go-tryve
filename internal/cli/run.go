@@ -10,13 +10,13 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/liemle3893/go-tryve/internal/adapter"
-	"github.com/liemle3893/go-tryve/internal/config"
-	"github.com/liemle3893/go-tryve/internal/executor"
-	"github.com/liemle3893/go-tryve/internal/loader"
-	"github.com/liemle3893/go-tryve/internal/reporter"
-	"github.com/liemle3893/go-tryve/internal/tryve"
-	"github.com/liemle3893/go-tryve/internal/watcher"
+	"github.com/liemle3893/autoflow/internal/adapter"
+	"github.com/liemle3893/autoflow/internal/config"
+	"github.com/liemle3893/autoflow/internal/executor"
+	"github.com/liemle3893/autoflow/internal/loader"
+	"github.com/liemle3893/autoflow/internal/reporter"
+	"github.com/liemle3893/autoflow/internal/core"
+	"github.com/liemle3893/autoflow/internal/watcher"
 )
 
 // newRunCmd constructs the `run` sub-command which discovers, filters, and
@@ -111,9 +111,9 @@ func runCmdHandler(cmd *cobra.Command, _ []string) error {
 	// loadAndFilter parses all discovered paths, filters FIRST (cheap name/tag
 	// check), then validates only matching tests. This avoids expensive validation
 	// of tests that won't be run.
-	loadAndFilter := func() []*tryve.TestDefinition {
+	loadAndFilter := func() []*core.TestDefinition {
 		// Phase 1: parse all files (fast — just YAML unmarshal).
-		var parsed []*tryve.TestDefinition
+		var parsed []*core.TestDefinition
 		for _, p := range paths {
 			td, parseErr := loader.ParseFile(p)
 			if parseErr != nil {
@@ -132,7 +132,7 @@ func runCmdHandler(cmd *cobra.Command, _ []string) error {
 		}
 
 		// Phase 3: validate only the tests that will actually run.
-		var valid []*tryve.TestDefinition
+		var valid []*core.TestDefinition
 		for _, td := range candidates {
 			if errs := loader.Validate(td); len(errs) > 0 {
 				for _, ve := range errs {
@@ -210,7 +210,7 @@ func runCmdHandler(cmd *cobra.Command, _ []string) error {
 		filtered := loadAndFilter()
 		needed := map[string]bool{}
 		for _, td := range filtered {
-			for _, phases := range [][]tryve.StepDefinition{td.Setup, td.Execute, td.Verify, td.Teardown} {
+			for _, phases := range [][]core.StepDefinition{td.Setup, td.Execute, td.Verify, td.Teardown} {
 				for _, s := range phases {
 					needed[s.Adapter] = true
 				}
@@ -230,11 +230,11 @@ func runCmdHandler(cmd *cobra.Command, _ []string) error {
 	}
 
 	// runOnce executes the full filtered test suite and returns the suite result.
-	runOnce := func() *tryve.SuiteResult {
+	runOnce := func() *core.SuiteResult {
 		runFiltered := loadAndFilter()
 		if len(runFiltered) == 0 {
 			fmt.Fprintln(os.Stderr, "No tests matched the current filters.")
-			return &tryve.SuiteResult{}
+			return &core.SuiteResult{}
 		}
 
 		if skipSetup {

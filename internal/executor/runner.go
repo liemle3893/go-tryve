@@ -6,15 +6,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/liemle3893/go-tryve/internal/adapter"
-	"github.com/liemle3893/go-tryve/internal/reporter"
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/adapter"
+	"github.com/liemle3893/autoflow/internal/reporter"
+	"github.com/liemle3893/autoflow/internal/core"
 )
 
 // phaseEntry groups a phase identifier with its ordered step list.
 type phaseEntry struct {
-	phase tryve.TestPhase
-	steps []tryve.StepDefinition
+	phase core.TestPhase
+	steps []core.StepDefinition
 }
 
 // RunTest executes a single test through all lifecycle phases (setup, execute,
@@ -32,19 +32,19 @@ type phaseEntry struct {
 // calling any reporter methods beyond OnTestStart/OnTestComplete.
 func RunTest(
 	ctx context.Context,
-	td *tryve.TestDefinition,
+	td *core.TestDefinition,
 	registry *adapter.Registry,
 	rep reporter.Reporter,
 	defaultRetries int,
 	defaultRetryDelay int,
 	baseURL string,
 	configVars map[string]any,
-) *tryve.TestResult {
+) *core.TestResult {
 	// 1. Early-return for skipped tests.
 	if td.Skip {
-		result := &tryve.TestResult{
+		result := &core.TestResult{
 			Test:   td,
-			Status: tryve.StatusSkipped,
+			Status: core.StatusSkipped,
 		}
 		return result
 	}
@@ -63,7 +63,7 @@ func RunTest(
 	start := time.Now()
 
 	// 4. Build the interpolation context seeded with config + test variables.
-	interpCtx := tryve.NewInterpolationContext()
+	interpCtx := core.NewInterpolationContext()
 	interpCtx.BaseURL = baseURL
 
 	// Populate environment variables from the process.
@@ -94,14 +94,14 @@ func RunTest(
 
 	// 6. Execute phases in canonical order.
 	phases := []phaseEntry{
-		{tryve.PhaseSetup, td.Setup},
-		{tryve.PhaseExecute, td.Execute},
-		{tryve.PhaseVerify, td.Verify},
-		{tryve.PhaseTeardown, td.Teardown},
+		{core.PhaseSetup, td.Setup},
+		{core.PhaseExecute, td.Execute},
+		{core.PhaseVerify, td.Verify},
+		{core.PhaseTeardown, td.Teardown},
 	}
 
 	var (
-		steps  []tryve.StepOutcome
+		steps  []core.StepOutcome
 		failed bool
 		runErr error
 	)
@@ -112,7 +112,7 @@ func RunTest(
 		}
 
 		// Skip non-teardown phases when a previous phase has already failed.
-		if failed && pe.phase != tryve.PhaseTeardown {
+		if failed && pe.phase != core.PhaseTeardown {
 			continue
 		}
 
@@ -127,7 +127,7 @@ func RunTest(
 			steps = append(steps, *outcome)
 			_ = rep.OnStepComplete(runCtx, step, outcome)
 
-			if outcome.Status == tryve.StatusFailed {
+			if outcome.Status == core.StatusFailed {
 				// Record the first failure error.
 				if runErr == nil {
 					runErr = outcome.Error
@@ -135,7 +135,7 @@ func RunTest(
 				failed = true
 
 				// In teardown, continue executing remaining steps despite failure.
-				if pe.phase == tryve.PhaseTeardown {
+				if pe.phase == core.PhaseTeardown {
 					continue
 				}
 				// In any other phase, stop processing further steps in this phase.
@@ -145,12 +145,12 @@ func RunTest(
 	}
 
 	// 7. Determine final status.
-	status := tryve.StatusPassed
+	status := core.StatusPassed
 	if failed {
-		status = tryve.StatusFailed
+		status = core.StatusFailed
 	}
 
-	result := &tryve.TestResult{
+	result := &core.TestResult{
 		Test:     td,
 		Status:   status,
 		Duration: time.Since(start),

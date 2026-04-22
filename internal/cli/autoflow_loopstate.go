@@ -7,7 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/liemle3893/go-tryve/internal/autoflow/state"
+	"github.com/liemle3893/autoflow/internal/autoflow/state"
 )
 
 func newAutoflowLoopStateCmd() *cobra.Command {

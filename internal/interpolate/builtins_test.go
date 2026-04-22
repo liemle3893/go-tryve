@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/liemle3893/go-tryve/internal/interpolate"
+	"github.com/liemle3893/autoflow/internal/interpolate"
 )
 
 // TestBuiltin_UUID verifies that $uuid() returns a valid UUID v4 string.

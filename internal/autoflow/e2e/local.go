@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/liemle3893/go-tryve/internal/autoflow/worktree"
-	"github.com/liemle3893/go-tryve/internal/tryve"
-	"github.com/liemle3893/go-tryve/pkg/runner"
+	"github.com/liemle3893/autoflow/internal/autoflow/worktree"
+	"github.com/liemle3893/autoflow/internal/core"
+	"github.com/liemle3893/autoflow/pkg/runner"
 )
 
 // LocalOptions controls one E2E run against the main working directory.
@@ -51,13 +51,13 @@ type LocalOptions struct {
 	Stdout, Stderr io.Writer
 }
 
-// LocalResult summarises one run. Outcome holds the structured tryve
+// LocalResult summarises one run. Outcome holds the structured core
 // SuiteResult so callers can display per-test detail (count, duration,
 // status) without regex-parsing console output.
 type LocalResult struct {
 	// Outcome is nil on a setup error (e.g. merge conflict). On any
 	// run that actually executed tests, it is populated.
-	Outcome    *tryve.SuiteResult
+	Outcome    *core.SuiteResult
 	OutputFile string
 }
 
@@ -282,7 +282,7 @@ func copyOne(src, dst string) error {
 	return out.Close()
 }
 
-func writeRunSummary(path string, res *tryve.SuiteResult, runErr error) error {
+func writeRunSummary(path string, res *core.SuiteResult, runErr error) error {
 	var sb strings.Builder
 	if res != nil {
 		fmt.Fprintf(&sb, "Running %d test(s)\n", res.Total)

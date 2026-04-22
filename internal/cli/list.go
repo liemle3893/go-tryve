@@ -7,9 +7,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/liemle3893/go-tryve/internal/executor"
-	"github.com/liemle3893/go-tryve/internal/loader"
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/executor"
+	"github.com/liemle3893/autoflow/internal/loader"
+	"github.com/liemle3893/autoflow/internal/core"
 )
 
 // ANSI escape codes for list output styling.
@@ -75,7 +75,7 @@ func listCmdHandler(cmd *cobra.Command, _ []string) error {
 	}
 
 	// Parse each discovered file; silently skip unparseable files.
-	var tests []*tryve.TestDefinition
+	var tests []*core.TestDefinition
 	for _, p := range paths {
 		td, parseErr := loader.ParseFile(p)
 		if parseErr != nil {
@@ -95,7 +95,7 @@ func listCmdHandler(cmd *cobra.Command, _ []string) error {
 	out := cmd.OutOrStdout()
 
 	// Count tests by priority for the summary.
-	prioCounts := map[tryve.TestPriority]int{}
+	prioCounts := map[core.TestPriority]int{}
 	for _, td := range filtered {
 		prioCounts[td.Priority]++
 	}
@@ -123,16 +123,16 @@ func listCmdHandler(cmd *cobra.Command, _ []string) error {
 	summaryParts := []string{
 		ls.styled(fmt.Sprintf("%d test(s)", len(filtered)), listBold),
 	}
-	if c := prioCounts[tryve.PriorityP0]; c > 0 {
+	if c := prioCounts[core.PriorityP0]; c > 0 {
 		summaryParts = append(summaryParts, ls.styled(fmt.Sprintf("P0:%d", c), listRed))
 	}
-	if c := prioCounts[tryve.PriorityP1]; c > 0 {
+	if c := prioCounts[core.PriorityP1]; c > 0 {
 		summaryParts = append(summaryParts, ls.styled(fmt.Sprintf("P1:%d", c), listYellow))
 	}
-	if c := prioCounts[tryve.PriorityP2]; c > 0 {
+	if c := prioCounts[core.PriorityP2]; c > 0 {
 		summaryParts = append(summaryParts, ls.styled(fmt.Sprintf("P2:%d", c), listBlue))
 	}
-	if c := prioCounts[tryve.PriorityP3]; c > 0 {
+	if c := prioCounts[core.PriorityP3]; c > 0 {
 		summaryParts = append(summaryParts, ls.styled(fmt.Sprintf("P3:%d", c), listDim))
 	}
 	if c := prioCounts[""]; c > 0 {
@@ -145,20 +145,20 @@ func listCmdHandler(cmd *cobra.Command, _ []string) error {
 }
 
 // priorityBadge returns a coloured priority badge string.
-func (ls *listStyler) priorityBadge(p tryve.TestPriority) string {
+func (ls *listStyler) priorityBadge(p core.TestPriority) string {
 	label := string(p)
 	if label == "" {
 		label = "--"
 	}
 	padded := fmt.Sprintf(" %s ", label)
 	switch p {
-	case tryve.PriorityP0:
+	case core.PriorityP0:
 		return ls.styled(padded, listBold+listWhite+listBgRed)
-	case tryve.PriorityP1:
+	case core.PriorityP1:
 		return ls.styled(padded, listBold+listBgYellow)
-	case tryve.PriorityP2:
+	case core.PriorityP2:
 		return ls.styled(padded, listBold+listWhite+listBgBlue)
-	case tryve.PriorityP3:
+	case core.PriorityP3:
 		return ls.styled(padded, listBold+listWhite+listBgMagenta)
 	default:
 		return ls.styled(padded, listDim)

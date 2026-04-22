@@ -1,9 +1,9 @@
 ---
 name: e2e-runner
-description: This skill should be used when writing E2E tests for APIs and databases using the tryve test runner. Use when creating YAML test files, configuring adapters (HTTP, Shell, PostgreSQL, MongoDB, Redis, EventHub, Kafka), writing assertions, or running tests. Provides complete syntax reference for YAML tests, assertion operators, variable interpolation, and built-in functions.
+description: This skill should be used when writing E2E tests for APIs and databases using the autoflow e2e test runner. Use when creating YAML test files, configuring adapters (HTTP, Shell, PostgreSQL, MongoDB, Redis, EventHub, Kafka), writing assertions, or running tests. Provides complete syntax reference for YAML tests, assertion operators, variable interpolation, and built-in functions.
 ---
 
-# Tryve — YAML-Driven E2E Test Runner
+# Autoflow — YAML-Driven E2E Test Runner
 
 A flexible end-to-end testing framework for API and database testing. Tests are written declaratively in YAML.
 
@@ -26,24 +26,24 @@ execute:
           equals: "ok"
 ```
 
-Run with: `tryve run --env local`
+Run with: `autoflow e2e run --env local`
 
 ## CLI Commands
 
 | Command | Description |
 |---------|-------------|
-| `tryve run` | Execute E2E tests |
-| `tryve validate` | Validate test files without execution |
-| `tryve list` | List discovered tests |
-| `tryve health` | Check adapter connectivity |
-| `tryve init` | Initialize `e2e.config.yaml` |
-| `tryve test create <name>` | Create test from template (`--template http\|shell`) |
-| `tryve test list-templates` | List available templates |
-| `tryve doc [section]` | Show documentation for a section |
-| `tryve install --skills` | Install Claude Code skills to `.claude/skills/e2e-runner/` |
-| `tryve version` | Print version |
+| `autoflow e2e run` | Execute E2E tests |
+| `autoflow e2e validate` | Validate test files without execution |
+| `autoflow e2e list` | List discovered tests |
+| `autoflow e2e health` | Check adapter connectivity |
+| `autoflow e2e init` | Initialize `e2e.config.yaml` |
+| `autoflow e2e test create <name>` | Create test from template (`--template http\|shell`) |
+| `autoflow e2e test list-templates` | List available templates |
+| `autoflow e2e doc [section]` | Show documentation for a section |
+| `autoflow install --skills` | Install Claude Code skills to `.claude/skills/e2e-runner/` |
+| `autoflow version` | Print version |
 
-### `tryve run` Options
+### `autoflow e2e run` Options
 
 | Flag | Description |
 |------|-------------|
@@ -66,7 +66,7 @@ Run with: `tryve run --env local`
 
 Global flags: `--config, -c` (config file path), `--env, -e` (environment name)
 
-### `tryve test create` Options
+### `autoflow e2e test create` Options
 
 | Flag | Description |
 |------|-------------|

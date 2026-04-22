@@ -12,7 +12,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/liemle3893/go-tryve/internal/autoflow/state"
+	"github.com/liemle3893/autoflow/internal/autoflow/state"
 )
 
 // Options controls Generate. All three fields are required.

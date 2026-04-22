@@ -21,7 +21,7 @@ WORKTREE_DIR=$(cd ../<repo>-<ticket-key> && pwd)          # feature worktree
 ### Command routing
 
 - `git diff origin/${BASE_BRANCH}...HEAD` — MUST run from `WORKTREE_DIR` (diffs the wrong branch from REPO_ROOT)
-- `tryve autoflow loop-state` — MUST run from `REPO_ROOT` (finds state files in `.autoflow/ticket/<KEY>/state/`)
+- `autoflow loop-state` — MUST run from `REPO_ROOT` (finds state files in `.autoflow/ticket/<KEY>/state/`)
 - `BASE_BRANCH` — read from `.autoflow/bootstrap.json`
 
 ### Step 1 exception
@@ -48,7 +48,7 @@ Per-ticket artifacts live under `.autoflow/ticket/<TICKET-KEY>/`:
     |-- coverage-review-state.json      # Step 4: AC coverage loop state
     |-- build-gate-state.json           # Step 6: build gate attempt/result
     |-- build-gate-log-N.log            # Step 6: build error output per attempt
-    |-- e2e-fix-state.json              # Step 7: E2E fix loop (written by `tryve autoflow deliver _e2e-round`)
+    |-- e2e-fix-state.json              # Step 7: E2E fix loop (written by `autoflow deliver _e2e-round`)
     |-- e2e-run-counter.txt             # Step 7: stale-state guard counter
     |-- e2e-fix-dispatched-round-N.marker  # Step 7: fixer dispatch tracking
     |-- REVIEW-code.md                  # Step 9: code reviewer findings
@@ -57,4 +57,4 @@ Per-ticket artifacts live under `.autoflow/ticket/<TICKET-KEY>/`:
     +-- REVIEW-FIX.md                   # Step 9: code fixer report
 ```
 
-All state is written under `.autoflow/ticket/<KEY>/state/` by the `tryve autoflow deliver` subcommands. Paths are the same whether the workflow runs from REPO_ROOT or the worktree.
+All state is written under `.autoflow/ticket/<KEY>/state/` by the `autoflow deliver` subcommands. Paths are the same whether the workflow runs from REPO_ROOT or the worktree.

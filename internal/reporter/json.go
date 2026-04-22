@@ -7,7 +7,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/core"
 )
 
 // jsonSummary holds the aggregated counts and total duration for the suite.
@@ -61,7 +61,7 @@ type JSON struct {
 	mu         sync.Mutex
 	outputPath string
 	tests      []jsonTest
-	suite      *tryve.SuiteResult
+	suite      *core.SuiteResult
 }
 
 // NewJSON creates a JSON reporter that will write its output to outputPath on Flush.
@@ -73,7 +73,7 @@ func NewJSON(outputPath string) *JSON {
 }
 
 // OnSuiteStart stores the initial suite reference for later use on completion.
-func (j *JSON) OnSuiteStart(_ context.Context, suite *tryve.SuiteResult) error {
+func (j *JSON) OnSuiteStart(_ context.Context, suite *core.SuiteResult) error {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	j.suite = suite
@@ -81,18 +81,18 @@ func (j *JSON) OnSuiteStart(_ context.Context, suite *tryve.SuiteResult) error {
 }
 
 // OnTestStart is a no-op; data is captured at completion.
-func (j *JSON) OnTestStart(_ context.Context, _ *tryve.TestDefinition) error {
+func (j *JSON) OnTestStart(_ context.Context, _ *core.TestDefinition) error {
 	return nil
 }
 
 // OnStepComplete is a no-op; step data is captured as part of OnTestComplete.
-func (j *JSON) OnStepComplete(_ context.Context, _ *tryve.StepDefinition, _ *tryve.StepOutcome) error {
+func (j *JSON) OnStepComplete(_ context.Context, _ *core.StepDefinition, _ *core.StepOutcome) error {
 	return nil
 }
 
 // OnTestComplete converts the completed test result into the JSON representation
 // and appends it to the internal accumulator.
-func (j *JSON) OnTestComplete(_ context.Context, test *tryve.TestDefinition, result *tryve.TestResult) error {
+func (j *JSON) OnTestComplete(_ context.Context, test *core.TestDefinition, result *core.TestResult) error {
 	jt := convertTestResult(test, result)
 
 	j.mu.Lock()
@@ -102,7 +102,7 @@ func (j *JSON) OnTestComplete(_ context.Context, test *tryve.TestDefinition, res
 }
 
 // OnSuiteComplete stores the final suite result so that Flush can write accurate summary counts.
-func (j *JSON) OnSuiteComplete(_ context.Context, _ *tryve.SuiteResult, result *tryve.SuiteResult) error {
+func (j *JSON) OnSuiteComplete(_ context.Context, _ *core.SuiteResult, result *core.SuiteResult) error {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	j.suite = result
@@ -141,8 +141,8 @@ func (j *JSON) Flush() error {
 	return nil
 }
 
-// convertTestResult maps a tryve.TestResult into the serialisable jsonTest structure.
-func convertTestResult(test *tryve.TestDefinition, result *tryve.TestResult) jsonTest {
+// convertTestResult maps a core.TestResult into the serialisable jsonTest structure.
+func convertTestResult(test *core.TestDefinition, result *core.TestResult) jsonTest {
 	steps := make([]jsonStep, 0, len(result.Steps))
 	for _, s := range result.Steps {
 		steps = append(steps, convertStepOutcome(&s))
@@ -171,8 +171,8 @@ func convertTestResult(test *tryve.TestDefinition, result *tryve.TestResult) jso
 	return jt
 }
 
-// convertStepOutcome maps a tryve.StepOutcome into the serialisable jsonStep structure.
-func convertStepOutcome(outcome *tryve.StepOutcome) jsonStep {
+// convertStepOutcome maps a core.StepOutcome into the serialisable jsonStep structure.
+func convertStepOutcome(outcome *core.StepOutcome) jsonStep {
 	assertions := make([]jsonAssertion, 0, len(outcome.Assertions))
 	for _, a := range outcome.Assertions {
 		assertions = append(assertions, jsonAssertion{

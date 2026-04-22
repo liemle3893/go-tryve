@@ -1,7 +1,7 @@
 // Package e2e runs autoflow E2E tests against a worktree branch applied
 // on the main repository. Replaces skills/autoflow-deliver/scripts/
 // {e2e-local,e2e-loop}.sh with a Go implementation that calls the
-// tryve runner API directly instead of shelling out.
+// autoflow runner API directly instead of shelling out.
 package e2e
 
 import (

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/liemle3893/go-tryve/internal/autoflow/jira"
+	"github.com/liemle3893/autoflow/internal/autoflow/jira"
 )
 
 func stub(name string, status Status, detail string) Checker {

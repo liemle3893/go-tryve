@@ -7,8 +7,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/liemle3893/go-tryve/internal/autoflow/state"
-	"github.com/liemle3893/go-tryve/internal/autoflow/worktree"
+	"github.com/liemle3893/autoflow/internal/autoflow/state"
+	"github.com/liemle3893/autoflow/internal/autoflow/worktree"
 )
 
 // Precondition is a single check that must pass before a step can be
@@ -238,7 +238,7 @@ func checkReports(root, key string, _ *state.Progress) error {
 	tdir := state.TicketDir(root, key)
 	for _, name := range []string{"PR-BODY.md", "JIRA-COMMENT.md", "EXECUTION-REPORT.md"} {
 		if _, err := os.Stat(filepath.Join(tdir, name)); err != nil {
-			return fmt.Errorf("%s/%s missing — run `tryve autoflow deliver _report`", tdir, name)
+			return fmt.Errorf("%s/%s missing — run `autoflow deliver _report`", tdir, name)
 		}
 	}
 	return nil

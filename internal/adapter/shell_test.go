@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/liemle3893/go-tryve/internal/adapter"
+	"github.com/liemle3893/autoflow/internal/adapter"
 )
 
 // TestShellAdapter_ExecSimple verifies that a basic echo command produces the

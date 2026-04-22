@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/liemle3893/go-tryve/internal/reporter"
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/reporter"
+	"github.com/liemle3893/autoflow/internal/core"
 )
 
 // outputPath returns a temp file path for a JSON report within t's temp dir.
@@ -39,7 +39,7 @@ func TestJSONReporter_SummaryCounts(t *testing.T) {
 	path := outputPath(t)
 	r := reporter.NewJSON(path)
 
-	suiteResult := &tryve.SuiteResult{
+	suiteResult := &core.SuiteResult{
 		Total:    3,
 		Passed:   2,
 		Failed:   1,
@@ -47,7 +47,7 @@ func TestJSONReporter_SummaryCounts(t *testing.T) {
 		Duration: 1500 * time.Millisecond,
 	}
 
-	if err := r.OnSuiteComplete(context.Background(), &tryve.SuiteResult{}, suiteResult); err != nil {
+	if err := r.OnSuiteComplete(context.Background(), &core.SuiteResult{}, suiteResult); err != nil {
 		t.Fatalf("OnSuiteComplete: %v", err)
 	}
 	if err := r.Flush(); err != nil {
@@ -89,15 +89,15 @@ func TestJSONReporter_TestNames(t *testing.T) {
 	path := outputPath(t)
 	r := reporter.NewJSON(path)
 
-	tests := []*tryve.TestDefinition{
-		{Name: "login-flow", Tags: []string{"smoke"}, Priority: tryve.PriorityP0},
-		{Name: "checkout-flow", Tags: []string{"regression"}, Priority: tryve.PriorityP1},
+	tests := []*core.TestDefinition{
+		{Name: "login-flow", Tags: []string{"smoke"}, Priority: core.PriorityP0},
+		{Name: "checkout-flow", Tags: []string{"regression"}, Priority: core.PriorityP1},
 	}
 
 	for _, td := range tests {
-		result := &tryve.TestResult{
+		result := &core.TestResult{
 			Test:     td,
-			Status:   tryve.StatusPassed,
+			Status:   core.StatusPassed,
 			Duration: 250 * time.Millisecond,
 		}
 		if err := r.OnTestComplete(context.Background(), td, result); err != nil {
@@ -142,24 +142,24 @@ func TestJSONReporter_StepDetails(t *testing.T) {
 	path := outputPath(t)
 	r := reporter.NewJSON(path)
 
-	step := &tryve.StepDefinition{
+	step := &core.StepDefinition{
 		ID:      "execute-0",
 		Adapter: "http",
 		Action:  "request",
 	}
 
-	td := &tryve.TestDefinition{
+	td := &core.TestDefinition{
 		Name:     "api-health-check",
 		Tags:     []string{"smoke"},
-		Priority: tryve.PriorityP0,
+		Priority: core.PriorityP0,
 	}
 
-	outcome := tryve.StepOutcome{
+	outcome := core.StepOutcome{
 		Step:     step,
-		Phase:    tryve.PhaseExecute,
-		Status:   tryve.StatusPassed,
+		Phase:    core.PhaseExecute,
+		Status:   core.StatusPassed,
 		Duration: 120 * time.Millisecond,
-		Assertions: []tryve.AssertionOutcome{
+		Assertions: []core.AssertionOutcome{
 			{
 				Path:     "$.status",
 				Operator: "equals",
@@ -170,11 +170,11 @@ func TestJSONReporter_StepDetails(t *testing.T) {
 		},
 	}
 
-	result := &tryve.TestResult{
+	result := &core.TestResult{
 		Test:     td,
-		Status:   tryve.StatusPassed,
+		Status:   core.StatusPassed,
 		Duration: 250 * time.Millisecond,
-		Steps:    []tryve.StepOutcome{outcome},
+		Steps:    []core.StepOutcome{outcome},
 	}
 
 	if err := r.OnTestComplete(context.Background(), td, result); err != nil {
@@ -237,10 +237,10 @@ func TestJSONReporter_ErrorField(t *testing.T) {
 	path := outputPath(t)
 	r := reporter.NewJSON(path)
 
-	td := &tryve.TestDefinition{Name: "failing-test", Tags: []string{}}
-	result := &tryve.TestResult{
+	td := &core.TestDefinition{Name: "failing-test", Tags: []string{}}
+	result := &core.TestResult{
 		Test:     td,
-		Status:   tryve.StatusFailed,
+		Status:   core.StatusFailed,
 		Duration: 50 * time.Millisecond,
 		Error:    errors.New("connection refused"),
 	}

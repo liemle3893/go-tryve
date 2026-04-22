@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// testYAMLTemplate is the starter YAML test file written by `tryve test create`.
+// testYAMLTemplate is the starter YAML test file written by `autoflow e2e test create`.
 const testYAMLTemplate = `name: "%s"
 description: "Add a description for this test"
 priority: P1
@@ -26,7 +26,7 @@ execute:
         equals: 200
 `
 
-// availableTemplates is the list of named templates for `tryve test list-templates`.
+// availableTemplates is the list of named templates for `autoflow e2e test list-templates`.
 var availableTemplates = []string{"http", "shell"}
 
 // httpTemplate is the starter template for an HTTP-focused test.

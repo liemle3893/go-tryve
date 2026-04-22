@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/liemle3893/go-tryve/internal/autoflow/state"
+	"github.com/liemle3893/autoflow/internal/autoflow/state"
 )
 
 // Client is a thin wrapper around net/http bound to one set of Jira
@@ -30,7 +30,7 @@ func NewClient(creds *Credentials) *Client {
 }
 
 // Myself pings /rest/api/3/myself to verify the credentials are good.
-// Used by `tryve autoflow doctor`. Returns the accountId on success.
+// Used by `autoflow doctor`. Returns the accountId on success.
 func (c *Client) Myself(ctx context.Context) (string, error) {
 	req, err := c.newRequest(ctx, http.MethodGet, "/rest/api/3/myself", nil)
 	if err != nil {

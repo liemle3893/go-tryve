@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/liemle3893/go-tryve/internal/autoflow/state"
+	"github.com/liemle3893/autoflow/internal/autoflow/state"
 )
 
 // writeFile is a small helper that creates parent dirs + writes content.

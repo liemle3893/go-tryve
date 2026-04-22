@@ -11,7 +11,7 @@ The step controller handles all resume logic. You just call `next` and it return
 
 ### Steps
 
-1. Call `tryve autoflow deliver next --ticket <KEY>`. It reads `workflow-progress.json` and returns the instruction for the current step.
+1. Call `autoflow deliver next --ticket <KEY>`. It reads `workflow-progress.json` and returns the instruction for the current step.
 
 2. Rebuild the TodoWrite list in ONE call. Mark every completed step as `completed`, `current_step` as `in_progress`, rest as `pending`.
 
@@ -29,4 +29,4 @@ All loop steps use artifact-based phase detection — the controller reads state
 
 ### No Progress File
 
-If `tryve autoflow deliver next` returns a Step 1 instruction with no progress file, the workflow is starting fresh. Follow the normal SKILL.md flow from Step 0.
+If `autoflow deliver next` returns a Step 1 instruction with no progress file, the workflow is starting fresh. Follow the normal SKILL.md flow from Step 0.

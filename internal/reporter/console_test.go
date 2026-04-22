@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/liemle3893/go-tryve/internal/reporter"
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/reporter"
+	"github.com/liemle3893/autoflow/internal/core"
 )
 
 // TestConsoleReporter_SuiteComplete verifies that the summary line contains
@@ -17,7 +17,7 @@ func TestConsoleReporter_SuiteComplete(t *testing.T) {
 	var buf bytes.Buffer
 	c := reporter.NewConsole(&buf, false, false)
 
-	result := &tryve.SuiteResult{
+	result := &core.SuiteResult{
 		Passed:  2,
 		Failed:  1,
 		Skipped: 0,
@@ -25,7 +25,7 @@ func TestConsoleReporter_SuiteComplete(t *testing.T) {
 		Duration: 500 * time.Millisecond,
 	}
 
-	if err := c.OnSuiteComplete(context.Background(), &tryve.SuiteResult{}, result); err != nil {
+	if err := c.OnSuiteComplete(context.Background(), &core.SuiteResult{}, result); err != nil {
 		t.Fatalf("OnSuiteComplete returned unexpected error: %v", err)
 	}
 
@@ -45,10 +45,10 @@ func TestConsoleReporter_TestComplete(t *testing.T) {
 	var buf bytes.Buffer
 	c := reporter.NewConsole(&buf, false, false)
 
-	test := &tryve.TestDefinition{Name: "login-flow"}
-	result := &tryve.TestResult{
+	test := &core.TestDefinition{Name: "login-flow"}
+	result := &core.TestResult{
 		Test:     test,
-		Status:   tryve.StatusPassed,
+		Status:   core.StatusPassed,
 		Duration: 123 * time.Millisecond,
 	}
 
@@ -74,7 +74,7 @@ func TestMultiReporter(t *testing.T) {
 	c2 := reporter.NewConsole(&buf2, false, false)
 	m := reporter.NewMulti(c1, c2)
 
-	suite := &tryve.SuiteResult{}
+	suite := &core.SuiteResult{}
 	if err := m.OnSuiteStart(context.Background(), suite); err != nil {
 		t.Fatalf("OnSuiteStart returned unexpected error: %v", err)
 	}

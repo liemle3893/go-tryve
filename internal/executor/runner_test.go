@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/liemle3893/go-tryve/internal/executor"
-	"github.com/liemle3893/go-tryve/internal/reporter"
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/executor"
+	"github.com/liemle3893/autoflow/internal/reporter"
+	"github.com/liemle3893/autoflow/internal/core"
 )
 
 // newNoopReporter returns a Multi reporter with no sinks, making it a no-op
@@ -19,8 +19,8 @@ func newNoopReporter() *reporter.Multi {
 }
 
 // newShellExecStep returns a shell/exec StepDefinition for the given command.
-func newShellExecStep(id, command string) tryve.StepDefinition {
-	return tryve.StepDefinition{
+func newShellExecStep(id, command string) core.StepDefinition {
+	return core.StepDefinition{
 		ID:      id,
 		Adapter: "shell",
 		Action:  "exec",
@@ -35,9 +35,9 @@ func TestRunTest_SimplePass(t *testing.T) {
 	rep := newNoopReporter()
 
 	step := newShellExecStep("step-1", "echo hello")
-	td := &tryve.TestDefinition{
+	td := &core.TestDefinition{
 		Name:    "simple-pass",
-		Execute: []tryve.StepDefinition{step},
+		Execute: []core.StepDefinition{step},
 	}
 
 	result := executor.RunTest(context.Background(), td, reg, rep, 0, 0, "", nil)
@@ -45,13 +45,13 @@ func TestRunTest_SimplePass(t *testing.T) {
 	if result == nil {
 		t.Fatal("expected non-nil result")
 	}
-	if result.Status != tryve.StatusPassed {
+	if result.Status != core.StatusPassed {
 		t.Errorf("expected status passed, got %s; err: %v", result.Status, result.Error)
 	}
 	if len(result.Steps) != 1 {
 		t.Errorf("expected 1 step outcome, got %d", len(result.Steps))
 	}
-	if result.Steps[0].Status != tryve.StatusPassed {
+	if result.Steps[0].Status != core.StatusPassed {
 		t.Errorf("expected step status passed, got %s", result.Steps[0].Status)
 	}
 }
@@ -62,10 +62,10 @@ func TestRunTest_SkippedTest(t *testing.T) {
 	reg := newTestRegistry("")
 	rep := newNoopReporter()
 
-	td := &tryve.TestDefinition{
+	td := &core.TestDefinition{
 		Name:    "skipped-test",
 		Skip:    true,
-		Execute: []tryve.StepDefinition{newShellExecStep("step-1", "echo should-not-run")},
+		Execute: []core.StepDefinition{newShellExecStep("step-1", "echo should-not-run")},
 	}
 
 	result := executor.RunTest(context.Background(), td, reg, rep, 0, 0, "", nil)
@@ -73,7 +73,7 @@ func TestRunTest_SkippedTest(t *testing.T) {
 	if result == nil {
 		t.Fatal("expected non-nil result")
 	}
-	if result.Status != tryve.StatusSkipped {
+	if result.Status != core.StatusSkipped {
 		t.Errorf("expected status skipped, got %s", result.Status)
 	}
 	if len(result.Steps) != 0 {
@@ -87,12 +87,12 @@ func TestRunTest_AllPhases(t *testing.T) {
 	reg := newTestRegistry("")
 	rep := newNoopReporter()
 
-	td := &tryve.TestDefinition{
+	td := &core.TestDefinition{
 		Name:     "all-phases",
-		Setup:    []tryve.StepDefinition{newShellExecStep("setup-1", "echo setup")},
-		Execute:  []tryve.StepDefinition{newShellExecStep("exec-1", "echo execute")},
-		Verify:   []tryve.StepDefinition{newShellExecStep("verify-1", "echo verify")},
-		Teardown: []tryve.StepDefinition{newShellExecStep("teardown-1", "echo teardown")},
+		Setup:    []core.StepDefinition{newShellExecStep("setup-1", "echo setup")},
+		Execute:  []core.StepDefinition{newShellExecStep("exec-1", "echo execute")},
+		Verify:   []core.StepDefinition{newShellExecStep("verify-1", "echo verify")},
+		Teardown: []core.StepDefinition{newShellExecStep("teardown-1", "echo teardown")},
 	}
 
 	result := executor.RunTest(context.Background(), td, reg, rep, 0, 0, "", nil)
@@ -100,14 +100,14 @@ func TestRunTest_AllPhases(t *testing.T) {
 	if result == nil {
 		t.Fatal("expected non-nil result")
 	}
-	if result.Status != tryve.StatusPassed {
+	if result.Status != core.StatusPassed {
 		t.Errorf("expected status passed, got %s; err: %v", result.Status, result.Error)
 	}
 	if len(result.Steps) != 4 {
 		t.Errorf("expected 4 step outcomes (one per phase), got %d", len(result.Steps))
 	}
 	for i, s := range result.Steps {
-		if s.Status != tryve.StatusPassed {
+		if s.Status != core.StatusPassed {
 			t.Errorf("step %d: expected passed, got %s; err: %v", i, s.Status, s.Error)
 		}
 	}
@@ -123,10 +123,10 @@ func TestRunTest_WithTimeout(t *testing.T) {
 
 	// Timeout of 100ms but the step has a 5-second pre-delay: the context will
 	// expire and ExecuteStep will surface a failed outcome via ctx.Done().
-	td := &tryve.TestDefinition{
+	td := &core.TestDefinition{
 		Name:    "timeout-test",
 		Timeout: 100, // 100ms
-		Execute: []tryve.StepDefinition{
+		Execute: []core.StepDefinition{
 			{
 				ID:      "delayed-step",
 				Adapter: "shell",
@@ -142,7 +142,7 @@ func TestRunTest_WithTimeout(t *testing.T) {
 	if result == nil {
 		t.Fatal("expected non-nil result")
 	}
-	if result.Status != tryve.StatusFailed {
+	if result.Status != core.StatusFailed {
 		t.Errorf("expected status failed due to timeout, got %s", result.Status)
 	}
 }
@@ -195,9 +195,9 @@ func TestRunTest_TeardownAlwaysRuns(t *testing.T) {
 	reg := newTestRegistry("")
 	rep := newNoopReporter()
 
-	td := &tryve.TestDefinition{
+	td := &core.TestDefinition{
 		Name: "teardown-always",
-		Execute: []tryve.StepDefinition{
+		Execute: []core.StepDefinition{
 			// This step will fail (exit 1) but does not use continueOnError.
 			{
 				ID:      "fail-step",
@@ -210,7 +210,7 @@ func TestRunTest_TeardownAlwaysRuns(t *testing.T) {
 				},
 			},
 		},
-		Teardown: []tryve.StepDefinition{newShellExecStep("teardown-1", "echo teardown")},
+		Teardown: []core.StepDefinition{newShellExecStep("teardown-1", "echo teardown")},
 	}
 
 	result := executor.RunTest(context.Background(), td, reg, rep, 0, 0, "", nil)
@@ -218,14 +218,14 @@ func TestRunTest_TeardownAlwaysRuns(t *testing.T) {
 	if result == nil {
 		t.Fatal("expected non-nil result")
 	}
-	if result.Status != tryve.StatusFailed {
+	if result.Status != core.StatusFailed {
 		t.Errorf("expected status failed due to execute phase failure, got %s", result.Status)
 	}
 
 	// Teardown step must still appear in the results.
 	var teardownFound bool
 	for _, s := range result.Steps {
-		if s.Phase == tryve.PhaseTeardown {
+		if s.Phase == core.PhaseTeardown {
 			teardownFound = true
 		}
 	}
@@ -239,9 +239,9 @@ func TestRunTest_Duration(t *testing.T) {
 	reg := newTestRegistry("")
 	rep := newNoopReporter()
 
-	td := &tryve.TestDefinition{
+	td := &core.TestDefinition{
 		Name:    "duration-test",
-		Execute: []tryve.StepDefinition{newShellExecStep("step-1", "echo ok")},
+		Execute: []core.StepDefinition{newShellExecStep("step-1", "echo ok")},
 	}
 
 	start := time.Now()

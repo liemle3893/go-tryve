@@ -14,7 +14,7 @@ import (
 	"github.com/segmentio/kafka-go/sasl/plain"
 	"github.com/segmentio/kafka-go/sasl/scram"
 
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/core"
 )
 
 // KafkaAdapter provides produce, consume, waitFor, and clear actions against
@@ -132,7 +132,7 @@ func (a *KafkaAdapter) Name() string { return "kafka" }
 // method only checks preconditions.
 func (a *KafkaAdapter) Connect(_ context.Context) error {
 	if len(a.brokers) == 0 {
-		return tryve.ConnectionError("kafka", "no brokers configured", nil)
+		return core.ConnectionError("kafka", "no brokers configured", nil)
 	}
 	return nil
 }
@@ -161,13 +161,13 @@ func (a *KafkaAdapter) Close(_ context.Context) error {
 // Health dials the first broker to verify TCP connectivity.
 func (a *KafkaAdapter) Health(ctx context.Context) error {
 	if len(a.brokers) == 0 {
-		return tryve.ConnectionError("kafka", "no brokers configured", nil)
+		return core.ConnectionError("kafka", "no brokers configured", nil)
 	}
 
 	d := a.newDialer()
 	conn, err := d.DialContext(ctx, "tcp", a.brokers[0])
 	if err != nil {
-		return tryve.ConnectionError("kafka", fmt.Sprintf("health check failed: %v", err), err)
+		return core.ConnectionError("kafka", fmt.Sprintf("health check failed: %v", err), err)
 	}
 	_ = conn.Close()
 	return nil
@@ -176,7 +176,7 @@ func (a *KafkaAdapter) Health(ctx context.Context) error {
 // Execute dispatches the named action with the given parameters.
 //
 // Supported actions: produce, consume, waitFor, clear.
-func (a *KafkaAdapter) Execute(ctx context.Context, action string, params map[string]any) (*tryve.StepResult, error) {
+func (a *KafkaAdapter) Execute(ctx context.Context, action string, params map[string]any) (*core.StepResult, error) {
 	switch action {
 	case "produce":
 		return a.executeProduce(ctx, params)
@@ -187,7 +187,7 @@ func (a *KafkaAdapter) Execute(ctx context.Context, action string, params map[st
 	case "clear":
 		return a.executeClear(ctx, params)
 	default:
-		return nil, tryve.AdapterError("kafka", action,
+		return nil, core.AdapterError("kafka", action,
 			fmt.Sprintf("unsupported action %q: supported actions are produce, consume, waitFor, clear", action), nil)
 	}
 }
@@ -200,15 +200,15 @@ func (a *KafkaAdapter) Execute(ctx context.Context, action string, params map[st
 //
 // Required params: topic, value.
 // Optional params: key (string), headers (map[string]any).
-func (a *KafkaAdapter) executeProduce(ctx context.Context, params map[string]any) (*tryve.StepResult, error) {
+func (a *KafkaAdapter) executeProduce(ctx context.Context, params map[string]any) (*core.StepResult, error) {
 	topic := getStrDefault(params, "topic", "")
 	if topic == "" {
-		return nil, tryve.AdapterError("kafka", "produce", "missing required param: topic", nil)
+		return nil, core.AdapterError("kafka", "produce", "missing required param: topic", nil)
 	}
 
 	msgValue, err := encodeValue(params["value"])
 	if err != nil {
-		return nil, tryve.AdapterError("kafka", "produce", "failed to encode value", err)
+		return nil, core.AdapterError("kafka", "produce", "failed to encode value", err)
 	}
 
 	msg := kafka.Message{
@@ -243,7 +243,7 @@ func (a *KafkaAdapter) executeProduce(ctx context.Context, params map[string]any
 		return w.WriteMessages(ctx, msg)
 	})
 	if err != nil {
-		return nil, tryve.AdapterError("kafka", "produce", "failed to write message", err)
+		return nil, core.AdapterError("kafka", "produce", "failed to write message", err)
 	}
 
 	return SuccessResult(map[string]any{"ok": true}, duration, nil), nil
@@ -253,10 +253,10 @@ func (a *KafkaAdapter) executeProduce(ctx context.Context, params map[string]any
 //
 // Required params: topic.
 // Optional params: timeout (int, ms) — overrides adapter-level timeout.
-func (a *KafkaAdapter) executeConsume(ctx context.Context, params map[string]any) (*tryve.StepResult, error) {
+func (a *KafkaAdapter) executeConsume(ctx context.Context, params map[string]any) (*core.StepResult, error) {
 	topic := getStrDefault(params, "topic", "")
 	if topic == "" {
-		return nil, tryve.AdapterError("kafka", "consume", "missing required param: topic", nil)
+		return nil, core.AdapterError("kafka", "consume", "missing required param: topic", nil)
 	}
 
 	opTimeout := a.resolveTimeout(params)
@@ -279,7 +279,7 @@ func (a *KafkaAdapter) executeConsume(ctx context.Context, params map[string]any
 		return err
 	})
 	if err != nil {
-		return nil, tryve.AdapterError("kafka", "consume", "failed to read message", err)
+		return nil, core.AdapterError("kafka", "consume", "failed to read message", err)
 	}
 
 	return SuccessResult(messageToData(msg), duration, nil), nil
@@ -290,15 +290,15 @@ func (a *KafkaAdapter) executeConsume(ctx context.Context, params map[string]any
 //
 // Required params: topic, match (map[string]any).
 // Optional params: timeout (int, ms).
-func (a *KafkaAdapter) executeWaitFor(ctx context.Context, params map[string]any) (*tryve.StepResult, error) {
+func (a *KafkaAdapter) executeWaitFor(ctx context.Context, params map[string]any) (*core.StepResult, error) {
 	topic := getStrDefault(params, "topic", "")
 	if topic == "" {
-		return nil, tryve.AdapterError("kafka", "waitFor", "missing required param: topic", nil)
+		return nil, core.AdapterError("kafka", "waitFor", "missing required param: topic", nil)
 	}
 
 	matchMap, ok := params["match"].(map[string]any)
 	if !ok || len(matchMap) == 0 {
-		return nil, tryve.AdapterError("kafka", "waitFor", "missing or invalid required param: match", nil)
+		return nil, core.AdapterError("kafka", "waitFor", "missing or invalid required param: match", nil)
 	}
 
 	opTimeout := a.resolveTimeout(params)
@@ -321,9 +321,9 @@ func (a *KafkaAdapter) executeWaitFor(ctx context.Context, params map[string]any
 		})
 		if err != nil {
 			if ctx.Err() != nil {
-				return nil, tryve.TimeoutError("kafka.waitFor", opTimeout)
+				return nil, core.TimeoutError("kafka.waitFor", opTimeout)
 			}
-			return nil, tryve.AdapterError("kafka", "waitFor", "failed to read message", err)
+			return nil, core.AdapterError("kafka", "waitFor", "failed to read message", err)
 		}
 
 		if messageMatches(msg, matchMap) {
@@ -338,10 +338,10 @@ func (a *KafkaAdapter) executeWaitFor(ctx context.Context, params map[string]any
 //
 // Required params: topic.
 // Optional params: timeout (int, ms).
-func (a *KafkaAdapter) executeClear(ctx context.Context, params map[string]any) (*tryve.StepResult, error) {
+func (a *KafkaAdapter) executeClear(ctx context.Context, params map[string]any) (*core.StepResult, error) {
 	topic := getStrDefault(params, "topic", "")
 	if topic == "" {
-		return nil, tryve.AdapterError("kafka", "clear", "missing required param: topic", nil)
+		return nil, core.AdapterError("kafka", "clear", "missing required param: topic", nil)
 	}
 
 	opTimeout := a.resolveTimeout(params)

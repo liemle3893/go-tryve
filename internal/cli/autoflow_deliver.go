@@ -10,11 +10,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/liemle3893/go-tryve/internal/autoflow/deliver"
-	"github.com/liemle3893/go-tryve/internal/autoflow/e2e"
-	"github.com/liemle3893/go-tryve/internal/autoflow/report"
-	"github.com/liemle3893/go-tryve/internal/autoflow/state"
-	"github.com/liemle3893/go-tryve/internal/autoflow/worktree"
+	"github.com/liemle3893/autoflow/internal/autoflow/deliver"
+	"github.com/liemle3893/autoflow/internal/autoflow/e2e"
+	"github.com/liemle3893/autoflow/internal/autoflow/report"
+	"github.com/liemle3893/autoflow/internal/autoflow/state"
+	"github.com/liemle3893/autoflow/internal/autoflow/worktree"
 )
 
 func newAutoflowDeliverCmd() *cobra.Command {

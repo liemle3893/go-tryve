@@ -4,7 +4,7 @@ LDFLAGS := -s -w -X main.version=$(VERSION)
 .PHONY: build test lint clean
 
 build:
-	go build -ldflags "$(LDFLAGS)" -o bin/tryve ./cmd/tryve
+	go build -ldflags "$(LDFLAGS)" -o bin/autoflow ./cmd/autoflow
 
 test:
 	go test ./...
@@ -19,4 +19,4 @@ clean:
 	rm -rf bin/
 
 run:
-	go run ./cmd/tryve $(ARGS)
+	go run ./cmd/autoflow $(ARGS)

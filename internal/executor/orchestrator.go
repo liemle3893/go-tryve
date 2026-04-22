@@ -9,10 +9,10 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/liemle3893/go-tryve/internal/adapter"
-	"github.com/liemle3893/go-tryve/internal/config"
-	"github.com/liemle3893/go-tryve/internal/reporter"
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/adapter"
+	"github.com/liemle3893/autoflow/internal/config"
+	"github.com/liemle3893/autoflow/internal/reporter"
+	"github.com/liemle3893/autoflow/internal/core"
 )
 
 // Orchestrator coordinates parallel test execution with dependency ordering,
@@ -49,12 +49,12 @@ func (o *Orchestrator) SetBail(bail bool) {
 //
 // The returned SuiteResult contains aggregated pass/fail/skip counts and the
 // individual TestResult for each test.
-func (o *Orchestrator) Run(ctx context.Context, tests []*tryve.TestDefinition) *tryve.SuiteResult {
+func (o *Orchestrator) Run(ctx context.Context, tests []*core.TestDefinition) *core.SuiteResult {
 	start := time.Now()
 	defaults := o.config.Defaults
 
 	// Initialise the suite result passed to reporter events.
-	suite := &tryve.SuiteResult{}
+	suite := &core.SuiteResult{}
 	_ = o.reporter.OnSuiteStart(ctx, suite)
 
 	// Run beforeAll hook; a failure is logged but does not abort the suite so
@@ -67,8 +67,8 @@ func (o *Orchestrator) Run(ctx context.Context, tests []*tryve.TestDefinition) *
 	// Shared mutable state protected by mu.
 	var mu sync.Mutex
 	bailed := false
-	results := make([]tryve.TestResult, 0, len(sorted))
-	completedStatus := make(map[string]tryve.TestStatus, len(sorted))
+	results := make([]core.TestResult, 0, len(sorted))
+	completedStatus := make(map[string]core.TestStatus, len(sorted))
 
 	// doneCh is closed when a particular test name finishes; waiters poll it.
 	doneCh := make(map[string]chan struct{}, len(sorted))
@@ -96,7 +96,7 @@ func (o *Orchestrator) Run(ctx context.Context, tests []*tryve.TestDefinition) *
 				res := skipResult(td)
 				mu.Lock()
 				results = append(results, *res)
-				completedStatus[td.Name] = tryve.StatusSkipped
+				completedStatus[td.Name] = core.StatusSkipped
 				close(doneCh[td.Name])
 				mu.Unlock()
 				return nil
@@ -110,7 +110,7 @@ func (o *Orchestrator) Run(ctx context.Context, tests []*tryve.TestDefinition) *
 					res := skipResult(td)
 					mu.Lock()
 					results = append(results, *res)
-					completedStatus[td.Name] = tryve.StatusSkipped
+					completedStatus[td.Name] = core.StatusSkipped
 					close(doneCh[td.Name])
 					mu.Unlock()
 					return nil
@@ -122,7 +122,7 @@ func (o *Orchestrator) Run(ctx context.Context, tests []*tryve.TestDefinition) *
 					res := skipResult(td)
 					mu.Lock()
 					results = append(results, *res)
-					completedStatus[td.Name] = tryve.StatusSkipped
+					completedStatus[td.Name] = core.StatusSkipped
 					close(doneCh[td.Name])
 					mu.Unlock()
 					return nil
@@ -130,12 +130,12 @@ func (o *Orchestrator) Run(ctx context.Context, tests []*tryve.TestDefinition) *
 				mu.Lock()
 				depStatus := completedStatus[dep]
 				mu.Unlock()
-				if depStatus == tryve.StatusFailed {
+				if depStatus == core.StatusFailed {
 					// A required dependency failed; skip this test.
 					res := skipResult(td)
 					mu.Lock()
 					results = append(results, *res)
-					completedStatus[td.Name] = tryve.StatusSkipped
+					completedStatus[td.Name] = core.StatusSkipped
 					close(doneCh[td.Name])
 					mu.Unlock()
 					return nil
@@ -164,7 +164,7 @@ func (o *Orchestrator) Run(ctx context.Context, tests []*tryve.TestDefinition) *
 			results = append(results, *res)
 			completedStatus[td.Name] = res.Status
 			close(doneCh[td.Name])
-			if res.Status == tryve.StatusFailed && o.bail {
+			if res.Status == core.StatusFailed && o.bail {
 				bailed = true
 			}
 			mu.Unlock()
@@ -183,11 +183,11 @@ func (o *Orchestrator) Run(ctx context.Context, tests []*tryve.TestDefinition) *
 	// Compute suite totals.
 	for _, r := range results {
 		switch r.Status {
-		case tryve.StatusPassed:
+		case core.StatusPassed:
 			suite.Passed++
-		case tryve.StatusFailed:
+		case core.StatusFailed:
 			suite.Failed++
-		case tryve.StatusSkipped:
+		case core.StatusSkipped:
 			suite.Skipped++
 		}
 	}
@@ -202,10 +202,10 @@ func (o *Orchestrator) Run(ctx context.Context, tests []*tryve.TestDefinition) *
 }
 
 // skipResult creates a StatusSkipped TestResult for a test that was not run.
-func skipResult(td *tryve.TestDefinition) *tryve.TestResult {
-	return &tryve.TestResult{
+func skipResult(td *core.TestDefinition) *core.TestResult {
+	return &core.TestResult{
 		Test:   td,
-		Status: tryve.StatusSkipped,
+		Status: core.StatusSkipped,
 	}
 }
 
@@ -221,8 +221,8 @@ type FilterOptions struct {
 
 // FilterTests returns the subset of tests that satisfy all non-empty filter criteria.
 // Multiple criteria are ANDed: a test must satisfy every specified filter.
-func FilterTests(tests []*tryve.TestDefinition, opts FilterOptions) []*tryve.TestDefinition {
-	out := make([]*tryve.TestDefinition, 0, len(tests))
+func FilterTests(tests []*core.TestDefinition, opts FilterOptions) []*core.TestDefinition {
+	out := make([]*core.TestDefinition, 0, len(tests))
 
 	var grepRe *regexp.Regexp
 	if opts.Grep != "" {
@@ -249,7 +249,7 @@ func FilterTests(tests []*tryve.TestDefinition, opts FilterOptions) []*tryve.Tes
 
 // matchesTags reports true when tags is empty or the test has at least one tag
 // that appears in the filter list.
-func matchesTags(td *tryve.TestDefinition, tags []string) bool {
+func matchesTags(td *core.TestDefinition, tags []string) bool {
 	if len(tags) == 0 {
 		return true
 	}
@@ -275,18 +275,18 @@ func matchesGrep(name, raw string, re *regexp.Regexp) bool {
 // topoSortTests performs a DFS-based topological sort so that tests with
 // `depends` entries are always placed after the tests they depend on.
 // Tests without dependencies retain their original relative order.
-func topoSortTests(tests []*tryve.TestDefinition) []*tryve.TestDefinition {
+func topoSortTests(tests []*core.TestDefinition) []*core.TestDefinition {
 	// Build a name→definition index.
-	index := make(map[string]*tryve.TestDefinition, len(tests))
+	index := make(map[string]*core.TestDefinition, len(tests))
 	for _, td := range tests {
 		index[td.Name] = td
 	}
 
 	visited := make(map[string]bool, len(tests))
-	sorted := make([]*tryve.TestDefinition, 0, len(tests))
+	sorted := make([]*core.TestDefinition, 0, len(tests))
 
-	var visit func(td *tryve.TestDefinition)
-	visit = func(td *tryve.TestDefinition) {
+	var visit func(td *core.TestDefinition)
+	visit = func(td *core.TestDefinition) {
 		if visited[td.Name] {
 			return
 		}

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/liemle3893/go-tryve/internal/autoflow/state"
+	"github.com/liemle3893/autoflow/internal/autoflow/state"
 )
 
 // WriteSummary renders SUMMARY.md at <ticket-dir>/SUMMARY.md from the

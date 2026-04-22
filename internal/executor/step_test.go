@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/liemle3893/go-tryve/internal/adapter"
-	"github.com/liemle3893/go-tryve/internal/executor"
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/adapter"
+	"github.com/liemle3893/autoflow/internal/executor"
+	"github.com/liemle3893/autoflow/internal/core"
 )
 
 // newTestRegistry builds a Registry with an HTTP adapter (pointed at baseURL)
@@ -21,8 +21,8 @@ func newTestRegistry(baseURL string) *adapter.Registry {
 
 // newShellStep constructs a minimal StepDefinition for shell/exec with the
 // given command.
-func newShellStep(command string) *tryve.StepDefinition {
-	return &tryve.StepDefinition{
+func newShellStep(command string) *core.StepDefinition {
+	return &core.StepDefinition{
 		ID:      "test-step",
 		Adapter: "shell",
 		Action:  "exec",
@@ -34,7 +34,7 @@ func newShellStep(command string) *tryve.StepDefinition {
 // passed outcome with the expected stdout value.
 func TestExecuteStep_BasicShell(t *testing.T) {
 	registry := newTestRegistry("")
-	interpCtx := tryve.NewInterpolationContext()
+	interpCtx := core.NewInterpolationContext()
 	step := newShellStep("echo hello")
 
 	outcome, err := executor.ExecuteStep(context.Background(), step, registry, interpCtx)
@@ -44,7 +44,7 @@ func TestExecuteStep_BasicShell(t *testing.T) {
 	if outcome == nil {
 		t.Fatal("expected non-nil outcome")
 	}
-	if outcome.Status != tryve.StatusPassed {
+	if outcome.Status != core.StatusPassed {
 		t.Errorf("expected status passed, got %s; err: %v", outcome.Status, outcome.Error)
 	}
 	if outcome.Result == nil {
@@ -63,8 +63,8 @@ func TestExecuteStep_BasicShell(t *testing.T) {
 // step result is stored in the interpolation context under the given variable name.
 func TestExecuteStep_WithCapture(t *testing.T) {
 	registry := newTestRegistry("")
-	interpCtx := tryve.NewInterpolationContext()
-	step := &tryve.StepDefinition{
+	interpCtx := core.NewInterpolationContext()
+	step := &core.StepDefinition{
 		ID:      "capture-step",
 		Adapter: "shell",
 		Action:  "exec",
@@ -78,7 +78,7 @@ func TestExecuteStep_WithCapture(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if outcome.Status != tryve.StatusPassed {
+	if outcome.Status != core.StatusPassed {
 		t.Errorf("expected status passed, got %s; err: %v", outcome.Status, outcome.Error)
 	}
 
@@ -95,8 +95,8 @@ func TestExecuteStep_WithCapture(t *testing.T) {
 // takes at least that many milliseconds to complete.
 func TestExecuteStep_WithDelay(t *testing.T) {
 	registry := newTestRegistry("")
-	interpCtx := tryve.NewInterpolationContext()
-	step := &tryve.StepDefinition{
+	interpCtx := core.NewInterpolationContext()
+	step := &core.StepDefinition{
 		ID:      "delay-step",
 		Adapter: "shell",
 		Action:  "exec",
@@ -111,7 +111,7 @@ func TestExecuteStep_WithDelay(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if outcome.Status != tryve.StatusPassed {
+	if outcome.Status != core.StatusPassed {
 		t.Errorf("expected status passed, got %s", outcome.Status)
 	}
 	if elapsed < 100*time.Millisecond {
@@ -127,8 +127,8 @@ func TestExecuteStep_WithDelay(t *testing.T) {
 // step does not block further execution.
 func TestExecuteStep_ContinueOnError(t *testing.T) {
 	registry := newTestRegistry("")
-	interpCtx := tryve.NewInterpolationContext()
-	step := &tryve.StepDefinition{
+	interpCtx := core.NewInterpolationContext()
+	step := &core.StepDefinition{
 		ID:      "warn-step",
 		Adapter: "shell",
 		Action:  "exec",
@@ -145,7 +145,7 @@ func TestExecuteStep_ContinueOnError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if outcome.Status != tryve.StatusWarned {
+	if outcome.Status != core.StatusWarned {
 		t.Errorf("expected status warned, got %s", outcome.Status)
 	}
 }
@@ -154,10 +154,10 @@ func TestExecuteStep_ContinueOnError(t *testing.T) {
 // params are resolved from the interpolation context before execution.
 func TestExecuteStep_InterpolatesParams(t *testing.T) {
 	registry := newTestRegistry("")
-	interpCtx := tryve.NewInterpolationContext()
+	interpCtx := core.NewInterpolationContext()
 	interpCtx.Variables["greeting"] = "interpolated"
 
-	step := &tryve.StepDefinition{
+	step := &core.StepDefinition{
 		ID:      "interp-step",
 		Adapter: "shell",
 		Action:  "exec",
@@ -169,7 +169,7 @@ func TestExecuteStep_InterpolatesParams(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if outcome.Status != tryve.StatusPassed {
+	if outcome.Status != core.StatusPassed {
 		t.Errorf("expected status passed, got %s; err: %v", outcome.Status, outcome.Error)
 	}
 
@@ -186,8 +186,8 @@ func TestExecuteStep_InterpolatesParams(t *testing.T) {
 // adapter produces a failed outcome (not a panic or nil outcome).
 func TestExecuteStep_UnknownAdapter(t *testing.T) {
 	registry := newTestRegistry("")
-	interpCtx := tryve.NewInterpolationContext()
-	step := &tryve.StepDefinition{
+	interpCtx := core.NewInterpolationContext()
+	step := &core.StepDefinition{
 		ID:      "bad-adapter",
 		Adapter: "nonexistent",
 		Action:  "exec",
@@ -198,7 +198,7 @@ func TestExecuteStep_UnknownAdapter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected top-level error: %v", err)
 	}
-	if outcome.Status != tryve.StatusFailed {
+	if outcome.Status != core.StatusFailed {
 		t.Errorf("expected status failed for unknown adapter, got %s", outcome.Status)
 	}
 }
@@ -207,14 +207,14 @@ func TestExecuteStep_UnknownAdapter(t *testing.T) {
 // the first attempt returns retryCount 0 and a passed outcome.
 func TestExecuteStepWithRetry_PassOnFirstAttempt(t *testing.T) {
 	registry := newTestRegistry("")
-	interpCtx := tryve.NewInterpolationContext()
+	interpCtx := core.NewInterpolationContext()
 	step := newShellStep("echo ok")
 
 	outcome, retries := executor.ExecuteStepWithRetry(
 		context.Background(), step, registry, interpCtx,
 		3, 10*time.Millisecond,
 	)
-	if outcome.Status != tryve.StatusPassed {
+	if outcome.Status != core.StatusPassed {
 		t.Errorf("expected status passed, got %s", outcome.Status)
 	}
 	if retries != 0 {
@@ -226,10 +226,10 @@ func TestExecuteStepWithRetry_PassOnFirstAttempt(t *testing.T) {
 // during a retry wait causes the function to return early with a failed outcome.
 func TestExecuteStepWithRetry_ContextCancelled(t *testing.T) {
 	registry := newTestRegistry("")
-	interpCtx := tryve.NewInterpolationContext()
+	interpCtx := core.NewInterpolationContext()
 
 	// This assertion will always fail so retries are triggered.
-	step := &tryve.StepDefinition{
+	step := &core.StepDefinition{
 		ID:      "retry-fail",
 		Adapter: "shell",
 		Action:  "exec",
@@ -251,7 +251,7 @@ func TestExecuteStepWithRetry_ContextCancelled(t *testing.T) {
 	if outcome == nil {
 		t.Fatal("expected non-nil outcome")
 	}
-	if outcome.Status == tryve.StatusPassed {
+	if outcome.Status == core.StatusPassed {
 		t.Error("expected non-passed status after context cancellation")
 	}
 }

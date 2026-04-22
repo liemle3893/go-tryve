@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/core"
 )
 
 // HTTPAdapter executes HTTP requests against a target base URL.
@@ -36,7 +36,7 @@ func (a *HTTPAdapter) Name() string { return "http" }
 func (a *HTTPAdapter) Connect(_ context.Context) error {
 	jar, err := cookiejar.New(nil)
 	if err != nil {
-		return tryve.ConnectionError("http", "failed to create cookie jar", err)
+		return core.ConnectionError("http", "failed to create cookie jar", err)
 	}
 	a.client = &http.Client{
 		Timeout: 30 * time.Second,
@@ -57,11 +57,11 @@ func (a *HTTPAdapter) Close(_ context.Context) error {
 func (a *HTTPAdapter) Health(ctx context.Context) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodHead, a.baseURL, nil)
 	if err != nil {
-		return tryve.ConnectionError("http", "health check: failed to build request", err)
+		return core.ConnectionError("http", "health check: failed to build request", err)
 	}
 	resp, err := a.client.Do(req)
 	if err != nil {
-		return tryve.ConnectionError("http", "health check: request failed", err)
+		return core.ConnectionError("http", "health check: request failed", err)
 	}
 	_ = resp.Body.Close()
 	return nil
@@ -69,9 +69,9 @@ func (a *HTTPAdapter) Health(ctx context.Context) error {
 
 // Execute dispatches the named action with the given parameters.
 // Only the "request" action is supported; any other name returns an ADAPTER_ERROR.
-func (a *HTTPAdapter) Execute(ctx context.Context, action string, params map[string]any) (*tryve.StepResult, error) {
+func (a *HTTPAdapter) Execute(ctx context.Context, action string, params map[string]any) (*core.StepResult, error) {
 	if action != "request" {
-		return nil, tryve.AdapterError("http", action,
+		return nil, core.AdapterError("http", action,
 			fmt.Sprintf("unsupported action %q: only \"request\" is supported", action), nil)
 	}
 	return a.executeRequest(ctx, params)
@@ -79,11 +79,11 @@ func (a *HTTPAdapter) Execute(ctx context.Context, action string, params map[str
 
 // executeRequest builds and sends an HTTP request from the provided params map,
 // then parses the response into a StepResult.
-func (a *HTTPAdapter) executeRequest(ctx context.Context, params map[string]any) (*tryve.StepResult, error) {
+func (a *HTTPAdapter) executeRequest(ctx context.Context, params map[string]any) (*core.StepResult, error) {
 	method := stringParam(params, "method", "GET")
 	rawURL := stringParam(params, "url", "")
 	if rawURL == "" {
-		return nil, tryve.AdapterError("http", "request", "missing required param: url", nil)
+		return nil, core.AdapterError("http", "request", "missing required param: url", nil)
 	}
 
 	// Resolve URL: absolute URLs are used directly; relative paths are prefixed
@@ -98,7 +98,7 @@ func (a *HTTPAdapter) executeRequest(ctx context.Context, params map[string]any)
 		if qMap, ok := q.(map[string]any); ok && len(qMap) > 0 {
 			parsed, err := url.Parse(targetURL)
 			if err != nil {
-				return nil, tryve.AdapterError("http", "request", "invalid url", err)
+				return nil, core.AdapterError("http", "request", "invalid url", err)
 			}
 			qs := parsed.Query()
 			for k, v := range qMap {
@@ -117,7 +117,7 @@ func (a *HTTPAdapter) executeRequest(ctx context.Context, params map[string]any)
 		if upperMethod != http.MethodGet && upperMethod != http.MethodHead {
 			encoded, err := json.Marshal(bodyVal)
 			if err != nil {
-				return nil, tryve.AdapterError("http", "request", "failed to marshal body", err)
+				return nil, core.AdapterError("http", "request", "failed to marshal body", err)
 			}
 			bodyReader = bytes.NewReader(encoded)
 			hasBody = true
@@ -126,7 +126,7 @@ func (a *HTTPAdapter) executeRequest(ctx context.Context, params map[string]any)
 
 	req, err := http.NewRequestWithContext(ctx, strings.ToUpper(method), targetURL, bodyReader)
 	if err != nil {
-		return nil, tryve.AdapterError("http", "request", "failed to build request", err)
+		return nil, core.AdapterError("http", "request", "failed to build request", err)
 	}
 
 	// Auto-set Content-Type when a body is present and the caller has not
@@ -161,13 +161,13 @@ func (a *HTTPAdapter) executeRequest(ctx context.Context, params map[string]any)
 		return doErr
 	})
 	if err != nil {
-		return nil, tryve.AdapterError("http", "request", "request failed", err)
+		return nil, core.AdapterError("http", "request", "request failed", err)
 	}
 	defer resp.Body.Close()
 
 	rawBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, tryve.AdapterError("http", "request", "failed to read response body", err)
+		return nil, core.AdapterError("http", "request", "failed to read response body", err)
 	}
 
 	// Parse body: JSON when Content-Type indicates it, plain string otherwise.

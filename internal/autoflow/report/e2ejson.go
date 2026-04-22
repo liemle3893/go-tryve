@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/core"
 )
 
 // TestRow is one line of the E2E results table.
@@ -27,10 +27,10 @@ type E2E struct {
 	Warning  string // non-empty when a sanity check flagged the run
 }
 
-// FromSuite converts a structured tryve SuiteResult into the report shape.
+// FromSuite converts a structured core SuiteResult into the report shape.
 // Replaces the regex-based parser in generate-report.sh — no more grepping
 // "Test NAME: passed (NNNms)" out of console logs.
-func FromSuite(s *tryve.SuiteResult) E2E {
+func FromSuite(s *core.SuiteResult) E2E {
 	if s == nil {
 		return E2E{}
 	}

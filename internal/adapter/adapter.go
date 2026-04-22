@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/core"
 )
 
 // Adapter is the core interface all protocol adapters must implement.
@@ -28,7 +28,7 @@ type Adapter interface {
 
 	// Execute runs the named action with the provided parameters and returns
 	// a StepResult containing the adapter's output data and timing.
-	Execute(ctx context.Context, action string, params map[string]any) (*tryve.StepResult, error)
+	Execute(ctx context.Context, action string, params map[string]any) (*core.StepResult, error)
 }
 
 // MeasureDuration executes fn, measures its wall-clock duration, and returns
@@ -42,8 +42,8 @@ func MeasureDuration(fn func() error) (time.Duration, error) {
 // SuccessResult constructs a StepResult for a successful adapter action.
 // data holds the primary output, duration records execution time, and
 // metadata carries optional diagnostic key-value pairs.
-func SuccessResult(data map[string]any, duration time.Duration, metadata map[string]any) *tryve.StepResult {
-	return &tryve.StepResult{
+func SuccessResult(data map[string]any, duration time.Duration, metadata map[string]any) *core.StepResult {
+	return &core.StepResult{
 		Data:     data,
 		Duration: duration,
 		Metadata: metadata,

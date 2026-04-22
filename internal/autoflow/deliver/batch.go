@@ -1,7 +1,7 @@
 package deliver
 
 import (
-	"github.com/liemle3893/go-tryve/internal/autoflow/state"
+	"github.com/liemle3893/autoflow/internal/autoflow/state"
 )
 
 // MaxParallelTasks is the hard cap on executors spawned per batch.

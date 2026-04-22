@@ -7,7 +7,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// configTemplate is the default e2e.config.yaml written by `tryve init`.
+// configTemplate is the default e2e.config.yaml written by `autoflow init`.
 const configTemplate = `version: "1.0"
 
 environments:

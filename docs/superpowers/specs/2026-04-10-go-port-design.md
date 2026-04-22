@@ -3,11 +3,11 @@
 **Date:** 2026-04-10
 **Status:** Approved
 **Approach:** Go-native architecture, full feature parity with TypeScript e2e-runner
-**Binary name:** `tryve` (try + verify)
+**Binary name:** `autoflow` (try + verify)
 
 ## Summary
 
-Port the entire e2e-runner project (~16K LOC TypeScript) to Go as a single static binary called `tryve`. Users get one download — no Node.js, no npm, no peer dependency installation. The Go version runs the exact same YAML test files and `e2e.config.yaml` format. The TypeScript DSL is dropped; hooks become shell commands.
+Port the entire e2e-runner project (~16K LOC TypeScript) to Go as a single static binary called `autoflow`. Users get one download — no Node.js, no npm, no peer dependency installation. The Go version runs the exact same YAML test files and `e2e.config.yaml` format. The TypeScript DSL is dropped; hooks become shell commands.
 
 ## Decisions
 
@@ -20,7 +20,7 @@ Port the entire e2e-runner project (~16K LOC TypeScript) to Go as a single stati
 | Distribution | Cross-compiled binaries + `go install` | GitHub releases for all platforms |
 | CGo | None — pure Go only | Clean cross-compilation, single static binary |
 | Repo strategy | Same repo, Go at root, TypeScript moved to `ts/` | Single source of truth |
-| Binary name | `tryve` (try + verify) | Unique, 5 chars, not taken by any existing tool |
+| Binary name | `autoflow` (try + verify) | Unique, 5 chars, not taken by any existing tool |
 | Architecture | Go-native (interfaces, context, goroutines) | Idiomatic, maintainable, performant |
 
 ## Project Layout
@@ -32,7 +32,7 @@ e2e-runner/
 │   ├── package.json
 │   └── ...
 ├── cmd/
-│   └── tryve/
+│   └── autoflow/
 │       └── main.go            # CLI entrypoint (minimal — wires cobra to internal)
 ├── internal/
 │   ├── adapter/               # Adapter interface + 7 implementations
@@ -307,7 +307,7 @@ All support `errors.Is()` and `errors.As()` for type checking in callers.
 ## Test Execution Flow
 
 ```
-1. cmd/tryve/main.go
+1. cmd/autoflow/main.go
    └─ cobra parses CLI flags
    └─ calls pkg/runner.RunTests(opts)
 
@@ -403,16 +403,16 @@ Identical flags and behavior to TypeScript version:
 
 | Command | Description |
 |---------|-------------|
-| `tryve run` | Execute tests (default command) |
-| `tryve validate` | Validate test file syntax |
-| `tryve list` | List discovered tests |
-| `tryve health` | Check adapter connectivity |
-| `tryve init` | Initialize e2e.config.yaml |
-| `tryve test create <name>` | Create test from template |
-| `tryve test list-templates` | List available templates |
-| `tryve doc [section]` | Show documentation |
-| `tryve install --skills` | Install Claude Code skills (preserved from TS) |
-| `tryve version` | Print version |
+| `autoflow e2e run` | Execute tests (default command) |
+| `autoflow e2e validate` | Validate test file syntax |
+| `autoflow e2e list` | List discovered tests |
+| `autoflow e2e health` | Check adapter connectivity |
+| `autoflow e2e init` | Initialize e2e.config.yaml |
+| `autoflow e2e test create <name>` | Create test from template |
+| `autoflow e2e test list-templates` | List available templates |
+| `autoflow e2e doc [section]` | Show documentation |
+| `autoflow install --skills` | Install Claude Code skills (preserved from TS) |
+| `autoflow version` | Print version |
 
 All flags from the TypeScript version are preserved: `--config`, `--env`, `--test-dir`, `--parallel`, `--timeout`, `--retries`, `--bail`, `--grep`, `--tag`, `--priority`, `--dry-run`, `--watch`, `--skip-setup`, `--skip-teardown`, `--reporter`, `--output`.
 
@@ -420,7 +420,7 @@ Environment variables: `TRYVE_CONFIG`, `TRYVE_ENV`, `TRYVE_TEST_DIR`, `TRYVE_REP
 
 ### Embedded Documentation
 
-The `tryve doc` command embeds documentation files at compile time using Go's `//go:embed` directive. Docs from `docs/sections/` are embedded into the binary so they're available without external files. The `install --skills` command similarly embeds skill templates from `skills/`.
+The `autoflow e2e doc` command embeds documentation files at compile time using Go's `//go:embed` directive. Docs from `docs/sections/` are embedded into the binary so they're available without external files. The `install --skills` command similarly embeds skill templates from `skills/`.
 
 ## Build & Distribution
 
@@ -430,7 +430,7 @@ The `tryve doc` command embeds documentation files at compile time using Go's `/
 VERSION ?= $(shell git describe --tags --always)
 
 build:
-    go build -ldflags "-s -w -X main.version=$(VERSION)" -o bin/tryve ./cmd/tryve
+    go build -ldflags "-s -w -X main.version=$(VERSION)" -o bin/autoflow ./cmd/autoflow
 
 test:
     go test ./...
@@ -446,19 +446,19 @@ release:
 
 | OS | Arch | Binary |
 |----|------|--------|
-| linux | amd64 | `tryve-linux-amd64` |
-| linux | arm64 | `tryve-linux-arm64` |
-| darwin | amd64 | `tryve-darwin-amd64` |
-| darwin | arm64 | `tryve-darwin-arm64` |
-| windows | amd64 | `tryve-windows-amd64.exe` |
-| windows | arm64 | `tryve-windows-arm64.exe` |
+| linux | amd64 | `autoflow-linux-amd64` |
+| linux | arm64 | `autoflow-linux-arm64` |
+| darwin | amd64 | `autoflow-darwin-amd64` |
+| darwin | arm64 | `autoflow-darwin-arm64` |
+| windows | amd64 | `autoflow-windows-amd64.exe` |
+| windows | arm64 | `autoflow-windows-arm64.exe` |
 
 ### GitHub Actions Release Workflow
 
 - Triggered on version tags (`v*`)
 - Uses GoReleaser for building + checksums + release notes
 - Publishes to GitHub Releases
-- Users can also `go install github.com/liemle3893/tryve/cmd/tryve@latest`
+- Users can also `go install github.com/liemle3893/autoflow/cmd/autoflow@latest`
 
 ## Adapter Implementation Notes
 

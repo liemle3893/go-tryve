@@ -220,7 +220,7 @@ Current TypeScript support is basic (function exports). A fluent DSL would attra
 
 | Metric | Current | 6-Month Target | Measurement |
 |--------|---------|----------------|-------------|
-| **npm weekly downloads** | Unknown | 200+ | `npm stats @liemle3893/go-tryve` |
+| **npm weekly downloads** | Unknown | 200+ | `npm stats @liemle3893/go-autoflow` |
 | **GitHub stars** | Unknown | 300+ | GitHub Insights |
 | **Test coverage** | 0% | 85%+ | `npm run coverage` |
 | **Critical bugs open** | ~15 | < 3 | GitHub Issues |

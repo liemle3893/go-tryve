@@ -1,16 +1,16 @@
-# Tryve installer for Windows (PowerShell)
+# Autoflow installer for Windows (PowerShell)
 # Usage:
-#   irm https://raw.githubusercontent.com/liemle3893/go-tryve/main/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/liemle3893/autoflow/main/install.ps1 | iex
 #   .\install.ps1 -Dir C:\custom\path -Version v1.2.3
 
 param(
-    [string]$Dir = "$env:LOCALAPPDATA\tryve\bin",
+    [string]$Dir = "$env:LOCALAPPDATA\autoflow\bin",
     [string]$Version = ""
 )
 
 $ErrorActionPreference = "Stop"
-$Repo = "liemle3893/go-tryve"
-$Binary = "tryve"
+$Repo = "liemle3893/autoflow"
+$Binary = "autoflow"
 
 function Resolve-Version {
     if ($Version -eq "") {
@@ -32,7 +32,7 @@ function Detect-Arch {
     }
 }
 
-function Install-Tryve {
+function Install-Autoflow {
     Resolve-Version
 
     $arch = Detect-Arch
@@ -74,4 +74,4 @@ function Install-Tryve {
     }
 }
 
-Install-Tryve
+Install-Autoflow

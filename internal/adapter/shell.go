@@ -9,7 +9,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/core"
 )
 
 // ShellConfig holds configuration options for the ShellAdapter.
@@ -52,9 +52,9 @@ func (a *ShellAdapter) Health(_ context.Context) error { return nil }
 
 // Execute runs the named action with the provided parameters.
 // Only the "exec" action is supported.
-func (a *ShellAdapter) Execute(ctx context.Context, action string, params map[string]any) (*tryve.StepResult, error) {
+func (a *ShellAdapter) Execute(ctx context.Context, action string, params map[string]any) (*core.StepResult, error) {
 	if action != "exec" {
-		return nil, tryve.AdapterError(
+		return nil, core.AdapterError(
 			"shell",
 			action,
 			fmt.Sprintf("unsupported action %q; only \"exec\" is supported", action),
@@ -66,10 +66,10 @@ func (a *ShellAdapter) Execute(ctx context.Context, action string, params map[st
 
 // execAction implements the "exec" action: run a shell command and collect its
 // stdout, stderr, and exit code.
-func (a *ShellAdapter) execAction(ctx context.Context, params map[string]any) (*tryve.StepResult, error) {
+func (a *ShellAdapter) execAction(ctx context.Context, params map[string]any) (*core.StepResult, error) {
 	command, err := getStr(params, "command")
 	if err != nil {
-		return nil, tryve.AdapterError("shell", "exec", err.Error(), err)
+		return nil, core.AdapterError("shell", "exec", err.Error(), err)
 	}
 
 	cwd := getStrDefault(params, "cwd", a.config.DefaultCwd)
@@ -97,7 +97,7 @@ func (a *ShellAdapter) execAction(ctx context.Context, params map[string]any) (*
 			exitCode = exitErr.ExitCode()
 		} else {
 			// Actual execution failure (e.g. command not found).
-			return nil, tryve.AdapterError("shell", "exec", runErr.Error(), runErr)
+			return nil, core.AdapterError("shell", "exec", runErr.Error(), runErr)
 		}
 	}
 

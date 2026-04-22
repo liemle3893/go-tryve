@@ -119,11 +119,11 @@ After modification, the end of package.json should look like:
 ```json
   "repository": {
     "type": "git",
-    "url": "https://github.com/liemle3893/go-tryve.git"
+    "url": "https://github.com/liemle3893/go-autoflow.git"
   },
-  "homepage": "https://github.com/liemle3893/go-tryve#readme",
+  "homepage": "https://github.com/liemle3893/go-autoflow#readme",
   "bugs": {
-    "url": "https://github.com/liemle3893/go-tryve/issues"
+    "url": "https://github.com/liemle3893/go-autoflow/issues"
   },
   "exports": {
     ".": {

@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/liemle3893/go-tryve/internal/adapter"
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/adapter"
+	"github.com/liemle3893/autoflow/internal/core"
 )
 
 // TestNewKafkaAdapter_DefaultsAndBrokers verifies that the constructor correctly
@@ -156,12 +156,12 @@ func TestKafkaAdapter_Connect_NoBrokers(t *testing.T) {
 		t.Fatal("expected error when no brokers are configured")
 	}
 
-	var tryveErr *tryve.TryveError
-	if !errors.As(err, &tryveErr) {
-		t.Fatalf("expected *tryve.TryveError, got %T: %v", err, err)
+	var coreErr *core.Error
+	if !errors.As(err, &coreErr) {
+		t.Fatalf("expected *core.Error, got %T: %v", err, err)
 	}
-	if tryveErr.Code != "CONNECTION_ERROR" {
-		t.Fatalf("expected code CONNECTION_ERROR, got %s", tryveErr.Code)
+	if coreErr.Code != "CONNECTION_ERROR" {
+		t.Fatalf("expected code CONNECTION_ERROR, got %s", coreErr.Code)
 	}
 }
 
@@ -201,12 +201,12 @@ func TestKafkaAdapter_Execute_InvalidAction(t *testing.T) {
 		t.Fatal("expected error for unsupported action, got nil")
 	}
 
-	var tryveErr *tryve.TryveError
-	if !errors.As(err, &tryveErr) {
-		t.Fatalf("expected *tryve.TryveError, got %T: %v", err, err)
+	var coreErr *core.Error
+	if !errors.As(err, &coreErr) {
+		t.Fatalf("expected *core.Error, got %T: %v", err, err)
 	}
-	if tryveErr.Code != "ADAPTER_ERROR" {
-		t.Fatalf("expected code ADAPTER_ERROR, got %s", tryveErr.Code)
+	if coreErr.Code != "ADAPTER_ERROR" {
+		t.Fatalf("expected code ADAPTER_ERROR, got %s", coreErr.Code)
 	}
 }
 
@@ -224,12 +224,12 @@ func TestKafkaAdapter_Execute_Produce_MissingTopic(t *testing.T) {
 		t.Fatal("expected error when topic is missing")
 	}
 
-	var tryveErr *tryve.TryveError
-	if !errors.As(err, &tryveErr) {
-		t.Fatalf("expected *tryve.TryveError, got %T", err)
+	var coreErr *core.Error
+	if !errors.As(err, &coreErr) {
+		t.Fatalf("expected *core.Error, got %T", err)
 	}
-	if tryveErr.Code != "ADAPTER_ERROR" {
-		t.Fatalf("expected ADAPTER_ERROR, got %s", tryveErr.Code)
+	if coreErr.Code != "ADAPTER_ERROR" {
+		t.Fatalf("expected ADAPTER_ERROR, got %s", coreErr.Code)
 	}
 }
 
@@ -245,12 +245,12 @@ func TestKafkaAdapter_Execute_Consume_MissingTopic(t *testing.T) {
 		t.Fatal("expected error when topic is missing")
 	}
 
-	var tryveErr *tryve.TryveError
-	if !errors.As(err, &tryveErr) {
-		t.Fatalf("expected *tryve.TryveError, got %T", err)
+	var coreErr *core.Error
+	if !errors.As(err, &coreErr) {
+		t.Fatalf("expected *core.Error, got %T", err)
 	}
-	if tryveErr.Code != "ADAPTER_ERROR" {
-		t.Fatalf("expected ADAPTER_ERROR, got %s", tryveErr.Code)
+	if coreErr.Code != "ADAPTER_ERROR" {
+		t.Fatalf("expected ADAPTER_ERROR, got %s", coreErr.Code)
 	}
 }
 
@@ -268,12 +268,12 @@ func TestKafkaAdapter_Execute_WaitFor_MissingTopic(t *testing.T) {
 		t.Fatal("expected error when topic is missing")
 	}
 
-	var tryveErr *tryve.TryveError
-	if !errors.As(err, &tryveErr) {
-		t.Fatalf("expected *tryve.TryveError, got %T", err)
+	var coreErr *core.Error
+	if !errors.As(err, &coreErr) {
+		t.Fatalf("expected *core.Error, got %T", err)
 	}
-	if tryveErr.Code != "ADAPTER_ERROR" {
-		t.Fatalf("expected ADAPTER_ERROR, got %s", tryveErr.Code)
+	if coreErr.Code != "ADAPTER_ERROR" {
+		t.Fatalf("expected ADAPTER_ERROR, got %s", coreErr.Code)
 	}
 }
 
@@ -291,12 +291,12 @@ func TestKafkaAdapter_Execute_WaitFor_MissingMatch(t *testing.T) {
 		t.Fatal("expected error when match is missing")
 	}
 
-	var tryveErr *tryve.TryveError
-	if !errors.As(err, &tryveErr) {
-		t.Fatalf("expected *tryve.TryveError, got %T", err)
+	var coreErr *core.Error
+	if !errors.As(err, &coreErr) {
+		t.Fatalf("expected *core.Error, got %T", err)
 	}
-	if tryveErr.Code != "ADAPTER_ERROR" {
-		t.Fatalf("expected ADAPTER_ERROR, got %s", tryveErr.Code)
+	if coreErr.Code != "ADAPTER_ERROR" {
+		t.Fatalf("expected ADAPTER_ERROR, got %s", coreErr.Code)
 	}
 }
 
@@ -312,12 +312,12 @@ func TestKafkaAdapter_Execute_Clear_MissingTopic(t *testing.T) {
 		t.Fatal("expected error when topic is missing")
 	}
 
-	var tryveErr *tryve.TryveError
-	if !errors.As(err, &tryveErr) {
-		t.Fatalf("expected *tryve.TryveError, got %T", err)
+	var coreErr *core.Error
+	if !errors.As(err, &coreErr) {
+		t.Fatalf("expected *core.Error, got %T", err)
 	}
-	if tryveErr.Code != "ADAPTER_ERROR" {
-		t.Fatalf("expected ADAPTER_ERROR, got %s", tryveErr.Code)
+	if coreErr.Code != "ADAPTER_ERROR" {
+		t.Fatalf("expected ADAPTER_ERROR, got %s", coreErr.Code)
 	}
 }
 
@@ -331,12 +331,12 @@ func TestKafkaAdapter_Health_NoBrokers(t *testing.T) {
 		t.Fatal("expected error from Health with no brokers")
 	}
 
-	var tryveErr *tryve.TryveError
-	if !errors.As(err, &tryveErr) {
-		t.Fatalf("expected *tryve.TryveError, got %T", err)
+	var coreErr *core.Error
+	if !errors.As(err, &coreErr) {
+		t.Fatalf("expected *core.Error, got %T", err)
 	}
-	if tryveErr.Code != "CONNECTION_ERROR" {
-		t.Fatalf("expected CONNECTION_ERROR, got %s", tryveErr.Code)
+	if coreErr.Code != "CONNECTION_ERROR" {
+		t.Fatalf("expected CONNECTION_ERROR, got %s", coreErr.Code)
 	}
 }
 
@@ -356,12 +356,12 @@ func TestKafkaAdapter_Health_UnreachableBroker(t *testing.T) {
 		t.Fatal("expected CONNECTION_ERROR for unreachable broker, got nil")
 	}
 
-	var tryveErr *tryve.TryveError
-	if !errors.As(err, &tryveErr) {
-		t.Fatalf("expected *tryve.TryveError, got %T: %v", err, err)
+	var coreErr *core.Error
+	if !errors.As(err, &coreErr) {
+		t.Fatalf("expected *core.Error, got %T: %v", err, err)
 	}
-	if tryveErr.Code != "CONNECTION_ERROR" {
-		t.Fatalf("expected CONNECTION_ERROR, got %s", tryveErr.Code)
+	if coreErr.Code != "CONNECTION_ERROR" {
+		t.Fatalf("expected CONNECTION_ERROR, got %s", coreErr.Code)
 	}
 }
 

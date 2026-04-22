@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/liemle3893/go-tryve/internal/config"
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/config"
+	"github.com/liemle3893/autoflow/internal/core"
 )
 
 // writeYAML writes content to a temporary file and returns its path.
@@ -112,12 +112,12 @@ environments:
 		t.Fatal("Load() expected error for missing env var in baseUrl, got nil")
 	}
 
-	var tryveErr *tryve.TryveError
-	if !errors.As(err, &tryveErr) {
-		t.Fatalf("expected *tryve.TryveError, got %T: %v", err, err)
+	var coreErr *core.Error
+	if !errors.As(err, &coreErr) {
+		t.Fatalf("expected *core.Error, got %T: %v", err, err)
 	}
-	if tryveErr.Code != "CONFIG_ERROR" {
-		t.Errorf("error Code = %q, want %q", tryveErr.Code, "CONFIG_ERROR")
+	if coreErr.Code != "CONFIG_ERROR" {
+		t.Errorf("error Code = %q, want %q", coreErr.Code, "CONFIG_ERROR")
 	}
 }
 
@@ -139,16 +139,16 @@ environments:
 		t.Fatal("Load() expected error for missing environment, got nil")
 	}
 
-	var tryveErr *tryve.TryveError
-	if !errors.As(err, &tryveErr) {
-		t.Fatalf("expected *tryve.TryveError, got %T: %v", err, err)
+	var coreErr *core.Error
+	if !errors.As(err, &coreErr) {
+		t.Fatalf("expected *core.Error, got %T: %v", err, err)
 	}
-	if tryveErr.Code != "CONFIG_ERROR" {
-		t.Errorf("error Code = %q, want %q", tryveErr.Code, "CONFIG_ERROR")
+	if coreErr.Code != "CONFIG_ERROR" {
+		t.Errorf("error Code = %q, want %q", coreErr.Code, "CONFIG_ERROR")
 	}
 
 	// Hint should mention available environments.
-	if tryveErr.Hint == "" {
+	if coreErr.Hint == "" {
 		t.Error("Hint should list available environments, got empty string")
 	}
 }
@@ -246,12 +246,12 @@ environments:
 		t.Fatal("Load() expected error for invalid version, got nil")
 	}
 
-	var tryveErr *tryve.TryveError
-	if !errors.As(err, &tryveErr) {
-		t.Fatalf("expected *tryve.TryveError, got %T: %v", err, err)
+	var coreErr *core.Error
+	if !errors.As(err, &coreErr) {
+		t.Fatalf("expected *core.Error, got %T: %v", err, err)
 	}
-	if tryveErr.Code != "CONFIG_ERROR" {
-		t.Errorf("error Code = %q, want %q", tryveErr.Code, "CONFIG_ERROR")
+	if coreErr.Code != "CONFIG_ERROR" {
+		t.Errorf("error Code = %q, want %q", coreErr.Code, "CONFIG_ERROR")
 	}
 }
 

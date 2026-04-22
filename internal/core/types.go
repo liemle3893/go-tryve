@@ -1,4 +1,4 @@
-package tryve
+package core
 
 import "time"
 

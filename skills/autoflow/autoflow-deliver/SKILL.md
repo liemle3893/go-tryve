@@ -1,6 +1,6 @@
 ---
 name: autoflow-deliver
-description: "Deliver a Jira ticket end-to-end — from implementation through PR creation. Triggers on: 'deliver/ship/implement PROJ-XX'. Controller-driven: the LLM only calls `tryve autoflow deliver next/complete` and executes what it returns."
+description: "Deliver a Jira ticket end-to-end — from implementation through PR creation. Triggers on: 'deliver/ship/implement PROJ-XX'. Controller-driven: the LLM only calls `autoflow deliver next/complete` and executes what it returns."
 argument-hint: "<TICKET-KEY>"
 allowed-tools:
   - Bash
@@ -19,7 +19,7 @@ $ARGUMENTS
 ## RULES
 
 - You do NOT read code, write code, explore, or decide anything.
-- You do NOT decide what to do — only call `tryve autoflow deliver next/complete` and execute what it returns.
+- You do NOT decide what to do — only call `autoflow deliver next/complete` and execute what it returns.
 - You do NOT invoke any other skill during this workflow.
 - You parse ONLY the `##` status line from subagent returns — ignore everything else.
 
@@ -56,7 +56,7 @@ TodoWrite(todos=[
 **Run this EXACT command via the Bash tool (replace `<KEY>` with the ticket key):**
 
 ```bash
-tryve autoflow deliver next --ticket <KEY>
+autoflow deliver next --ticket <KEY>
 ```
 
 This prints a JSON instruction. Go to step 3.
@@ -90,11 +90,11 @@ Agent(subagent_type=instruction.subagent_type, description=instruction.descripti
   1. If the instruction has `"on_failure": "escalate"` AND the bash command crashed with an unexpected error (not a normal test failure), escalate to user instead of looping.
   2. If the subagent returned `## FIX FAILED` AND the instruction has `"on_fix_failed_marker"`, write the marker file first: `echo "failed" > <marker-path>`. Then run `next` — the controller will escalate.
   
-  Otherwise, run `tryve autoflow deliver next --ticket <KEY>` immediately. Go to step 3.
+  Otherwise, run `autoflow deliver next --ticket <KEY>` immediately. Go to step 3.
 - **NO** → Run the complete command:
 
 ```bash
-tryve autoflow deliver complete --ticket <KEY>
+autoflow deliver complete --ticket <KEY>
 ```
 
 If you extracted values (see step 5), add flags: `--title "..."` or `--pr-url "..."`.
@@ -104,12 +104,12 @@ Then update TodoWrite: mark current step `completed`, next step `in_progress`.
 **Then ALWAYS run `next` again:**
 
 ```bash
-tryve autoflow deliver next --ticket <KEY>
+autoflow deliver next --ticket <KEY>
 ```
 
 Go to step 3.
 
-**IMPORTANT: After every step, you MUST call `tryve autoflow deliver next --ticket <KEY>`. Never decide what to do yourself.**
+**IMPORTANT: After every step, you MUST call `autoflow deliver next --ticket <KEY>`. Never decide what to do yourself.**
 
 ### 5. Extracting values and post-actions
 

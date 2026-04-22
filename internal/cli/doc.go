@@ -122,7 +122,7 @@ func printDocSections(cmd *cobra.Command, registry map[string]docSectionEntry) e
 		entry := registry[k]
 		fmt.Fprintf(out, "  %-*s  %s\n", maxLen, k, entry.Description)
 	}
-	fmt.Fprintf(out, "\nRun `tryve doc <section>` to view a section.\n")
+	fmt.Fprintf(out, "\nRun `autoflow e2e doc <section>` to view a section.\n")
 	return nil
 }
 
@@ -131,7 +131,7 @@ func printDocSections(cmd *cobra.Command, registry map[string]docSectionEntry) e
 func printDocSection(cmd *cobra.Command, sectionsDir string, registry map[string]docSectionEntry, section string) error {
 	entry, ok := registry[section]
 	if !ok {
-		return fmt.Errorf("doc: unknown section %q; run `tryve doc` to list available sections", section)
+		return fmt.Errorf("doc: unknown section %q; run `autoflow e2e doc` to list available sections", section)
 	}
 
 	docPath := filepath.Join(sectionsDir, filepath.FromSlash(entry.File))

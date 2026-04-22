@@ -7,7 +7,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/core"
 )
 
 // junitTestSuites is the root XML element for a JUnit report.
@@ -58,8 +58,8 @@ type JUnit struct {
 
 // testEntry pairs a test definition with its final result for deferred XML rendering.
 type testEntry struct {
-	definition *tryve.TestDefinition
-	result     *tryve.TestResult
+	definition *core.TestDefinition
+	result     *core.TestResult
 }
 
 // NewJUnit creates a JUnit reporter that will write its output to outputPath on Flush.
@@ -68,22 +68,22 @@ func NewJUnit(outputPath string) *JUnit {
 }
 
 // OnSuiteStart satisfies the Reporter interface; no action is needed at suite start.
-func (j *JUnit) OnSuiteStart(_ context.Context, _ *tryve.SuiteResult) error {
+func (j *JUnit) OnSuiteStart(_ context.Context, _ *core.SuiteResult) error {
 	return nil
 }
 
 // OnTestStart satisfies the Reporter interface; no action is needed at test start.
-func (j *JUnit) OnTestStart(_ context.Context, _ *tryve.TestDefinition) error {
+func (j *JUnit) OnTestStart(_ context.Context, _ *core.TestDefinition) error {
 	return nil
 }
 
 // OnStepComplete satisfies the Reporter interface; step detail is captured via OnTestComplete.
-func (j *JUnit) OnStepComplete(_ context.Context, _ *tryve.StepDefinition, _ *tryve.StepOutcome) error {
+func (j *JUnit) OnStepComplete(_ context.Context, _ *core.StepDefinition, _ *core.StepOutcome) error {
 	return nil
 }
 
 // OnTestComplete accumulates the test result in memory for later XML rendering.
-func (j *JUnit) OnTestComplete(_ context.Context, test *tryve.TestDefinition, result *tryve.TestResult) error {
+func (j *JUnit) OnTestComplete(_ context.Context, test *core.TestDefinition, result *core.TestResult) error {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	j.results = append(j.results, testEntry{definition: test, result: result})
@@ -91,7 +91,7 @@ func (j *JUnit) OnTestComplete(_ context.Context, test *tryve.TestDefinition, re
 }
 
 // OnSuiteComplete satisfies the Reporter interface; final counts are derived during Flush.
-func (j *JUnit) OnSuiteComplete(_ context.Context, _ *tryve.SuiteResult, _ *tryve.SuiteResult) error {
+func (j *JUnit) OnSuiteComplete(_ context.Context, _ *core.SuiteResult, _ *core.SuiteResult) error {
 	return nil
 }
 
@@ -138,9 +138,9 @@ func (j *JUnit) buildSuite() junitTestSuite {
 	for _, entry := range j.results {
 		tc := buildTestCase(entry)
 		switch entry.result.Status {
-		case tryve.StatusFailed:
+		case core.StatusFailed:
 			failures++
-		case tryve.StatusSkipped:
+		case core.StatusSkipped:
 			skipped++
 		}
 		totalSeconds += entry.result.Duration.Seconds()
@@ -148,7 +148,7 @@ func (j *JUnit) buildSuite() junitTestSuite {
 	}
 
 	return junitTestSuite{
-		Name:     "tryve",
+		Name:     "autoflow",
 		Tests:    len(j.results),
 		Failures: failures,
 		Skipped:  skipped,
@@ -165,9 +165,9 @@ func buildTestCase(entry testEntry) junitTestCase {
 	}
 
 	switch entry.result.Status {
-	case tryve.StatusFailed:
+	case core.StatusFailed:
 		tc.Failure = buildFailure(entry.result)
-	case tryve.StatusSkipped:
+	case core.StatusSkipped:
 		tc.Skipped = &junitSkipped{Message: entry.definition.SkipReason}
 		tc.Time = "" // skipped cases conventionally omit timing
 	}
@@ -177,10 +177,10 @@ func buildTestCase(entry testEntry) junitTestCase {
 
 // buildFailure constructs a junitFailure from the first failed step assertion,
 // falling back to the test-level error when no step assertion is available.
-func buildFailure(result *tryve.TestResult) *junitFailure {
+func buildFailure(result *core.TestResult) *junitFailure {
 	// Prefer the first failed step assertion for a precise message.
 	for _, step := range result.Steps {
-		if step.Status != tryve.StatusFailed {
+		if step.Status != core.StatusFailed {
 			continue
 		}
 		for _, a := range step.Assertions {

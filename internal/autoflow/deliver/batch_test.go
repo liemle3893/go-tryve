@@ -3,7 +3,7 @@ package deliver
 import (
 	"testing"
 
-	"github.com/liemle3893/go-tryve/internal/autoflow/state"
+	"github.com/liemle3893/autoflow/internal/autoflow/state"
 )
 
 func mkPlanState(done ...string) *state.PlanState {

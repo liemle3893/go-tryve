@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/liemle3893/go-tryve/internal/autoflow/state"
+	"github.com/liemle3893/autoflow/internal/autoflow/state"
 )
 
 func TestNext_FreshTicketReturnsStep1Dispatch(t *testing.T) {
@@ -182,7 +182,7 @@ func TestStep04_InitLoopWhenNoState(t *testing.T) {
 	if instr.Action != ActionBash {
 		t.Errorf("step_04 should init via bash, got %s", instr.Action)
 	}
-	if !strings.Contains(strings.Join(instr.Commands, " "), "autoflow loop-state init") {
+	if !strings.Contains(strings.Join(instr.Commands, " "), "loop-state init") {
 		t.Errorf("step_04 bash should call loop-state init, got: %v", instr.Commands)
 	}
 }

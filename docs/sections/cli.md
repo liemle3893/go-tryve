@@ -6,10 +6,10 @@ Complete reference for all CLI commands and options.
 
 ```bash
 # Local installation
-npm install @liemle3893/go-tryve
+npm install @liemle3893/go-autoflow
 
 # Global installation
-npm install -g @liemle3893/go-tryve
+npm install -g @liemle3893/go-autoflow
 ```
 
 ## Commands Overview

@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Produce a working `tryve` binary that can load config, parse YAML tests, execute HTTP and shell steps with variable interpolation and assertions, and report results to the console.
+**Goal:** Produce a working `autoflow` binary that can load config, parse YAML tests, execute HTTP and shell steps with variable interpolation and assertions, and report results to the console.
 
-**Architecture:** Go-native design with interfaces for adapters and reporters, `context.Context` for lifecycle management, and `errgroup` for bounded parallel execution. Shared types in `internal/tryve/`, all other packages import from there to avoid circular deps.
+**Architecture:** Go-native design with interfaces for adapters and reporters, `context.Context` for lifecycle management, and `errgroup` for bounded parallel execution. Shared types in `internal/autoflow/`, all other packages import from there to avoid circular deps.
 
 **Tech Stack:** Go 1.23+, cobra (CLI), yaml.v3, pgx (future), ohler55/ojg (JSONPath), google/uuid, pquerna/otp, fsnotify (future), golang.org/x/sync/errgroup
 
@@ -28,10 +28,10 @@ This is Plan 1 of 4:
 All files created by this plan:
 
 ```
-cmd/tryve/main.go                          # CLI entrypoint
-internal/tryve/errors.go                   # TryveError + constructors
-internal/tryve/errors_test.go
-internal/tryve/types.go                    # Shared types (TestDefinition, StepResult, etc.)
+cmd/autoflow/main.go                          # CLI entrypoint
+internal/autoflow/errors.go                   # TryveError + constructors
+internal/autoflow/errors_test.go
+internal/autoflow/types.go                    # Shared types (TestDefinition, StepResult, etc.)
 internal/config/types.go                   # Config struct definitions
 internal/config/config.go                  # Load + validate + env resolution
 internal/config/config_test.go
@@ -84,7 +84,7 @@ go.sum
 ### Task 1: Project Scaffolding
 
 **Files:**
-- Create: `go.mod`, `Makefile`, `cmd/tryve/main.go`, `.gitignore` (update)
+- Create: `go.mod`, `Makefile`, `cmd/autoflow/main.go`, `.gitignore` (update)
 - Move: `src/` → `ts/src/`, `package.json` → `ts/package.json`, and all other TS files
 
 - [ ] **Step 1: Move TypeScript source to `ts/` directory**
@@ -106,7 +106,7 @@ Note: `docs/`, `tests/`, `skills/`, `CLAUDE.md`, `AGENTS.md`, `README.md`, `dock
 
 ```go
 // go.mod
-module github.com/liemle3893/go-tryve
+module github.com/liemle3893/go-autoflow
 
 go 1.23
 
@@ -131,7 +131,7 @@ LDFLAGS := -s -w -X main.version=$(VERSION)
 .PHONY: build test lint clean
 
 build:
-	go build -ldflags "$(LDFLAGS)" -o bin/tryve ./cmd/tryve
+	go build -ldflags "$(LDFLAGS)" -o bin/autoflow ./cmd/autoflow
 
 test:
 	go test ./...
@@ -146,10 +146,10 @@ clean:
 	rm -rf bin/
 
 run:
-	go run ./cmd/tryve $(ARGS)
+	go run ./cmd/autoflow $(ARGS)
 ```
 
-- [ ] **Step 4: Create stub `cmd/tryve/main.go`**
+- [ ] **Step 4: Create stub `cmd/autoflow/main.go`**
 
 ```go
 package main
@@ -162,7 +162,7 @@ import (
 var version = "dev"
 
 func main() {
-	fmt.Fprintf(os.Stderr, "tryve %s\n", version)
+	fmt.Fprintf(os.Stderr, "autoflow %s\n", version)
 	os.Exit(0)
 }
 ```
@@ -180,8 +180,8 @@ bin/
 
 - [ ] **Step 6: Verify build**
 
-Run: `go build -o bin/tryve ./cmd/tryve && ./bin/tryve`
-Expected: `tryve dev`
+Run: `go build -o bin/autoflow ./cmd/autoflow && ./bin/autoflow`
+Expected: `autoflow dev`
 
 - [ ] **Step 7: Commit**
 
@@ -195,23 +195,23 @@ git commit -m "chore: scaffold Go project, move TypeScript to ts/"
 ### Task 2: Shared Types & Errors
 
 **Files:**
-- Create: `internal/tryve/errors.go`, `internal/tryve/errors_test.go`, `internal/tryve/types.go`
+- Create: `internal/autoflow/errors.go`, `internal/autoflow/errors_test.go`, `internal/autoflow/types.go`
 
 - [ ] **Step 1: Write error type tests**
 
 ```go
-// internal/tryve/errors_test.go
+// internal/autoflow/errors_test.go
 package tryve_test
 
 import (
 	"errors"
 	"testing"
 
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/go-autoflow/internal/autoflow"
 )
 
 func TestTryveError_Error(t *testing.T) {
-	err := tryve.ConfigError("invalid config", "check e2e.config.yaml", nil)
+	err := autoflow.ConfigError("invalid config", "check e2e.config.yaml", nil)
 	if err.Error() != "invalid config" {
 		t.Errorf("got %q, want %q", err.Error(), "invalid config")
 	}
@@ -225,7 +225,7 @@ func TestTryveError_Error(t *testing.T) {
 
 func TestTryveError_Unwrap(t *testing.T) {
 	cause := errors.New("file not found")
-	err := tryve.ConfigError("load failed", "", cause)
+	err := autoflow.ConfigError("load failed", "", cause)
 	if !errors.Is(err, cause) {
 		t.Error("errors.Is should find the cause")
 	}
@@ -233,7 +233,7 @@ func TestTryveError_Unwrap(t *testing.T) {
 
 func TestTryveError_ErrorWithCause(t *testing.T) {
 	cause := errors.New("connection refused")
-	err := tryve.ConnectionError("postgresql", "connect failed", cause)
+	err := autoflow.ConnectionError("postgresql", "connect failed", cause)
 	want := "connect failed: connection refused"
 	if err.Error() != want {
 		t.Errorf("got %q, want %q", err.Error(), want)
@@ -241,8 +241,8 @@ func TestTryveError_ErrorWithCause(t *testing.T) {
 }
 
 func TestTryveError_TypeCheck(t *testing.T) {
-	err := tryve.AssertionError("$.status", "equals", 200, 404)
-	var te *tryve.TryveError
+	err := autoflow.AssertionError("$.status", "equals", 200, 404)
+	var te *autoflow.TryveError
 	if !errors.As(err, &te) {
 		t.Error("errors.As should match TryveError")
 	}
@@ -254,21 +254,21 @@ func TestTryveError_TypeCheck(t *testing.T) {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `go test ./internal/tryve/...`
+Run: `go test ./internal/autoflow/...`
 Expected: compilation error (package doesn't exist yet)
 
 - [ ] **Step 3: Implement error types**
 
 ```go
-// internal/tryve/errors.go
-package tryve
+// internal/autoflow/errors.go
+package autoflow
 
 import (
 	"fmt"
 	"time"
 )
 
-// TryveError is the structured error type for all tryve errors.
+// TryveError is the structured error type for all autoflow errors.
 type TryveError struct {
 	Code    string
 	Message string
@@ -345,8 +345,8 @@ func AdapterError(adapter, action, msg string, cause error) *TryveError {
 - [ ] **Step 4: Implement shared types**
 
 ```go
-// internal/tryve/types.go
-package tryve
+// internal/autoflow/types.go
+package autoflow
 
 import "time"
 
@@ -482,14 +482,14 @@ func NewInterpolationContext() *InterpolationContext {
 
 - [ ] **Step 5: Run tests**
 
-Run: `go test ./internal/tryve/...`
+Run: `go test ./internal/autoflow/...`
 Expected: all 4 tests pass
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add internal/tryve/
-git commit -m "feat(tryve): add shared types and error types"
+git add internal/autoflow/
+git commit -m "feat(autoflow): add shared types and error types"
 ```
 
 ---
@@ -510,7 +510,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/liemle3893/go-tryve/internal/config"
+	"github.com/liemle3893/go-autoflow/internal/config"
 )
 
 func TestLoad_MinimalConfig(t *testing.T) {
@@ -722,7 +722,7 @@ import (
 	"os"
 	"regexp"
 
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/go-autoflow/internal/autoflow"
 	"gopkg.in/yaml.v3"
 )
 
@@ -732,20 +732,20 @@ var envVarPattern = regexp.MustCompile(`\$\{(\w+)\}`)
 func Load(path, envName string) (*LoadedConfig, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, tryve.ConfigError(
+		return nil, autoflow.ConfigError(
 			fmt.Sprintf("cannot read config file: %s", path),
-			"ensure e2e.config.yaml exists; run 'tryve init' to create one",
+			"ensure e2e.config.yaml exists; run 'autoflow e2e init' to create one",
 			err,
 		)
 	}
 
 	var raw RawConfig
 	if err := yaml.Unmarshal(data, &raw); err != nil {
-		return nil, tryve.ConfigError("invalid YAML in config file", "check YAML syntax", err)
+		return nil, autoflow.ConfigError("invalid YAML in config file", "check YAML syntax", err)
 	}
 
 	if raw.Version != "1.0" {
-		return nil, tryve.ConfigError(
+		return nil, autoflow.ConfigError(
 			fmt.Sprintf("unsupported config version %q", raw.Version),
 			"version must be \"1.0\"",
 			nil,
@@ -754,7 +754,7 @@ func Load(path, envName string) (*LoadedConfig, error) {
 
 	env, ok := raw.Environments[envName]
 	if !ok {
-		return nil, tryve.ConfigError(
+		return nil, autoflow.ConfigError(
 			fmt.Sprintf("environment %q not found in config", envName),
 			fmt.Sprintf("available environments: %v", envKeys(raw.Environments)),
 			nil,
@@ -764,7 +764,7 @@ func Load(path, envName string) (*LoadedConfig, error) {
 	// Resolve env vars in baseUrl (strict — error if missing)
 	resolved, err := resolveEnvVars(env.BaseURL, true)
 	if err != nil {
-		return nil, tryve.ConfigError("cannot resolve baseUrl", "set the environment variable", err)
+		return nil, autoflow.ConfigError("cannot resolve baseUrl", "set the environment variable", err)
 	}
 	env.BaseURL = resolved
 
@@ -892,7 +892,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/liemle3893/go-tryve/internal/interpolate"
+	"github.com/liemle3893/go-autoflow/internal/interpolate"
 )
 
 func TestBuiltin_UUID(t *testing.T) {
@@ -1331,12 +1331,12 @@ package interpolate_test
 import (
 	"testing"
 
-	"github.com/liemle3893/go-tryve/internal/interpolate"
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/go-autoflow/internal/interpolate"
+	"github.com/liemle3893/go-autoflow/internal/autoflow"
 )
 
 func TestResolve_SimpleVariable(t *testing.T) {
-	ctx := tryve.NewInterpolationContext()
+	ctx := autoflow.NewInterpolationContext()
 	ctx.Variables["name"] = "alice"
 	result, err := interpolate.ResolveString("hello {{name}}", ctx)
 	if err != nil {
@@ -1348,7 +1348,7 @@ func TestResolve_SimpleVariable(t *testing.T) {
 }
 
 func TestResolve_DollarBraceSyntax(t *testing.T) {
-	ctx := tryve.NewInterpolationContext()
+	ctx := autoflow.NewInterpolationContext()
 	ctx.Variables["name"] = "bob"
 	result, _ := interpolate.ResolveString("hello ${name}", ctx)
 	if result != "hello bob" {
@@ -1357,7 +1357,7 @@ func TestResolve_DollarBraceSyntax(t *testing.T) {
 }
 
 func TestResolve_CapturedValue(t *testing.T) {
-	ctx := tryve.NewInterpolationContext()
+	ctx := autoflow.NewInterpolationContext()
 	ctx.Captured["userId"] = "123"
 	result, _ := interpolate.ResolveString("user: {{captured.userId}}", ctx)
 	if result != "user: 123" {
@@ -1366,7 +1366,7 @@ func TestResolve_CapturedValue(t *testing.T) {
 }
 
 func TestResolve_BuiltinFunction(t *testing.T) {
-	ctx := tryve.NewInterpolationContext()
+	ctx := autoflow.NewInterpolationContext()
 	result, _ := interpolate.ResolveString("{{$upper(hello)}}", ctx)
 	if result != "HELLO" {
 		t.Errorf("got %q, want %q", result, "HELLO")
@@ -1374,7 +1374,7 @@ func TestResolve_BuiltinFunction(t *testing.T) {
 }
 
 func TestResolve_BaseURL(t *testing.T) {
-	ctx := tryve.NewInterpolationContext()
+	ctx := autoflow.NewInterpolationContext()
 	ctx.BaseURL = "http://localhost:3000"
 	result, _ := interpolate.ResolveString("{{baseUrl}}/api", ctx)
 	if result != "http://localhost:3000/api" {
@@ -1383,7 +1383,7 @@ func TestResolve_BaseURL(t *testing.T) {
 }
 
 func TestResolve_NestedVariable(t *testing.T) {
-	ctx := tryve.NewInterpolationContext()
+	ctx := autoflow.NewInterpolationContext()
 	ctx.Variables["greeting"] = "hello {{name}}"
 	ctx.Variables["name"] = "world"
 	result, _ := interpolate.ResolveString("{{greeting}}", ctx)
@@ -1394,7 +1394,7 @@ func TestResolve_NestedVariable(t *testing.T) {
 
 func TestResolve_EnvVariable(t *testing.T) {
 	t.Setenv("TEST_INTERP_VAR", "from_env")
-	ctx := tryve.NewInterpolationContext()
+	ctx := autoflow.NewInterpolationContext()
 	result, _ := interpolate.ResolveString("{{$env(TEST_INTERP_VAR)}}", ctx)
 	if result != "from_env" {
 		t.Errorf("got %q, want %q", result, "from_env")
@@ -1402,7 +1402,7 @@ func TestResolve_EnvVariable(t *testing.T) {
 }
 
 func TestResolve_MapValues(t *testing.T) {
-	ctx := tryve.NewInterpolationContext()
+	ctx := autoflow.NewInterpolationContext()
 	ctx.Variables["token"] = "abc123"
 	input := map[string]any{
 		"url":     "/api/users",
@@ -1419,7 +1419,7 @@ func TestResolve_MapValues(t *testing.T) {
 }
 
 func TestResolve_UnknownVariable_LeftAsIs(t *testing.T) {
-	ctx := tryve.NewInterpolationContext()
+	ctx := autoflow.NewInterpolationContext()
 	result, _ := interpolate.ResolveString("{{unknown}}", ctx)
 	if result != "{{unknown}}" {
 		t.Errorf("got %q, want unresolved", result)
@@ -1432,7 +1432,7 @@ func TestResolveVariables_TopologicalOrder(t *testing.T) {
 		"name":     "world",
 		"message":  "{{greeting}}!",
 	}
-	ctx := tryve.NewInterpolationContext()
+	ctx := autoflow.NewInterpolationContext()
 	resolved, err := interpolate.ResolveVariables(vars, ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -1459,7 +1459,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/go-autoflow/internal/autoflow"
 )
 
 const maxDepth = 10
@@ -1473,7 +1473,7 @@ var (
 )
 
 // ResolveString interpolates a single string against the given context.
-func ResolveString(s string, ctx *tryve.InterpolationContext) (string, error) {
+func ResolveString(s string, ctx *autoflow.InterpolationContext) (string, error) {
 	prev := ""
 	result := s
 	for i := 0; i < maxDepth; i++ {
@@ -1489,7 +1489,7 @@ func ResolveString(s string, ctx *tryve.InterpolationContext) (string, error) {
 }
 
 // singlePass replaces all interpolation patterns once.
-func singlePass(s string, ctx *tryve.InterpolationContext) string {
+func singlePass(s string, ctx *autoflow.InterpolationContext) string {
 	// Handle {{...}} syntax
 	s = doubleBraceRe.ReplaceAllStringFunc(s, func(match string) string {
 		expr := doubleBraceRe.FindStringSubmatch(match)[1]
@@ -1514,7 +1514,7 @@ func singlePass(s string, ctx *tryve.InterpolationContext) string {
 }
 
 // resolveExpression resolves a single expression (the content inside {{ }} or ${ }).
-func resolveExpression(expr string, ctx *tryve.InterpolationContext) (any, bool) {
+func resolveExpression(expr string, ctx *autoflow.InterpolationContext) (any, bool) {
 	// 1. Built-in functions: $funcName or $funcName(args)
 	if strings.HasPrefix(expr, "$") {
 		m := builtinCallRe.FindStringSubmatch(expr)
@@ -1566,7 +1566,7 @@ func resolveExpression(expr string, ctx *tryve.InterpolationContext) (any, bool)
 }
 
 // ResolveMap interpolates all string values in a map recursively.
-func ResolveMap(m map[string]any, ctx *tryve.InterpolationContext) (map[string]any, error) {
+func ResolveMap(m map[string]any, ctx *autoflow.InterpolationContext) (map[string]any, error) {
 	result := make(map[string]any, len(m))
 	for k, v := range m {
 		resolved, err := resolveValue(v, ctx)
@@ -1579,7 +1579,7 @@ func ResolveMap(m map[string]any, ctx *tryve.InterpolationContext) (map[string]a
 }
 
 // ResolveSlice interpolates all string values in a slice recursively.
-func ResolveSlice(s []any, ctx *tryve.InterpolationContext) ([]any, error) {
+func ResolveSlice(s []any, ctx *autoflow.InterpolationContext) ([]any, error) {
 	result := make([]any, len(s))
 	for i, v := range s {
 		resolved, err := resolveValue(v, ctx)
@@ -1591,7 +1591,7 @@ func ResolveSlice(s []any, ctx *tryve.InterpolationContext) ([]any, error) {
 	return result, nil
 }
 
-func resolveValue(v any, ctx *tryve.InterpolationContext) (any, error) {
+func resolveValue(v any, ctx *autoflow.InterpolationContext) (any, error) {
 	switch val := v.(type) {
 	case string:
 		return ResolveString(val, ctx)
@@ -1606,7 +1606,7 @@ func resolveValue(v any, ctx *tryve.InterpolationContext) (any, error) {
 
 // ResolveVariables resolves a map of variables in topological order,
 // so that variables can reference each other without ordering issues.
-func ResolveVariables(vars map[string]any, ctx *tryve.InterpolationContext) (map[string]any, error) {
+func ResolveVariables(vars map[string]any, ctx *autoflow.InterpolationContext) (map[string]any, error) {
 	// Build dependency graph
 	deps := make(map[string][]string) // var -> vars it depends on
 	for name, val := range vars {
@@ -1626,7 +1626,7 @@ func ResolveVariables(vars map[string]any, ctx *tryve.InterpolationContext) (map
 	for k, v := range vars {
 		resolved[k] = v
 	}
-	resolveCtx := &tryve.InterpolationContext{
+	resolveCtx := &autoflow.InterpolationContext{
 		Variables: resolved,
 		Captured:  ctx.Captured,
 		BaseURL:   ctx.BaseURL,
@@ -1780,7 +1780,7 @@ package assertion_test
 import (
 	"testing"
 
-	"github.com/liemle3893/go-tryve/internal/assertion"
+	"github.com/liemle3893/go-autoflow/internal/assertion"
 )
 
 func TestJSONPath_SimpleProperty(t *testing.T) {
@@ -2022,7 +2022,7 @@ package assertion_test
 import (
 	"testing"
 
-	"github.com/liemle3893/go-tryve/internal/assertion"
+	"github.com/liemle3893/go-autoflow/internal/assertion"
 )
 
 func TestMatch_Equals(t *testing.T) {
@@ -2146,8 +2146,8 @@ package assertion_test
 import (
 	"testing"
 
-	"github.com/liemle3893/go-tryve/internal/assertion"
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/go-autoflow/internal/assertion"
+	"github.com/liemle3893/go-autoflow/internal/autoflow"
 )
 
 func TestRunAssertions_HTTPStatus(t *testing.T) {
@@ -2258,7 +2258,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/go-autoflow/internal/autoflow"
 )
 
 // MatchResult holds the outcome of a single matcher check.
@@ -2527,7 +2527,7 @@ package assertion
 import (
 	"fmt"
 
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/go-autoflow/internal/autoflow"
 )
 
 // Operators recognized in assertion definitions.
@@ -2541,7 +2541,7 @@ var operators = []string{
 // RunAssertions evaluates assertions against step result data.
 // assertDef can be a map (HTTP-style with status/headers/json/duration)
 // or a slice of path-based assertions (generic adapter style).
-func RunAssertions(data map[string]any, assertDef any) ([]tryve.AssertionOutcome, error) {
+func RunAssertions(data map[string]any, assertDef any) ([]autoflow.AssertionOutcome, error) {
 	switch def := assertDef.(type) {
 	case map[string]any:
 		return runMapAssertions(data, def)
@@ -2553,8 +2553,8 @@ func RunAssertions(data map[string]any, assertDef any) ([]tryve.AssertionOutcome
 }
 
 // runMapAssertions handles HTTP-style assertions: status, statusRange, headers, json, body, duration.
-func runMapAssertions(data, def map[string]any) ([]tryve.AssertionOutcome, error) {
-	var results []tryve.AssertionOutcome
+func runMapAssertions(data, def map[string]any) ([]autoflow.AssertionOutcome, error) {
+	var results []autoflow.AssertionOutcome
 
 	// status assertion
 	if expected, ok := def["status"]; ok {
@@ -2577,7 +2577,7 @@ func runMapAssertions(data, def map[string]any) ([]tryve.AssertionOutcome, error
 			for name, expected := range hm {
 				actual := findHeader(actualHeaders, name)
 				r := Match("equals", actual, expected)
-				results = append(results, tryve.AssertionOutcome{
+				results = append(results, autoflow.AssertionOutcome{
 					Path: fmt.Sprintf("headers.%s", name), Operator: "equals",
 					Expected: expected, Actual: actual, Passed: r.Pass, Message: r.Message,
 				})
@@ -2599,7 +2599,7 @@ func runMapAssertions(data, def map[string]any) ([]tryve.AssertionOutcome, error
 			body := fmt.Sprintf("%v", data["body"])
 			for op, expected := range ba {
 				r := Match(op, body, expected)
-				results = append(results, tryve.AssertionOutcome{
+				results = append(results, autoflow.AssertionOutcome{
 					Path: "body", Operator: op, Expected: expected, Actual: body,
 					Passed: r.Pass, Message: r.Message,
 				})
@@ -2613,7 +2613,7 @@ func runMapAssertions(data, def map[string]any) ([]tryve.AssertionOutcome, error
 			actual := data["duration"]
 			for op, expected := range da {
 				r := Match(op, actual, expected)
-				results = append(results, tryve.AssertionOutcome{
+				results = append(results, autoflow.AssertionOutcome{
 					Path: "duration", Operator: op, Expected: expected, Actual: actual,
 					Passed: r.Pass, Message: r.Message,
 				})
@@ -2628,7 +2628,7 @@ func runMapAssertions(data, def map[string]any) ([]tryve.AssertionOutcome, error
 			if path, ok := def["path"]; ok {
 				actual, _ := EvalJSONPath(data, fmt.Sprintf("%v", path))
 				r := Match(op, actual, expected)
-				results = append(results, tryve.AssertionOutcome{
+				results = append(results, autoflow.AssertionOutcome{
 					Path: fmt.Sprintf("%v", path), Operator: op,
 					Expected: expected, Actual: actual, Passed: r.Pass, Message: r.Message,
 				})
@@ -2640,8 +2640,8 @@ func runMapAssertions(data, def map[string]any) ([]tryve.AssertionOutcome, error
 }
 
 // runSliceAssertions handles a list of {path, operator, expected} assertions.
-func runSliceAssertions(data map[string]any, assertions []any) ([]tryve.AssertionOutcome, error) {
-	var results []tryve.AssertionOutcome
+func runSliceAssertions(data map[string]any, assertions []any) ([]autoflow.AssertionOutcome, error) {
+	var results []autoflow.AssertionOutcome
 	for _, item := range assertions {
 		a, ok := item.(map[string]any)
 		if !ok {
@@ -2671,7 +2671,7 @@ func runSliceAssertions(data map[string]any, assertions []any) ([]tryve.Assertio
 			} else {
 				r = Match(op, actual, expected)
 			}
-			results = append(results, tryve.AssertionOutcome{
+			results = append(results, autoflow.AssertionOutcome{
 				Path: path, Operator: op, Expected: expected, Actual: actual,
 				Passed: r.Pass, Message: r.Message,
 			})
@@ -2680,28 +2680,28 @@ func runSliceAssertions(data map[string]any, assertions []any) ([]tryve.Assertio
 	return results, nil
 }
 
-func assertStatus(actual, expected any) []tryve.AssertionOutcome {
+func assertStatus(actual, expected any) []autoflow.AssertionOutcome {
 	switch exp := expected.(type) {
 	case []any:
 		// status: [200, 201, 202]
 		r := Match("contains", exp, actual)
-		return []tryve.AssertionOutcome{{
+		return []autoflow.AssertionOutcome{{
 			Path: "status", Operator: "oneOf", Expected: exp, Actual: actual,
 			Passed: r.Pass, Message: r.Message,
 		}}
 	default:
 		r := Match("equals", actual, expected)
-		return []tryve.AssertionOutcome{{
+		return []autoflow.AssertionOutcome{{
 			Path: "status", Operator: "equals", Expected: expected, Actual: actual,
 			Passed: r.Pass, Message: r.Message,
 		}}
 	}
 }
 
-func assertStatusRange(actual, sr any) tryve.AssertionOutcome {
+func assertStatusRange(actual, sr any) autoflow.AssertionOutcome {
 	arr, ok := sr.([]any)
 	if !ok || len(arr) != 2 {
-		return tryve.AssertionOutcome{
+		return autoflow.AssertionOutcome{
 			Path: "status", Operator: "statusRange", Passed: false,
 			Message: "statusRange must be [min, max]",
 		}
@@ -2709,7 +2709,7 @@ func assertStatusRange(actual, sr any) tryve.AssertionOutcome {
 	min, max := toFloat64(arr[0]), toFloat64(arr[1])
 	status := toFloat64(actual)
 	pass := status >= min && status <= max
-	return tryve.AssertionOutcome{
+	return autoflow.AssertionOutcome{
 		Path: "status", Operator: "statusRange", Expected: sr, Actual: actual,
 		Passed: pass, Message: fmt.Sprintf("expected status %v in range [%v, %v]", actual, arr[0], arr[1]),
 	}
@@ -2777,7 +2777,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/liemle3893/go-tryve/internal/loader"
+	"github.com/liemle3893/go-autoflow/internal/loader"
 )
 
 func TestDiscover_FindsTestFiles(t *testing.T) {
@@ -3035,7 +3035,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/go-autoflow/internal/autoflow"
 	"gopkg.in/yaml.v3"
 )
 
@@ -3047,7 +3047,7 @@ var knownStepFields = map[string]bool{
 }
 
 // ParseFile reads a YAML test file and returns a TestDefinition.
-func ParseFile(path string) (*tryve.TestDefinition, error) {
+func ParseFile(path string) (*autoflow.TestDefinition, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", path, err)
@@ -3060,23 +3060,23 @@ func ParseFile(path string) (*tryve.TestDefinition, error) {
 	}
 
 	// Also parse into struct for typed fields
-	var td tryve.TestDefinition
+	var td autoflow.TestDefinition
 	if err := yaml.Unmarshal(data, &td); err != nil {
 		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
 	td.SourceFile = path
 
 	// Parse steps for each phase, extracting params from extra fields
-	td.Setup = parseSteps(raw, "setup", tryve.PhaseSetup)
-	td.Execute = parseSteps(raw, "execute", tryve.PhaseExecute)
-	td.Verify = parseSteps(raw, "verify", tryve.PhaseVerify)
-	td.Teardown = parseSteps(raw, "teardown", tryve.PhaseTeardown)
+	td.Setup = parseSteps(raw, "setup", autoflow.PhaseSetup)
+	td.Execute = parseSteps(raw, "execute", autoflow.PhaseExecute)
+	td.Verify = parseSteps(raw, "verify", autoflow.PhaseVerify)
+	td.Teardown = parseSteps(raw, "teardown", autoflow.PhaseTeardown)
 
 	return &td, nil
 }
 
 // parseSteps extracts step definitions from a phase in the raw YAML map.
-func parseSteps(raw map[string]any, key string, phase tryve.TestPhase) []tryve.StepDefinition {
+func parseSteps(raw map[string]any, key string, phase autoflow.TestPhase) []autoflow.StepDefinition {
 	stepsRaw, ok := raw[key]
 	if !ok {
 		return nil
@@ -3086,7 +3086,7 @@ func parseSteps(raw map[string]any, key string, phase tryve.TestPhase) []tryve.S
 		return nil
 	}
 
-	steps := make([]tryve.StepDefinition, 0, len(arr))
+	steps := make([]autoflow.StepDefinition, 0, len(arr))
 	for i, item := range arr {
 		m, ok := item.(map[string]any)
 		if !ok {
@@ -3100,8 +3100,8 @@ func parseSteps(raw map[string]any, key string, phase tryve.TestPhase) []tryve.S
 
 // parseStep converts a raw YAML map into a StepDefinition.
 // All fields not in knownStepFields are collected into Params.
-func parseStep(m map[string]any, phase tryve.TestPhase, index int) tryve.StepDefinition {
-	step := tryve.StepDefinition{
+func parseStep(m map[string]any, phase autoflow.TestPhase, index int) autoflow.StepDefinition {
+	step := autoflow.StepDefinition{
 		ID:     fmt.Sprintf("%s-%d", phase, index),
 		Params: make(map[string]any),
 	}
@@ -3173,7 +3173,7 @@ package loader
 import (
 	"fmt"
 
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/go-autoflow/internal/autoflow"
 )
 
 var validAdapters = map[string]bool{
@@ -3186,7 +3186,7 @@ var validPriorities = map[string]bool{
 }
 
 // Validate checks a TestDefinition for structural and semantic errors.
-func Validate(td *tryve.TestDefinition) []error {
+func Validate(td *autoflow.TestDefinition) []error {
 	var errs []error
 
 	if td.Name == "" {
@@ -3223,7 +3223,7 @@ func Validate(td *tryve.TestDefinition) []error {
 	return errs
 }
 
-func validateStep(step *tryve.StepDefinition, phase string) []error {
+func validateStep(step *autoflow.StepDefinition, phase string) []error {
 	var errs []error
 	prefix := fmt.Sprintf("%s step %q", phase, step.ID)
 
@@ -3255,7 +3255,7 @@ func validateStep(step *tryve.StepDefinition, phase string) []error {
 	return errs
 }
 
-func validateHTTPStep(step *tryve.StepDefinition, prefix string) []error {
+func validateHTTPStep(step *autoflow.StepDefinition, prefix string) []error {
 	var errs []error
 	if step.Action != "request" {
 		errs = append(errs, fmt.Errorf("%s: http adapter only supports action 'request', got %q", prefix, step.Action))
@@ -3266,7 +3266,7 @@ func validateHTTPStep(step *tryve.StepDefinition, prefix string) []error {
 	return errs
 }
 
-func validateShellStep(step *tryve.StepDefinition, prefix string) []error {
+func validateShellStep(step *autoflow.StepDefinition, prefix string) []error {
 	var errs []error
 	if step.Action != "exec" {
 		errs = append(errs, fmt.Errorf("%s: shell adapter only supports action 'exec', got %q", prefix, step.Action))
@@ -3277,7 +3277,7 @@ func validateShellStep(step *tryve.StepDefinition, prefix string) []error {
 	return errs
 }
 
-func validatePostgresStep(step *tryve.StepDefinition, prefix string) []error {
+func validatePostgresStep(step *autoflow.StepDefinition, prefix string) []error {
 	validActions := map[string]bool{"execute": true, "query": true, "queryOne": true, "count": true}
 	var errs []error
 	if !validActions[step.Action] {
@@ -3289,7 +3289,7 @@ func validatePostgresStep(step *tryve.StepDefinition, prefix string) []error {
 	return errs
 }
 
-func validateMongoStep(step *tryve.StepDefinition, prefix string) []error {
+func validateMongoStep(step *autoflow.StepDefinition, prefix string) []error {
 	validActions := map[string]bool{
 		"insertOne": true, "insertMany": true, "findOne": true, "find": true,
 		"updateOne": true, "updateMany": true, "deleteOne": true, "deleteMany": true,
@@ -3305,7 +3305,7 @@ func validateMongoStep(step *tryve.StepDefinition, prefix string) []error {
 	return errs
 }
 
-func validateRedisStep(step *tryve.StepDefinition, prefix string) []error {
+func validateRedisStep(step *autoflow.StepDefinition, prefix string) []error {
 	validActions := map[string]bool{
 		"get": true, "set": true, "del": true, "exists": true, "incr": true,
 		"hget": true, "hset": true, "hgetall": true, "keys": true, "flushPattern": true,
@@ -3317,7 +3317,7 @@ func validateRedisStep(step *tryve.StepDefinition, prefix string) []error {
 	return errs
 }
 
-func validateKafkaStep(step *tryve.StepDefinition, prefix string) []error {
+func validateKafkaStep(step *autoflow.StepDefinition, prefix string) []error {
 	validActions := map[string]bool{"produce": true, "consume": true, "waitFor": true, "clear": true}
 	var errs []error
 	if !validActions[step.Action] {
@@ -3331,7 +3331,7 @@ func validateKafkaStep(step *tryve.StepDefinition, prefix string) []error {
 	return errs
 }
 
-func validateEventHubStep(step *tryve.StepDefinition, prefix string) []error {
+func validateEventHubStep(step *autoflow.StepDefinition, prefix string) []error {
 	validActions := map[string]bool{"publish": true, "waitFor": true, "consume": true, "clear": true}
 	var errs []error
 	if !validActions[step.Action] {
@@ -3375,8 +3375,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/liemle3893/go-tryve/internal/adapter"
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/go-autoflow/internal/adapter"
+	"github.com/liemle3893/go-autoflow/internal/autoflow"
 )
 
 type mockAdapter struct {
@@ -3388,8 +3388,8 @@ func (m *mockAdapter) Name() string                     { return m.name }
 func (m *mockAdapter) Connect(ctx context.Context) error { m.connected = true; return nil }
 func (m *mockAdapter) Close(ctx context.Context) error   { m.connected = false; return nil }
 func (m *mockAdapter) Health(ctx context.Context) error   { return nil }
-func (m *mockAdapter) Execute(ctx context.Context, action string, params map[string]any) (*tryve.StepResult, error) {
-	return &tryve.StepResult{Data: map[string]any{"mock": true}}, nil
+func (m *mockAdapter) Execute(ctx context.Context, action string, params map[string]any) (*autoflow.StepResult, error) {
+	return &autoflow.StepResult{Data: map[string]any{"mock": true}}, nil
 }
 
 func TestRegistry_GetInitializesOnce(t *testing.T) {
@@ -3447,7 +3447,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/go-autoflow/internal/autoflow"
 )
 
 // Adapter is the core interface all protocol adapters implement.
@@ -3456,7 +3456,7 @@ type Adapter interface {
 	Connect(ctx context.Context) error
 	Close(ctx context.Context) error
 	Health(ctx context.Context) error
-	Execute(ctx context.Context, action string, params map[string]any) (*tryve.StepResult, error)
+	Execute(ctx context.Context, action string, params map[string]any) (*autoflow.StepResult, error)
 }
 
 // MeasureDuration times a function and returns its duration alongside the result.
@@ -3467,8 +3467,8 @@ func MeasureDuration(fn func() error) (time.Duration, error) {
 }
 
 // SuccessResult constructs a successful StepResult.
-func SuccessResult(data map[string]any, duration time.Duration, metadata map[string]any) *tryve.StepResult {
-	return &tryve.StepResult{Data: data, Duration: duration, Metadata: metadata}
+func SuccessResult(data map[string]any, duration time.Duration, metadata map[string]any) *autoflow.StepResult {
+	return &autoflow.StepResult{Data: data, Duration: duration, Metadata: metadata}
 }
 ```
 
@@ -3481,7 +3481,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/go-autoflow/internal/autoflow"
 )
 
 // Registry manages adapter instances with lazy initialization.
@@ -3513,7 +3513,7 @@ func (r *Registry) Get(ctx context.Context, name string) (Adapter, error) {
 
 	a, ok := r.adapters[name]
 	if !ok {
-		return nil, tryve.ConfigError(
+		return nil, autoflow.ConfigError(
 			fmt.Sprintf("adapter %q not configured", name),
 			fmt.Sprintf("add %s configuration to e2e.config.yaml", name),
 			nil,
@@ -3522,7 +3522,7 @@ func (r *Registry) Get(ctx context.Context, name string) (Adapter, error) {
 
 	if !r.connected[name] {
 		if err := a.Connect(ctx); err != nil {
-			return nil, tryve.ConnectionError(name, "connection failed", err)
+			return nil, autoflow.ConnectionError(name, "connection failed", err)
 		}
 		r.connected[name] = true
 	}
@@ -3594,7 +3594,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/liemle3893/go-tryve/internal/adapter"
+	"github.com/liemle3893/go-autoflow/internal/adapter"
 )
 
 func TestHTTPAdapter_GET(t *testing.T) {
@@ -3766,7 +3766,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/go-autoflow/internal/autoflow"
 )
 
 // HTTPAdapter handles HTTP/REST API requests.
@@ -3809,9 +3809,9 @@ func (a *HTTPAdapter) Health(ctx context.Context) error {
 	return nil
 }
 
-func (a *HTTPAdapter) Execute(ctx context.Context, action string, params map[string]any) (*tryve.StepResult, error) {
+func (a *HTTPAdapter) Execute(ctx context.Context, action string, params map[string]any) (*autoflow.StepResult, error) {
 	if action != "request" {
-		return nil, tryve.AdapterError("http", action, "only 'request' action is supported", nil)
+		return nil, autoflow.AdapterError("http", action, "only 'request' action is supported", nil)
 	}
 
 	method := strings.ToUpper(getStr(params, "method", "GET"))
@@ -3823,7 +3823,7 @@ func (a *HTTPAdapter) Execute(ctx context.Context, action string, params map[str
 	// Build URL
 	fullURL, err := a.buildURL(rawURL, query)
 	if err != nil {
-		return nil, tryve.AdapterError("http", action, "invalid URL", err)
+		return nil, autoflow.AdapterError("http", action, "invalid URL", err)
 	}
 
 	// Build body
@@ -3831,7 +3831,7 @@ func (a *HTTPAdapter) Execute(ctx context.Context, action string, params map[str
 	if bodyParam != nil && method != "GET" && method != "HEAD" {
 		bodyBytes, err := json.Marshal(bodyParam)
 		if err != nil {
-			return nil, tryve.AdapterError("http", action, "cannot serialize body", err)
+			return nil, autoflow.AdapterError("http", action, "cannot serialize body", err)
 		}
 		bodyReader = bytes.NewReader(bodyBytes)
 		if headers == nil {
@@ -3845,7 +3845,7 @@ func (a *HTTPAdapter) Execute(ctx context.Context, action string, params map[str
 	// Build request
 	req, err := http.NewRequestWithContext(ctx, method, fullURL, bodyReader)
 	if err != nil {
-		return nil, tryve.AdapterError("http", action, "cannot create request", err)
+		return nil, autoflow.AdapterError("http", action, "cannot create request", err)
 	}
 	for k, v := range headers {
 		req.Header.Set(k, fmt.Sprintf("%v", v))
@@ -3856,14 +3856,14 @@ func (a *HTTPAdapter) Execute(ctx context.Context, action string, params map[str
 	resp, err := a.client.Do(req)
 	duration := time.Since(start)
 	if err != nil {
-		return nil, tryve.AdapterError("http", action, "request failed", err)
+		return nil, autoflow.AdapterError("http", action, "request failed", err)
 	}
 	defer resp.Body.Close()
 
 	// Read response body
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, tryve.AdapterError("http", action, "cannot read response body", err)
+		return nil, autoflow.AdapterError("http", action, "cannot read response body", err)
 	}
 
 	// Parse response body
@@ -3971,7 +3971,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/liemle3893/go-tryve/internal/adapter"
+	"github.com/liemle3893/go-autoflow/internal/adapter"
 )
 
 func TestShellAdapter_ExecSimple(t *testing.T) {
@@ -4059,7 +4059,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/go-autoflow/internal/autoflow"
 )
 
 // ShellConfig holds optional default settings for the shell adapter.
@@ -4086,14 +4086,14 @@ func (a *ShellAdapter) Connect(ctx context.Context) error  { return nil }
 func (a *ShellAdapter) Close(ctx context.Context) error    { return nil }
 func (a *ShellAdapter) Health(ctx context.Context) error   { return nil }
 
-func (a *ShellAdapter) Execute(ctx context.Context, action string, params map[string]any) (*tryve.StepResult, error) {
+func (a *ShellAdapter) Execute(ctx context.Context, action string, params map[string]any) (*autoflow.StepResult, error) {
 	if action != "exec" {
-		return nil, tryve.AdapterError("shell", action, "only 'exec' action is supported", nil)
+		return nil, autoflow.AdapterError("shell", action, "only 'exec' action is supported", nil)
 	}
 
 	command := getStr(params, "command", "")
 	if command == "" {
-		return nil, tryve.AdapterError("shell", action, "command is required", nil)
+		return nil, autoflow.AdapterError("shell", action, "command is required", nil)
 	}
 
 	// Build command
@@ -4132,7 +4132,7 @@ func (a *ShellAdapter) Execute(ctx context.Context, action string, params map[st
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			exitCode = exitErr.ExitCode()
 		} else {
-			return nil, tryve.AdapterError("shell", action, "command execution failed", err)
+			return nil, autoflow.AdapterError("shell", action, "command execution failed", err)
 		}
 	}
 
@@ -4181,8 +4181,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/liemle3893/go-tryve/internal/reporter"
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/go-autoflow/internal/reporter"
+	"github.com/liemle3893/go-autoflow/internal/autoflow"
 )
 
 func TestConsoleReporter_SuiteComplete(t *testing.T) {
@@ -4191,7 +4191,7 @@ func TestConsoleReporter_SuiteComplete(t *testing.T) {
 
 	ctx := context.Background()
 	r.OnSuiteStart(ctx, nil)
-	r.OnSuiteComplete(ctx, nil, &tryve.SuiteResult{
+	r.OnSuiteComplete(ctx, nil, &autoflow.SuiteResult{
 		Total: 3, Passed: 2, Failed: 1, Duration: 1500 * time.Millisecond,
 	})
 	r.Flush()
@@ -4210,8 +4210,8 @@ func TestConsoleReporter_TestComplete(t *testing.T) {
 	r := reporter.NewConsole(&buf, false, false)
 
 	ctx := context.Background()
-	r.OnTestComplete(ctx, &tryve.TestDefinition{Name: "My Test"}, &tryve.TestResult{
-		Status:   tryve.StatusPassed,
+	r.OnTestComplete(ctx, &autoflow.TestDefinition{Name: "My Test"}, &autoflow.TestResult{
+		Status:   autoflow.StatusPassed,
 		Duration: 250 * time.Millisecond,
 	})
 	r.Flush()
@@ -4232,8 +4232,8 @@ func TestMultiReporter(t *testing.T) {
 	multi := reporter.NewMulti(r1, r2)
 
 	ctx := context.Background()
-	multi.OnTestComplete(ctx, &tryve.TestDefinition{Name: "Test"}, &tryve.TestResult{
-		Status: tryve.StatusPassed, Duration: 100 * time.Millisecond,
+	multi.OnTestComplete(ctx, &autoflow.TestDefinition{Name: "Test"}, &autoflow.TestResult{
+		Status: autoflow.StatusPassed, Duration: 100 * time.Millisecond,
 	})
 	multi.Flush()
 
@@ -4252,16 +4252,16 @@ package reporter
 import (
 	"context"
 
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/go-autoflow/internal/autoflow"
 )
 
 // Reporter receives lifecycle events during test execution.
 type Reporter interface {
-	OnSuiteStart(ctx context.Context, suite *tryve.SuiteResult) error
-	OnTestStart(ctx context.Context, test *tryve.TestDefinition) error
-	OnStepComplete(ctx context.Context, step *tryve.StepDefinition, outcome *tryve.StepOutcome) error
-	OnTestComplete(ctx context.Context, test *tryve.TestDefinition, result *tryve.TestResult) error
-	OnSuiteComplete(ctx context.Context, suite *tryve.SuiteResult, result *tryve.SuiteResult) error
+	OnSuiteStart(ctx context.Context, suite *autoflow.SuiteResult) error
+	OnTestStart(ctx context.Context, test *autoflow.TestDefinition) error
+	OnStepComplete(ctx context.Context, step *autoflow.StepDefinition, outcome *autoflow.StepOutcome) error
+	OnTestComplete(ctx context.Context, test *autoflow.TestDefinition, result *autoflow.TestResult) error
+	OnSuiteComplete(ctx context.Context, suite *autoflow.SuiteResult, result *autoflow.SuiteResult) error
 	Flush() error
 }
 
@@ -4275,35 +4275,35 @@ func NewMulti(reporters ...Reporter) *Multi {
 	return &Multi{reporters: reporters}
 }
 
-func (m *Multi) OnSuiteStart(ctx context.Context, s *tryve.SuiteResult) error {
+func (m *Multi) OnSuiteStart(ctx context.Context, s *autoflow.SuiteResult) error {
 	for _, r := range m.reporters {
 		r.OnSuiteStart(ctx, s)
 	}
 	return nil
 }
 
-func (m *Multi) OnTestStart(ctx context.Context, td *tryve.TestDefinition) error {
+func (m *Multi) OnTestStart(ctx context.Context, td *autoflow.TestDefinition) error {
 	for _, r := range m.reporters {
 		r.OnTestStart(ctx, td)
 	}
 	return nil
 }
 
-func (m *Multi) OnStepComplete(ctx context.Context, step *tryve.StepDefinition, outcome *tryve.StepOutcome) error {
+func (m *Multi) OnStepComplete(ctx context.Context, step *autoflow.StepDefinition, outcome *autoflow.StepOutcome) error {
 	for _, r := range m.reporters {
 		r.OnStepComplete(ctx, step, outcome)
 	}
 	return nil
 }
 
-func (m *Multi) OnTestComplete(ctx context.Context, td *tryve.TestDefinition, result *tryve.TestResult) error {
+func (m *Multi) OnTestComplete(ctx context.Context, td *autoflow.TestDefinition, result *autoflow.TestResult) error {
 	for _, r := range m.reporters {
 		r.OnTestComplete(ctx, td, result)
 	}
 	return nil
 }
 
-func (m *Multi) OnSuiteComplete(ctx context.Context, s *tryve.SuiteResult, result *tryve.SuiteResult) error {
+func (m *Multi) OnSuiteComplete(ctx context.Context, s *autoflow.SuiteResult, result *autoflow.SuiteResult) error {
 	for _, r := range m.reporters {
 		r.OnSuiteComplete(ctx, s, result)
 	}
@@ -4329,7 +4329,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/go-autoflow/internal/autoflow"
 )
 
 // Console writes human-readable test results to an io.Writer.
@@ -4350,24 +4350,24 @@ func NewConsoleFromEnv(verbose bool) *Console {
 	return &Console{w: os.Stdout, verbose: verbose, color: !noColor}
 }
 
-func (c *Console) OnSuiteStart(ctx context.Context, s *tryve.SuiteResult) error {
+func (c *Console) OnSuiteStart(ctx context.Context, s *autoflow.SuiteResult) error {
 	fmt.Fprintf(c.w, "\n%s\n\n", c.styled("Tryve Test Runner", bold))
 	return nil
 }
 
-func (c *Console) OnTestStart(ctx context.Context, td *tryve.TestDefinition) error {
+func (c *Console) OnTestStart(ctx context.Context, td *autoflow.TestDefinition) error {
 	if c.verbose {
 		fmt.Fprintf(c.w, "  %s %s\n", c.styled("RUN", cyan), td.Name)
 	}
 	return nil
 }
 
-func (c *Console) OnStepComplete(ctx context.Context, step *tryve.StepDefinition, outcome *tryve.StepOutcome) error {
+func (c *Console) OnStepComplete(ctx context.Context, step *autoflow.StepDefinition, outcome *autoflow.StepOutcome) error {
 	if !c.verbose {
 		return nil
 	}
 	icon := c.styled("  +", green)
-	if outcome.Status == tryve.StatusFailed {
+	if outcome.Status == autoflow.StatusFailed {
 		icon = c.styled("  x", red)
 	}
 	desc := step.Description
@@ -4377,7 +4377,7 @@ func (c *Console) OnStepComplete(ctx context.Context, step *tryve.StepDefinition
 	fmt.Fprintf(c.w, "    %s %s (%s)\n", icon, desc, outcome.Duration.Round(time.Millisecond))
 
 	// Show failed assertions in verbose mode
-	if outcome.Status == tryve.StatusFailed {
+	if outcome.Status == autoflow.StatusFailed {
 		for _, a := range outcome.Assertions {
 			if !a.Passed {
 				fmt.Fprintf(c.w, "      %s %s: %s\n", c.styled("!", red), a.Path, a.Message)
@@ -4387,16 +4387,16 @@ func (c *Console) OnStepComplete(ctx context.Context, step *tryve.StepDefinition
 	return nil
 }
 
-func (c *Console) OnTestComplete(ctx context.Context, td *tryve.TestDefinition, result *tryve.TestResult) error {
+func (c *Console) OnTestComplete(ctx context.Context, td *autoflow.TestDefinition, result *autoflow.TestResult) error {
 	var icon, status string
 	switch result.Status {
-	case tryve.StatusPassed:
+	case autoflow.StatusPassed:
 		icon = c.styled("PASS", green)
 		status = ""
-	case tryve.StatusFailed:
+	case autoflow.StatusFailed:
 		icon = c.styled("FAIL", red)
 		status = ""
-	case tryve.StatusSkipped:
+	case autoflow.StatusSkipped:
 		icon = c.styled("SKIP", yellow)
 		status = ""
 	default:
@@ -4407,7 +4407,7 @@ func (c *Console) OnTestComplete(ctx context.Context, td *tryve.TestDefinition, 
 	return nil
 }
 
-func (c *Console) OnSuiteComplete(ctx context.Context, s *tryve.SuiteResult, result *tryve.SuiteResult) error {
+func (c *Console) OnSuiteComplete(ctx context.Context, s *autoflow.SuiteResult, result *autoflow.SuiteResult) error {
 	fmt.Fprintln(c.w)
 	fmt.Fprintf(c.w, "  %s\n", c.styled("Results:", bold))
 	fmt.Fprintf(c.w, "    %s %d passed\n", c.styled("+", green), result.Passed)
@@ -4471,9 +4471,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/liemle3893/go-tryve/internal/adapter"
-	"github.com/liemle3893/go-tryve/internal/executor"
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/go-autoflow/internal/adapter"
+	"github.com/liemle3893/go-autoflow/internal/executor"
+	"github.com/liemle3893/go-autoflow/internal/autoflow"
 )
 
 func newTestRegistry(baseURL string) *adapter.Registry {
@@ -4486,9 +4486,9 @@ func newTestRegistry(baseURL string) *adapter.Registry {
 func TestExecuteStep_BasicHTTP(t *testing.T) {
 	// Uses shell to avoid needing an HTTP server
 	registry := newTestRegistry("http://localhost")
-	ctx := tryve.NewInterpolationContext()
+	ctx := autoflow.NewInterpolationContext()
 
-	step := &tryve.StepDefinition{
+	step := &autoflow.StepDefinition{
 		ID:      "execute-0",
 		Adapter: "shell",
 		Action:  "exec",
@@ -4499,16 +4499,16 @@ func TestExecuteStep_BasicHTTP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if outcome.Status != tryve.StatusPassed {
+	if outcome.Status != autoflow.StatusPassed {
 		t.Errorf("status = %s", outcome.Status)
 	}
 }
 
 func TestExecuteStep_WithCapture(t *testing.T) {
 	registry := newTestRegistry("http://localhost")
-	ctx := tryve.NewInterpolationContext()
+	ctx := autoflow.NewInterpolationContext()
 
-	step := &tryve.StepDefinition{
+	step := &autoflow.StepDefinition{
 		ID:      "execute-0",
 		Adapter: "shell",
 		Action:  "exec",
@@ -4517,7 +4517,7 @@ func TestExecuteStep_WithCapture(t *testing.T) {
 	}
 
 	outcome, _ := executor.ExecuteStep(context.Background(), step, registry, ctx)
-	if outcome.Status != tryve.StatusPassed {
+	if outcome.Status != autoflow.StatusPassed {
 		t.Errorf("status = %s, error = %v", outcome.Status, outcome.Error)
 	}
 	if ctx.Captured["output"] == nil {
@@ -4527,9 +4527,9 @@ func TestExecuteStep_WithCapture(t *testing.T) {
 
 func TestExecuteStep_WithDelay(t *testing.T) {
 	registry := newTestRegistry("http://localhost")
-	ctx := tryve.NewInterpolationContext()
+	ctx := autoflow.NewInterpolationContext()
 
-	step := &tryve.StepDefinition{
+	step := &autoflow.StepDefinition{
 		ID:      "execute-0",
 		Adapter: "shell",
 		Action:  "exec",
@@ -4545,9 +4545,9 @@ func TestExecuteStep_WithDelay(t *testing.T) {
 
 func TestExecuteStep_ContinueOnError(t *testing.T) {
 	registry := newTestRegistry("http://localhost")
-	ctx := tryve.NewInterpolationContext()
+	ctx := autoflow.NewInterpolationContext()
 
-	step := &tryve.StepDefinition{
+	step := &autoflow.StepDefinition{
 		ID:              "execute-0",
 		Adapter:         "shell",
 		Action:          "exec",
@@ -4558,17 +4558,17 @@ func TestExecuteStep_ContinueOnError(t *testing.T) {
 
 	outcome, _ := executor.ExecuteStep(context.Background(), step, registry, ctx)
 	// With continueOnError, should be warned, not failed
-	if outcome.Status != tryve.StatusWarned {
+	if outcome.Status != autoflow.StatusWarned {
 		t.Errorf("status = %s, expected warned", outcome.Status)
 	}
 }
 
 func TestExecuteStep_InterpolatesParams(t *testing.T) {
 	registry := newTestRegistry("http://localhost")
-	ctx := tryve.NewInterpolationContext()
+	ctx := autoflow.NewInterpolationContext()
 	ctx.Variables["msg"] = "interpolated"
 
-	step := &tryve.StepDefinition{
+	step := &autoflow.StepDefinition{
 		ID:      "execute-0",
 		Adapter: "shell",
 		Action:  "exec",
@@ -4576,7 +4576,7 @@ func TestExecuteStep_InterpolatesParams(t *testing.T) {
 	}
 
 	outcome, _ := executor.ExecuteStep(context.Background(), step, registry, ctx)
-	if outcome.Status != tryve.StatusPassed {
+	if outcome.Status != autoflow.StatusPassed {
 		t.Errorf("status = %s, error = %v", outcome.Status, outcome.Error)
 	}
 	stdout := outcome.Result.Data["stdout"]
@@ -4597,28 +4597,28 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/liemle3893/go-tryve/internal/adapter"
-	"github.com/liemle3893/go-tryve/internal/assertion"
-	"github.com/liemle3893/go-tryve/internal/interpolate"
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/go-autoflow/internal/adapter"
+	"github.com/liemle3893/go-autoflow/internal/assertion"
+	"github.com/liemle3893/go-autoflow/internal/interpolate"
+	"github.com/liemle3893/go-autoflow/internal/autoflow"
 )
 
 // ExecuteStep runs a single step: interpolate params → delay → execute → capture → assert.
 func ExecuteStep(
 	ctx context.Context,
-	step *tryve.StepDefinition,
+	step *autoflow.StepDefinition,
 	registry *adapter.Registry,
-	interpCtx *tryve.InterpolationContext,
-) (*tryve.StepOutcome, error) {
+	interpCtx *autoflow.InterpolationContext,
+) (*autoflow.StepOutcome, error) {
 	start := time.Now()
-	outcome := &tryve.StepOutcome{Step: step}
+	outcome := &autoflow.StepOutcome{Step: step}
 
 	// Pre-delay
 	if step.Delay > 0 {
 		select {
 		case <-time.After(time.Duration(step.Delay) * time.Millisecond):
 		case <-ctx.Done():
-			outcome.Status = tryve.StatusFailed
+			outcome.Status = autoflow.StatusFailed
 			outcome.Error = ctx.Err()
 			outcome.Duration = time.Since(start)
 			return outcome, nil
@@ -4628,8 +4628,8 @@ func ExecuteStep(
 	// Interpolate params
 	resolvedParams, err := interpolate.ResolveMap(step.Params, interpCtx)
 	if err != nil {
-		outcome.Status = tryve.StatusFailed
-		outcome.Error = tryve.InterpolationError(step.ID, err.Error())
+		outcome.Status = autoflow.StatusFailed
+		outcome.Error = autoflow.InterpolationError(step.ID, err.Error())
 		outcome.Duration = time.Since(start)
 		return outcome, nil
 	}
@@ -4637,7 +4637,7 @@ func ExecuteStep(
 	// Get adapter
 	a, err := registry.Get(ctx, step.Adapter)
 	if err != nil {
-		outcome.Status = tryve.StatusFailed
+		outcome.Status = autoflow.StatusFailed
 		outcome.Error = err
 		outcome.Duration = time.Since(start)
 		return outcome, nil
@@ -4646,11 +4646,11 @@ func ExecuteStep(
 	// Execute
 	result, err := a.Execute(ctx, step.Action, resolvedParams)
 	if err != nil {
-		outcome.Status = tryve.StatusFailed
+		outcome.Status = autoflow.StatusFailed
 		outcome.Error = err
 		outcome.Duration = time.Since(start)
 		if step.ContinueOnError {
-			outcome.Status = tryve.StatusWarned
+			outcome.Status = autoflow.StatusWarned
 		}
 		return outcome, nil
 	}
@@ -4677,7 +4677,7 @@ func ExecuteStep(
 
 		outcomes, err := assertion.RunAssertions(result.Data, assertDef)
 		if err != nil {
-			outcome.Status = tryve.StatusFailed
+			outcome.Status = autoflow.StatusFailed
 			outcome.Error = err
 			outcome.Duration = time.Since(start)
 			return outcome, nil
@@ -4687,10 +4687,10 @@ func ExecuteStep(
 		// Check if any assertion failed
 		for _, a := range outcomes {
 			if !a.Passed {
-				outcome.Status = tryve.StatusFailed
-				outcome.Error = tryve.AssertionError(a.Path, a.Operator, a.Expected, a.Actual)
+				outcome.Status = autoflow.StatusFailed
+				outcome.Error = autoflow.AssertionError(a.Path, a.Operator, a.Expected, a.Actual)
 				if step.ContinueOnError {
-					outcome.Status = tryve.StatusWarned
+					outcome.Status = autoflow.StatusWarned
 				}
 				outcome.Duration = time.Since(start)
 				return outcome, nil
@@ -4698,7 +4698,7 @@ func ExecuteStep(
 		}
 	}
 
-	outcome.Status = tryve.StatusPassed
+	outcome.Status = autoflow.StatusPassed
 	outcome.Duration = time.Since(start)
 	return outcome, nil
 }
@@ -4716,18 +4716,18 @@ func toAssertMap(assert any) map[string]any {
 // ExecuteStepWithRetry wraps ExecuteStep with retry logic.
 func ExecuteStepWithRetry(
 	ctx context.Context,
-	step *tryve.StepDefinition,
+	step *autoflow.StepDefinition,
 	registry *adapter.Registry,
-	interpCtx *tryve.InterpolationContext,
+	interpCtx *autoflow.InterpolationContext,
 	maxRetries int,
 	baseDelay time.Duration,
-) (*tryve.StepOutcome, int) {
-	var outcome *tryve.StepOutcome
+) (*autoflow.StepOutcome, int) {
+	var outcome *autoflow.StepOutcome
 	retries := 0
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		outcome, _ = ExecuteStep(ctx, step, registry, interpCtx)
-		if outcome.Status == tryve.StatusPassed || outcome.Status == tryve.StatusWarned {
+		if outcome.Status == autoflow.StatusPassed || outcome.Status == autoflow.StatusWarned {
 			return outcome, retries
 		}
 
@@ -4792,24 +4792,24 @@ import (
 	"testing"
 	"time"
 
-	"github.com/liemle3893/go-tryve/internal/executor"
-	"github.com/liemle3893/go-tryve/internal/reporter"
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/go-autoflow/internal/executor"
+	"github.com/liemle3893/go-autoflow/internal/reporter"
+	"github.com/liemle3893/go-autoflow/internal/autoflow"
 )
 
 func TestRunTest_SimplePass(t *testing.T) {
 	registry := newTestRegistry("http://localhost")
 	rep := reporter.NewMulti()
-	td := &tryve.TestDefinition{
+	td := &autoflow.TestDefinition{
 		Name: "Simple Test",
-		Execute: []tryve.StepDefinition{{
+		Execute: []autoflow.StepDefinition{{
 			ID: "execute-0", Adapter: "shell", Action: "exec",
 			Params: map[string]any{"command": "echo pass"},
 		}},
 	}
 
 	result := executor.RunTest(context.Background(), td, registry, rep, 0, 1000)
-	if result.Status != tryve.StatusPassed {
+	if result.Status != autoflow.StatusPassed {
 		t.Errorf("status = %s, error = %v", result.Status, result.Error)
 	}
 }
@@ -4817,16 +4817,16 @@ func TestRunTest_SimplePass(t *testing.T) {
 func TestRunTest_SkippedTest(t *testing.T) {
 	registry := newTestRegistry("http://localhost")
 	rep := reporter.NewMulti()
-	td := &tryve.TestDefinition{
+	td := &autoflow.TestDefinition{
 		Name: "Skipped", Skip: true, SkipReason: "not ready",
-		Execute: []tryve.StepDefinition{{
+		Execute: []autoflow.StepDefinition{{
 			ID: "execute-0", Adapter: "shell", Action: "exec",
 			Params: map[string]any{"command": "echo skip"},
 		}},
 	}
 
 	result := executor.RunTest(context.Background(), td, registry, rep, 0, 1000)
-	if result.Status != tryve.StatusSkipped {
+	if result.Status != autoflow.StatusSkipped {
 		t.Errorf("status = %s, want skipped", result.Status)
 	}
 }
@@ -4834,28 +4834,28 @@ func TestRunTest_SkippedTest(t *testing.T) {
 func TestRunTest_AllPhases(t *testing.T) {
 	registry := newTestRegistry("http://localhost")
 	rep := reporter.NewMulti()
-	td := &tryve.TestDefinition{
+	td := &autoflow.TestDefinition{
 		Name: "Full Lifecycle",
-		Setup: []tryve.StepDefinition{{
+		Setup: []autoflow.StepDefinition{{
 			ID: "setup-0", Adapter: "shell", Action: "exec",
 			Params: map[string]any{"command": "echo setup"},
 		}},
-		Execute: []tryve.StepDefinition{{
+		Execute: []autoflow.StepDefinition{{
 			ID: "execute-0", Adapter: "shell", Action: "exec",
 			Params: map[string]any{"command": "echo execute"},
 		}},
-		Verify: []tryve.StepDefinition{{
+		Verify: []autoflow.StepDefinition{{
 			ID: "verify-0", Adapter: "shell", Action: "exec",
 			Params: map[string]any{"command": "echo verify"},
 		}},
-		Teardown: []tryve.StepDefinition{{
+		Teardown: []autoflow.StepDefinition{{
 			ID: "teardown-0", Adapter: "shell", Action: "exec",
 			Params: map[string]any{"command": "echo teardown"},
 		}},
 	}
 
 	result := executor.RunTest(context.Background(), td, registry, rep, 0, 1000)
-	if result.Status != tryve.StatusPassed {
+	if result.Status != autoflow.StatusPassed {
 		t.Errorf("status = %s", result.Status)
 	}
 	// Should have 4 step outcomes (one per phase)
@@ -4867,17 +4867,17 @@ func TestRunTest_AllPhases(t *testing.T) {
 func TestRunTest_WithTimeout(t *testing.T) {
 	registry := newTestRegistry("http://localhost")
 	rep := reporter.NewMulti()
-	td := &tryve.TestDefinition{
+	td := &autoflow.TestDefinition{
 		Name:    "Timeout Test",
 		Timeout: 100, // 100ms
-		Execute: []tryve.StepDefinition{{
+		Execute: []autoflow.StepDefinition{{
 			ID: "execute-0", Adapter: "shell", Action: "exec",
 			Params: map[string]any{"command": "sleep 5"},
 		}},
 	}
 
 	result := executor.RunTest(context.Background(), td, registry, rep, 0, 1000)
-	if result.Status != tryve.StatusFailed {
+	if result.Status != autoflow.StatusFailed {
 		t.Errorf("status = %s, expected failed (timeout)", result.Status)
 	}
 }
@@ -4966,26 +4966,26 @@ import (
 	"context"
 	"time"
 
-	"github.com/liemle3893/go-tryve/internal/adapter"
-	"github.com/liemle3893/go-tryve/internal/reporter"
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/go-autoflow/internal/adapter"
+	"github.com/liemle3893/go-autoflow/internal/reporter"
+	"github.com/liemle3893/go-autoflow/internal/autoflow"
 )
 
 // RunTest executes a single test through all its phases.
 func RunTest(
 	ctx context.Context,
-	td *tryve.TestDefinition,
+	td *autoflow.TestDefinition,
 	registry *adapter.Registry,
 	rep reporter.Reporter,
 	defaultRetries int,
 	defaultRetryDelay int,
-) *tryve.TestResult {
-	result := &tryve.TestResult{Test: td}
+) *autoflow.TestResult {
+	result := &autoflow.TestResult{Test: td}
 	start := time.Now()
 
 	// Handle skip
 	if td.Skip {
-		result.Status = tryve.StatusSkipped
+		result.Status = autoflow.StatusSkipped
 		result.Duration = time.Since(start)
 		return result
 	}
@@ -5000,7 +5000,7 @@ func RunTest(
 	rep.OnTestStart(ctx, td)
 
 	// Create interpolation context with test variables
-	interpCtx := tryve.NewInterpolationContext()
+	interpCtx := autoflow.NewInterpolationContext()
 	if td.Variables != nil {
 		for k, v := range td.Variables {
 			interpCtx.Variables[k] = v
@@ -5016,13 +5016,13 @@ func RunTest(
 
 	// Execute phases in order
 	phases := []struct {
-		name  tryve.TestPhase
-		steps []tryve.StepDefinition
+		name  autoflow.TestPhase
+		steps []autoflow.StepDefinition
 	}{
-		{tryve.PhaseSetup, td.Setup},
-		{tryve.PhaseExecute, td.Execute},
-		{tryve.PhaseVerify, td.Verify},
-		{tryve.PhaseTeardown, td.Teardown},
+		{autoflow.PhaseSetup, td.Setup},
+		{autoflow.PhaseExecute, td.Execute},
+		{autoflow.PhaseVerify, td.Verify},
+		{autoflow.PhaseTeardown, td.Teardown},
 	}
 
 	failed := false
@@ -5032,7 +5032,7 @@ func RunTest(
 		}
 
 		// Skip verify/execute if a previous phase failed (but always run teardown)
-		if failed && phase.name != tryve.PhaseTeardown {
+		if failed && phase.name != autoflow.PhaseTeardown {
 			continue
 		}
 
@@ -5050,10 +5050,10 @@ func RunTest(
 
 			rep.OnStepComplete(ctx, step, outcome)
 
-			if outcome.Status == tryve.StatusFailed {
+			if outcome.Status == autoflow.StatusFailed {
 				failed = true
 				result.Error = outcome.Error
-				if phase.name == tryve.PhaseTeardown {
+				if phase.name == autoflow.PhaseTeardown {
 					continue // always try remaining teardown steps
 				}
 				break
@@ -5062,9 +5062,9 @@ func RunTest(
 	}
 
 	if failed {
-		result.Status = tryve.StatusFailed
+		result.Status = autoflow.StatusFailed
 	} else {
-		result.Status = tryve.StatusPassed
+		result.Status = autoflow.StatusPassed
 	}
 	result.Duration = time.Since(start)
 
@@ -5103,10 +5103,10 @@ import (
 	"context"
 	"testing"
 
-	"github.com/liemle3893/go-tryve/internal/config"
-	"github.com/liemle3893/go-tryve/internal/executor"
-	"github.com/liemle3893/go-tryve/internal/reporter"
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/go-autoflow/internal/config"
+	"github.com/liemle3893/go-autoflow/internal/executor"
+	"github.com/liemle3893/go-autoflow/internal/reporter"
+	"github.com/liemle3893/go-autoflow/internal/autoflow"
 )
 
 func TestOrchestrator_RunAll(t *testing.T) {
@@ -5115,12 +5115,12 @@ func TestOrchestrator_RunAll(t *testing.T) {
 	rep := reporter.NewConsole(&buf, false, false)
 	cfg := &config.LoadedConfig{Defaults: config.DefaultsConfig{Parallel: 1, Timeout: 30000}}
 
-	tests := []*tryve.TestDefinition{
-		{Name: "Test 1", Execute: []tryve.StepDefinition{{
+	tests := []*autoflow.TestDefinition{
+		{Name: "Test 1", Execute: []autoflow.StepDefinition{{
 			ID: "execute-0", Adapter: "shell", Action: "exec",
 			Params: map[string]any{"command": "echo test1"},
 		}}},
-		{Name: "Test 2", Execute: []tryve.StepDefinition{{
+		{Name: "Test 2", Execute: []autoflow.StepDefinition{{
 			ID: "execute-0", Adapter: "shell", Action: "exec",
 			Params: map[string]any{"command": "echo test2"},
 		}}},
@@ -5143,13 +5143,13 @@ func TestOrchestrator_BailOnFailure(t *testing.T) {
 	rep := reporter.NewConsole(&buf, false, false)
 	cfg := &config.LoadedConfig{Defaults: config.DefaultsConfig{Parallel: 1, Timeout: 30000}}
 
-	tests := []*tryve.TestDefinition{
-		{Name: "Failing", Execute: []tryve.StepDefinition{{
+	tests := []*autoflow.TestDefinition{
+		{Name: "Failing", Execute: []autoflow.StepDefinition{{
 			ID: "execute-0", Adapter: "shell", Action: "exec",
 			Params: map[string]any{"command": "exit 1"},
 			Assert: map[string]any{"exitCode": float64(0)},
 		}}},
-		{Name: "Should Skip", Execute: []tryve.StepDefinition{{
+		{Name: "Should Skip", Execute: []autoflow.StepDefinition{{
 			ID: "execute-0", Adapter: "shell", Action: "exec",
 			Params: map[string]any{"command": "echo skip"},
 		}}},
@@ -5169,7 +5169,7 @@ func TestOrchestrator_BailOnFailure(t *testing.T) {
 }
 
 func TestOrchestrator_FilterByTag(t *testing.T) {
-	tests := []*tryve.TestDefinition{
+	tests := []*autoflow.TestDefinition{
 		{Name: "Tagged", Tags: []string{"smoke"}},
 		{Name: "Untagged", Tags: []string{"integration"}},
 	}
@@ -5181,7 +5181,7 @@ func TestOrchestrator_FilterByTag(t *testing.T) {
 }
 
 func TestOrchestrator_FilterByGrep(t *testing.T) {
-	tests := []*tryve.TestDefinition{
+	tests := []*autoflow.TestDefinition{
 		{Name: "User API Test"},
 		{Name: "Health Check"},
 	}
@@ -5206,10 +5206,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/liemle3893/go-tryve/internal/adapter"
-	"github.com/liemle3893/go-tryve/internal/config"
-	"github.com/liemle3893/go-tryve/internal/reporter"
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/go-autoflow/internal/adapter"
+	"github.com/liemle3893/go-autoflow/internal/config"
+	"github.com/liemle3893/go-autoflow/internal/reporter"
+	"github.com/liemle3893/go-autoflow/internal/autoflow"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -5230,9 +5230,9 @@ func NewOrchestrator(registry *adapter.Registry, rep reporter.Reporter, cfg *con
 func (o *Orchestrator) SetBail(bail bool) { o.bail = bail }
 
 // Run executes all tests and returns the suite result.
-func (o *Orchestrator) Run(ctx context.Context, tests []*tryve.TestDefinition) *tryve.SuiteResult {
+func (o *Orchestrator) Run(ctx context.Context, tests []*autoflow.TestDefinition) *autoflow.SuiteResult {
 	start := time.Now()
-	result := &tryve.SuiteResult{Total: len(tests)}
+	result := &autoflow.SuiteResult{Total: len(tests)}
 	o.reporter.OnSuiteStart(ctx, nil)
 
 	// Run hooks
@@ -5255,7 +5255,7 @@ func (o *Orchestrator) Run(ctx context.Context, tests []*tryve.TestDefinition) *
 
 	var mu sync.Mutex
 	var bailed bool
-	completed := make(map[string]*tryve.TestResult)
+	completed := make(map[string]*autoflow.TestResult)
 
 	g, gctx := errgroup.WithContext(ctx)
 	g.SetLimit(parallel)
@@ -5280,8 +5280,8 @@ func (o *Orchestrator) Run(ctx context.Context, tests []*tryve.TestDefinition) *
 						depResult, ok := completed[dep]
 						mu.Unlock()
 						if ok {
-							if depResult.Status == tryve.StatusFailed {
-								tr := &tryve.TestResult{Test: td, Status: tryve.StatusSkipped}
+							if depResult.Status == autoflow.StatusFailed {
+								tr := &autoflow.TestResult{Test: td, Status: autoflow.StatusSkipped}
 								mu.Lock()
 								result.Skipped++
 								completed[td.Name] = tr
@@ -5315,14 +5315,14 @@ func (o *Orchestrator) Run(ctx context.Context, tests []*tryve.TestDefinition) *
 			mu.Lock()
 			completed[td.Name] = tr
 			switch tr.Status {
-			case tryve.StatusPassed:
+			case autoflow.StatusPassed:
 				result.Passed++
-			case tryve.StatusFailed:
+			case autoflow.StatusFailed:
 				result.Failed++
 				if o.bail {
 					bailed = true
 				}
-			case tryve.StatusSkipped:
+			case autoflow.StatusSkipped:
 				result.Skipped++
 			}
 			result.Tests = append(result.Tests, *tr)
@@ -5353,8 +5353,8 @@ type FilterOptions struct {
 }
 
 // FilterTests returns tests matching the given filter criteria.
-func FilterTests(tests []*tryve.TestDefinition, opts FilterOptions) []*tryve.TestDefinition {
-	var result []*tryve.TestDefinition
+func FilterTests(tests []*autoflow.TestDefinition, opts FilterOptions) []*autoflow.TestDefinition {
+	var result []*autoflow.TestDefinition
 	for _, td := range tests {
 		if !matchesFilter(td, opts) {
 			continue
@@ -5364,7 +5364,7 @@ func FilterTests(tests []*tryve.TestDefinition, opts FilterOptions) []*tryve.Tes
 	return result
 }
 
-func matchesFilter(td *tryve.TestDefinition, opts FilterOptions) bool {
+func matchesFilter(td *autoflow.TestDefinition, opts FilterOptions) bool {
 	// Tag filter
 	if len(opts.Tags) > 0 {
 		found := false
@@ -5407,17 +5407,17 @@ func matchesFilter(td *tryve.TestDefinition, opts FilterOptions) bool {
 
 // topoSortTests orders tests so that dependencies come first.
 // Tests without depends are left in original order.
-func topoSortTests(tests []*tryve.TestDefinition) []*tryve.TestDefinition {
-	byName := make(map[string]*tryve.TestDefinition)
+func topoSortTests(tests []*autoflow.TestDefinition) []*autoflow.TestDefinition {
+	byName := make(map[string]*autoflow.TestDefinition)
 	for _, td := range tests {
 		byName[td.Name] = td
 	}
 
 	visited := make(map[string]bool)
-	var sorted []*tryve.TestDefinition
+	var sorted []*autoflow.TestDefinition
 
-	var visit func(td *tryve.TestDefinition)
-	visit = func(td *tryve.TestDefinition) {
+	var visit func(td *autoflow.TestDefinition)
+	visit = func(td *autoflow.TestDefinition) {
 		if visited[td.Name] {
 			return
 		}
@@ -5455,7 +5455,7 @@ git commit -m "feat(executor): add orchestrator with parallel execution and bail
 
 **Files:**
 - Create: `internal/cli/root.go`, `internal/cli/run.go`, `internal/cli/validate.go`, `internal/cli/list.go`, `internal/cli/health.go`, `internal/cli/init_cmd.go`, `internal/cli/version.go`, `internal/cli/test_cmd.go`
-- Modify: `cmd/tryve/main.go`
+- Modify: `cmd/autoflow/main.go`
 
 - [ ] **Step 1: Implement CLI root and commands**
 
@@ -5470,9 +5470,9 @@ import (
 // NewRoot creates the root cobra command with all subcommands.
 func NewRoot(version string) *cobra.Command {
 	root := &cobra.Command{
-		Use:   "tryve",
-		Short: "tryve — YAML-driven multi-protocol test runner",
-		Long:  "tryve runs YAML-defined tests against HTTP APIs, databases, message queues, and shell commands.",
+		Use:   "autoflow",
+		Short: "autoflow — YAML-driven multi-protocol test runner",
+		Long:  "autoflow runs YAML-defined tests against HTTP APIs, databases, message queues, and shell commands.",
 		SilenceUsage: true,
 	}
 
@@ -5506,11 +5506,11 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/liemle3893/go-tryve/internal/adapter"
-	"github.com/liemle3893/go-tryve/internal/config"
-	"github.com/liemle3893/go-tryve/internal/executor"
-	"github.com/liemle3893/go-tryve/internal/loader"
-	"github.com/liemle3893/go-tryve/internal/reporter"
+	"github.com/liemle3893/go-autoflow/internal/adapter"
+	"github.com/liemle3893/go-autoflow/internal/config"
+	"github.com/liemle3893/go-autoflow/internal/executor"
+	"github.com/liemle3893/go-autoflow/internal/loader"
+	"github.com/liemle3893/go-autoflow/internal/reporter"
 	"github.com/spf13/cobra"
 )
 
@@ -5570,7 +5570,7 @@ func runTests(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("discover tests: %w", err)
 	}
 
-	var tests []*tryve.TestDefinition
+	var tests []*autoflow.TestDefinition
 	for _, f := range files {
 		td, err := loader.ParseFile(f)
 		if err != nil {
@@ -5656,7 +5656,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/liemle3893/go-tryve/internal/loader"
+	"github.com/liemle3893/go-autoflow/internal/loader"
 	"github.com/spf13/cobra"
 )
 
@@ -5712,8 +5712,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/liemle3893/go-tryve/internal/executor"
-	"github.com/liemle3893/go-tryve/internal/loader"
+	"github.com/liemle3893/go-autoflow/internal/executor"
+	"github.com/liemle3893/go-autoflow/internal/loader"
 	"github.com/spf13/cobra"
 )
 
@@ -5728,7 +5728,7 @@ func newListCmd() *cobra.Command {
 			}
 			files, _ := loader.Discover(testDir)
 
-			var tests []*tryve.TestDefinition
+			var tests []*autoflow.TestDefinition
 			for _, f := range files {
 				td, err := loader.ParseFile(f)
 				if err != nil {
@@ -5773,8 +5773,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/liemle3893/go-tryve/internal/adapter"
-	"github.com/liemle3893/go-tryve/internal/config"
+	"github.com/liemle3893/go-autoflow/internal/adapter"
+	"github.com/liemle3893/go-autoflow/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -5882,7 +5882,7 @@ func newVersionCmd(version string) *cobra.Command {
 		Use:   "version",
 		Short: "Print version",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("tryve %s\n", version)
+			fmt.Printf("autoflow %s\n", version)
 		},
 	}
 }
@@ -5957,14 +5957,14 @@ execute:
 - [ ] **Step 2: Wire CLI into main.go**
 
 ```go
-// cmd/tryve/main.go
+// cmd/autoflow/main.go
 package main
 
 import (
 	"fmt"
 	"os"
 
-	"github.com/liemle3893/go-tryve/internal/cli"
+	"github.com/liemle3893/go-autoflow/internal/cli"
 )
 
 var version = "dev"
@@ -5978,28 +5978,28 @@ func main() {
 }
 ```
 
-- [ ] **Step 3: Fix the list.go import** (needs tryve import)
+- [ ] **Step 3: Fix the list.go import** (needs autoflow import)
 
 Add missing import to `internal/cli/list.go`:
 ```go
 import (
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/go-autoflow/internal/autoflow"
 	// ... other imports
 )
 ```
 
 - [ ] **Step 4: Build and verify**
 
-Run: `go build -o bin/tryve ./cmd/tryve && ./bin/tryve version`
-Expected: `tryve dev`
+Run: `go build -o bin/autoflow ./cmd/autoflow && ./bin/autoflow version`
+Expected: `autoflow dev`
 
-Run: `./bin/tryve --help`
+Run: `./bin/autoflow --help`
 Expected: Shows all commands (run, validate, list, health, init, test, version)
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add internal/cli/ cmd/tryve/main.go
+git add internal/cli/ cmd/autoflow/main.go
 git commit -m "feat(cli): add all CLI commands (run, validate, list, health, init, test, version)"
 ```
 
@@ -6025,11 +6025,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/liemle3893/go-tryve/internal/adapter"
-	"github.com/liemle3893/go-tryve/internal/config"
-	"github.com/liemle3893/go-tryve/internal/executor"
-	"github.com/liemle3893/go-tryve/internal/loader"
-	"github.com/liemle3893/go-tryve/internal/reporter"
+	"github.com/liemle3893/go-autoflow/internal/adapter"
+	"github.com/liemle3893/go-autoflow/internal/config"
+	"github.com/liemle3893/go-autoflow/internal/executor"
+	"github.com/liemle3893/go-autoflow/internal/loader"
+	"github.com/liemle3893/go-autoflow/internal/reporter"
 )
 
 func TestIntegration_FullHTTPFlow(t *testing.T) {
@@ -6143,14 +6143,14 @@ execute:
 
 	// Run
 	orch := executor.NewOrchestrator(registry, rep, cfg)
-	result := orch.Run(context.Background(), []*tryve.TestDefinition{td})
+	result := orch.Run(context.Background(), []*autoflow.TestDefinition{td})
 
 	if result.Failed > 0 {
 		for _, tr := range result.Tests {
-			if tr.Status == tryve.StatusFailed {
+			if tr.Status == autoflow.StatusFailed {
 				t.Errorf("test %q failed: %v", tr.Test.Name, tr.Error)
 				for _, so := range tr.Steps {
-					if so.Status == tryve.StatusFailed {
+					if so.Status == autoflow.StatusFailed {
 						t.Errorf("  step %q: %v", so.Step.ID, so.Error)
 						for _, a := range so.Assertions {
 							if !a.Passed {
@@ -6170,10 +6170,10 @@ execute:
 
 - [ ] **Step 2: Fix missing import in integration test**
 
-Add the tryve import:
+Add the autoflow import:
 ```go
 import (
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/go-autoflow/internal/autoflow"
 	// ... other imports
 )
 ```
@@ -6190,10 +6190,10 @@ Expected: All unit and integration tests pass.
 
 - [ ] **Step 5: Build final binary**
 
-Run: `make build && ./bin/tryve version`
-Expected: `tryve dev`
+Run: `make build && ./bin/autoflow version`
+Expected: `autoflow dev`
 
-Run: `./bin/tryve --help`
+Run: `./bin/autoflow --help`
 Expected: All commands listed.
 
 - [ ] **Step 6: Commit**

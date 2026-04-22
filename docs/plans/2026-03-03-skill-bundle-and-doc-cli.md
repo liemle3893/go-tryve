@@ -99,7 +99,7 @@ Create `skills/e2e-runner/SKILL.md` with frontmatter + quick reference + links t
 ```markdown
 ---
 name: e2e-runner
-description: This skill should be used when writing E2E tests for APIs and databases using the @liemle3893/go-tryve framework. Use when creating YAML test files, configuring adapters (HTTP, PostgreSQL, MongoDB, Redis, EventHub), writing assertions, or running tests. Provides complete syntax reference for YAML tests, assertion operators, variable interpolation, and built-in functions.
+description: This skill should be used when writing E2E tests for APIs and databases using the @liemle3893/go-autoflow framework. Use when creating YAML test files, configuring adapters (HTTP, PostgreSQL, MongoDB, Redis, EventHub), writing assertions, or running tests. Provides complete syntax reference for YAML tests, assertion operators, variable interpolation, and built-in functions.
 ---
 
 # E2E Test Runner

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/messaging/azeventhubs/v2"
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/core"
 )
 
 // EventHubAdapter publishes and consumes events on Azure Event Hubs.
@@ -51,14 +51,14 @@ func (a *EventHubAdapter) Name() string { return "eventhub" }
 // ProducerClient cannot be initialised.
 func (a *EventHubAdapter) Connect(_ context.Context) error {
 	if a.connectionString == "" {
-		return tryve.ConnectionError("eventhub",
+		return core.ConnectionError("eventhub",
 			"connectionString is required in adapter configuration", nil)
 	}
 	producer, err := azeventhubs.NewProducerClientFromConnectionString(
 		a.connectionString, a.eventHubName, nil,
 	)
 	if err != nil {
-		return tryve.ConnectionError("eventhub",
+		return core.ConnectionError("eventhub",
 			fmt.Sprintf("failed to create producer client: %v", err), err)
 	}
 	a.producer = producer
@@ -69,7 +69,7 @@ func (a *EventHubAdapter) Connect(_ context.Context) error {
 func (a *EventHubAdapter) Close(ctx context.Context) error {
 	if a.producer != nil {
 		if err := a.producer.Close(ctx); err != nil {
-			return tryve.ConnectionError("eventhub",
+			return core.ConnectionError("eventhub",
 				fmt.Sprintf("failed to close producer client: %v", err), err)
 		}
 		a.producer = nil
@@ -81,7 +81,7 @@ func (a *EventHubAdapter) Close(ctx context.Context) error {
 // A nil producer means Connect was not called or it failed.
 func (a *EventHubAdapter) Health(_ context.Context) error {
 	if a.producer == nil {
-		return tryve.ConnectionError("eventhub",
+		return core.ConnectionError("eventhub",
 			"producer client is not initialised; call Connect first", nil)
 	}
 	return nil
@@ -89,7 +89,7 @@ func (a *EventHubAdapter) Health(_ context.Context) error {
 
 // Execute dispatches the named action with the given parameters.
 // Supported actions: "publish", "consume", "waitFor", "clear".
-func (a *EventHubAdapter) Execute(ctx context.Context, action string, params map[string]any) (*tryve.StepResult, error) {
+func (a *EventHubAdapter) Execute(ctx context.Context, action string, params map[string]any) (*core.StepResult, error) {
 	switch action {
 	case "publish":
 		return a.publishAction(ctx, params)
@@ -100,7 +100,7 @@ func (a *EventHubAdapter) Execute(ctx context.Context, action string, params map
 	case "clear":
 		return a.clearAction(ctx, params)
 	default:
-		return nil, tryve.AdapterError("eventhub", action,
+		return nil, core.AdapterError("eventhub", action,
 			fmt.Sprintf("unsupported action %q; supported actions: publish, consume, waitFor, clear", action),
 			nil,
 		)
@@ -113,12 +113,12 @@ func (a *EventHubAdapter) Execute(ctx context.Context, action string, params map
 //     adapter's configured eventHubName when absent.
 //   - body (string | map): event payload. Maps are JSON-encoded automatically.
 //   - properties (map[string]any, optional): application properties attached to the event.
-func (a *EventHubAdapter) publishAction(ctx context.Context, params map[string]any) (*tryve.StepResult, error) {
+func (a *EventHubAdapter) publishAction(ctx context.Context, params map[string]any) (*core.StepResult, error) {
 	hubName := resolveHubName(params, a.eventHubName)
 
 	body, err := resolveBody(params)
 	if err != nil {
-		return nil, tryve.AdapterError("eventhub", "publish", err.Error(), err)
+		return nil, core.AdapterError("eventhub", "publish", err.Error(), err)
 	}
 
 	properties := getMap(params, "properties")
@@ -137,7 +137,7 @@ func (a *EventHubAdapter) publishAction(ctx context.Context, params map[string]a
 			a.connectionString, hubName, nil,
 		)
 		if err != nil {
-			return nil, tryve.AdapterError("eventhub", "publish",
+			return nil, core.AdapterError("eventhub", "publish",
 				fmt.Sprintf("failed to create producer for hub %q: %v", hubName, err), err)
 		}
 		defer transientProducer.Close(ctx) //nolint:errcheck
@@ -145,7 +145,7 @@ func (a *EventHubAdapter) publishAction(ctx context.Context, params map[string]a
 	}
 
 	if producer == nil {
-		return nil, tryve.AdapterError("eventhub", "publish",
+		return nil, core.AdapterError("eventhub", "publish",
 			"producer client is not initialised; call Connect first", nil)
 	}
 
@@ -161,7 +161,7 @@ func (a *EventHubAdapter) publishAction(ctx context.Context, params map[string]a
 		return producer.SendEventDataBatch(ctx, batch, nil)
 	})
 	if err != nil {
-		return nil, tryve.AdapterError("eventhub", "publish",
+		return nil, core.AdapterError("eventhub", "publish",
 			fmt.Sprintf("failed to publish event: %v", err), err)
 	}
 
@@ -173,7 +173,7 @@ func (a *EventHubAdapter) publishAction(ctx context.Context, params map[string]a
 //   - topic (string): Event Hub name.
 //   - timeout (int, ms): receive deadline in milliseconds.
 //   - partitionId (string, optional): target partition. Defaults to "0".
-func (a *EventHubAdapter) consumeAction(ctx context.Context, params map[string]any) (*tryve.StepResult, error) {
+func (a *EventHubAdapter) consumeAction(ctx context.Context, params map[string]any) (*core.StepResult, error) {
 	hubName := resolveHubName(params, a.eventHubName)
 	timeoutMs := getIntDefault(params, "timeout", 5000)
 	partitionID := getStrDefault(params, "partitionId", "0")
@@ -182,7 +182,7 @@ func (a *EventHubAdapter) consumeAction(ctx context.Context, params map[string]a
 		a.connectionString, hubName, a.consumerGroup, nil,
 	)
 	if err != nil {
-		return nil, tryve.AdapterError("eventhub", "consume",
+		return nil, core.AdapterError("eventhub", "consume",
 			fmt.Sprintf("failed to create consumer client: %v", err), err)
 	}
 	defer consumer.Close(ctx) //nolint:errcheck
@@ -192,7 +192,7 @@ func (a *EventHubAdapter) consumeAction(ctx context.Context, params map[string]a
 
 	events, duration, err := receiveFromPartition(receiveCtx, consumer, partitionID)
 	if err != nil {
-		return nil, tryve.AdapterError("eventhub", "consume",
+		return nil, core.AdapterError("eventhub", "consume",
 			fmt.Sprintf("receive failed: %v", err), err)
 	}
 
@@ -211,7 +211,7 @@ func (a *EventHubAdapter) consumeAction(ctx context.Context, params map[string]a
 //   - match (map[string]any): key-value pairs that must all be present in the
 //     event's body (after JSON decoding) or application properties.
 //   - partitionId (string, optional): target partition. Defaults to "0".
-func (a *EventHubAdapter) waitForAction(ctx context.Context, params map[string]any) (*tryve.StepResult, error) {
+func (a *EventHubAdapter) waitForAction(ctx context.Context, params map[string]any) (*core.StepResult, error) {
 	hubName := resolveHubName(params, a.eventHubName)
 	timeoutMs := getIntDefault(params, "timeout", 10000)
 	partitionID := getStrDefault(params, "partitionId", "0")
@@ -221,7 +221,7 @@ func (a *EventHubAdapter) waitForAction(ctx context.Context, params map[string]a
 		a.connectionString, hubName, a.consumerGroup, nil,
 	)
 	if err != nil {
-		return nil, tryve.AdapterError("eventhub", "waitFor",
+		return nil, core.AdapterError("eventhub", "waitFor",
 			fmt.Sprintf("failed to create consumer client: %v", err), err)
 	}
 	defer consumer.Close(ctx) //nolint:errcheck
@@ -239,7 +239,7 @@ func (a *EventHubAdapter) waitForAction(ctx context.Context, params map[string]a
 		cancel()
 
 		if pollErr != nil && !errors.Is(pollErr, context.DeadlineExceeded) {
-			return nil, tryve.AdapterError("eventhub", "waitFor",
+			return nil, core.AdapterError("eventhub", "waitFor",
 				fmt.Sprintf("receive error: %v", pollErr), pollErr)
 		}
 
@@ -251,28 +251,28 @@ func (a *EventHubAdapter) waitForAction(ctx context.Context, params map[string]a
 		}
 	}
 
-	return nil, tryve.TimeoutError("waitFor",
+	return nil, core.TimeoutError("waitFor",
 		time.Duration(timeoutMs)*time.Millisecond)
 }
 
 // clearAction drains all currently available events from every partition.
 // Params:
 //   - topic (string): Event Hub name.
-func (a *EventHubAdapter) clearAction(ctx context.Context, params map[string]any) (*tryve.StepResult, error) {
+func (a *EventHubAdapter) clearAction(ctx context.Context, params map[string]any) (*core.StepResult, error) {
 	hubName := resolveHubName(params, a.eventHubName)
 
 	consumer, err := azeventhubs.NewConsumerClientFromConnectionString(
 		a.connectionString, hubName, a.consumerGroup, nil,
 	)
 	if err != nil {
-		return nil, tryve.AdapterError("eventhub", "clear",
+		return nil, core.AdapterError("eventhub", "clear",
 			fmt.Sprintf("failed to create consumer client: %v", err), err)
 	}
 	defer consumer.Close(ctx) //nolint:errcheck
 
 	props, err := consumer.GetEventHubProperties(ctx, nil)
 	if err != nil {
-		return nil, tryve.AdapterError("eventhub", "clear",
+		return nil, core.AdapterError("eventhub", "clear",
 			fmt.Sprintf("failed to get event hub properties: %v", err), err)
 	}
 

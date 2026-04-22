@@ -6,7 +6,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/core"
 )
 
 // Registry manages adapter instances with lazy (on-first-access) initialisation.
@@ -47,7 +47,7 @@ func (r *Registry) Get(ctx context.Context, name string) (Adapter, error) {
 
 	a, ok := r.adapters[name]
 	if !ok {
-		return nil, tryve.ConfigError(
+		return nil, core.ConfigError(
 			fmt.Sprintf("adapter %q is not registered", name),
 			fmt.Sprintf("add a %q adapter block to e2e.config.yaml and call Register before Get", name),
 			nil,
@@ -59,7 +59,7 @@ func (r *Registry) Get(ctx context.Context, name string) (Adapter, error) {
 	}
 
 	if err := a.Connect(ctx); err != nil {
-		return nil, tryve.ConnectionError(
+		return nil, core.ConnectionError(
 			name,
 			fmt.Sprintf("adapter %q failed to connect: %v", name, err),
 			err,

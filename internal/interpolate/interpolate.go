@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/core"
 )
 
 const maxDepth = 10
@@ -22,7 +22,7 @@ var builtinCallRe = regexp.MustCompile(`^\$(\w+)(?:\(([^)]*)\))?$`)
 // ResolveString interpolates a single string against the given context.
 // Both {{expression}} and ${expression} syntaxes are supported.
 // Resolution is performed up to maxDepth passes until the result stabilises.
-func ResolveString(s string, ctx *tryve.InterpolationContext) (string, error) {
+func ResolveString(s string, ctx *core.InterpolationContext) (string, error) {
 	prev := ""
 	cur := s
 	for i := 0; i < maxDepth; i++ {
@@ -42,7 +42,7 @@ func ResolveString(s string, ctx *tryve.InterpolationContext) (string, error) {
 // resolveOnce performs a single pass of expression substitution over s.
 // Unresolved expressions are left as {{expr}} (not treated as errors).
 // Only errors from actual builtin/function execution are propagated.
-func resolveOnce(s string, ctx *tryve.InterpolationContext) (string, error) {
+func resolveOnce(s string, ctx *core.InterpolationContext) (string, error) {
 	var firstErr error
 
 	// doubleBracketReplacer replaces {{expr}} occurrences.
@@ -109,7 +109,7 @@ func resolveOnce(s string, ctx *tryve.InterpolationContext) (string, error) {
 //  4. Variable (ctx.Variables, dot-notation)
 //  5. Environment (ctx.Env)
 //  6. Not found — returns original {{expr}} sentinel so the caller can leave it as-is.
-func resolveExpression(expr string, ctx *tryve.InterpolationContext) (string, error) {
+func resolveExpression(expr string, ctx *core.InterpolationContext) (string, error) {
 	// 1. Built-in function: must start with $ and match $funcName or $funcName(args).
 	if strings.HasPrefix(expr, "$") {
 		m := builtinCallRe.FindStringSubmatch(expr)
@@ -179,7 +179,7 @@ func isUnresolved(err error) bool {
 
 // ResolveMap interpolates all string values in a map recursively.
 // Non-string values pass through unchanged.
-func ResolveMap(m map[string]any, ctx *tryve.InterpolationContext) (map[string]any, error) {
+func ResolveMap(m map[string]any, ctx *core.InterpolationContext) (map[string]any, error) {
 	result := make(map[string]any, len(m))
 	for k, v := range m {
 		resolved, err := resolveValue(v, ctx)
@@ -193,7 +193,7 @@ func ResolveMap(m map[string]any, ctx *tryve.InterpolationContext) (map[string]a
 
 // ResolveSlice interpolates all string values in a slice recursively.
 // Non-string values pass through unchanged.
-func ResolveSlice(s []any, ctx *tryve.InterpolationContext) ([]any, error) {
+func ResolveSlice(s []any, ctx *core.InterpolationContext) ([]any, error) {
 	result := make([]any, len(s))
 	for i, v := range s {
 		resolved, err := resolveValue(v, ctx)
@@ -207,7 +207,7 @@ func ResolveSlice(s []any, ctx *tryve.InterpolationContext) ([]any, error) {
 
 // resolveValue resolves a single value: strings are interpolated, maps and slices
 // are traversed recursively, all other types pass through unchanged.
-func resolveValue(v any, ctx *tryve.InterpolationContext) (any, error) {
+func resolveValue(v any, ctx *core.InterpolationContext) (any, error) {
 	switch typed := v.(type) {
 	case string:
 		return ResolveString(typed, ctx)
@@ -223,7 +223,7 @@ func resolveValue(v any, ctx *tryve.InterpolationContext) (any, error) {
 // ResolveVariables resolves a map of variables in topological order so that
 // variables referencing other variables resolve correctly.
 // Returns an error if a circular dependency is detected.
-func ResolveVariables(vars map[string]any, ctx *tryve.InterpolationContext) (map[string]any, error) {
+func ResolveVariables(vars map[string]any, ctx *core.InterpolationContext) (map[string]any, error) {
 	// Build dependency graph: varName → set of variable names it depends on.
 	deps := make(map[string][]string, len(vars))
 	for name, val := range vars {
@@ -245,7 +245,7 @@ func ResolveVariables(vars map[string]any, ctx *tryve.InterpolationContext) (map
 	resolved := make(map[string]any, len(vars))
 
 	// Work on a copy of ctx so we don't mutate the caller's Variables map.
-	workCtx := &tryve.InterpolationContext{
+	workCtx := &core.InterpolationContext{
 		Variables: shallowCopyMap(ctx.Variables),
 		Captured:  ctx.Captured,
 		BaseURL:   ctx.BaseURL,

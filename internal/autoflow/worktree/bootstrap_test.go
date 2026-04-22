@@ -9,7 +9,7 @@ import (
 )
 
 // setupRepo creates a fake MainDir with .claude/agents + .claude/skills
-// populated as they would be after `tryve install --autoflow`, then a
+// populated as they would be after `autoflow install --autoflow`, then a
 // sibling empty worktree dir. Returns (mainDir, worktreeDir).
 func setupRepo(t *testing.T) (string, string) {
 	t.Helper()

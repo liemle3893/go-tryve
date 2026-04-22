@@ -3,13 +3,13 @@ package interpolate_test
 import (
 	"testing"
 
-	"github.com/liemle3893/go-tryve/internal/interpolate"
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/interpolate"
+	"github.com/liemle3893/autoflow/internal/core"
 )
 
 // newCtx creates a fresh InterpolationContext for tests.
-func newCtx() *tryve.InterpolationContext {
-	return tryve.NewInterpolationContext()
+func newCtx() *core.InterpolationContext {
+	return core.NewInterpolationContext()
 }
 
 // TestResolve_SimpleVariable verifies that {{name}} is replaced from Variables.

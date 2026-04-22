@@ -9,7 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/core"
 )
 
 const (
@@ -65,12 +65,12 @@ func (a *PostgreSQLAdapter) Name() string { return postgresqlAdapterName }
 // it is set as the default search_path for all connections in the pool.
 func (a *PostgreSQLAdapter) Connect(ctx context.Context) error {
 	if a.connectionString == "" {
-		return tryve.ConnectionError(postgresqlAdapterName, "connectionString must not be empty", nil)
+		return core.ConnectionError(postgresqlAdapterName, "connectionString must not be empty", nil)
 	}
 
 	cfg, err := pgxpool.ParseConfig(a.connectionString)
 	if err != nil {
-		return tryve.ConnectionError(postgresqlAdapterName, "failed to parse connection string", err)
+		return core.ConnectionError(postgresqlAdapterName, "failed to parse connection string", err)
 	}
 
 	cfg.MaxConns = int32(a.poolSize) //nolint:gosec
@@ -91,7 +91,7 @@ func (a *PostgreSQLAdapter) Connect(ctx context.Context) error {
 
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
-		return tryve.ConnectionError(postgresqlAdapterName, "failed to create connection pool", err)
+		return core.ConnectionError(postgresqlAdapterName, "failed to create connection pool", err)
 	}
 
 	a.pool = pool
@@ -110,10 +110,10 @@ func (a *PostgreSQLAdapter) Close(_ context.Context) error {
 // Health performs a lightweight ping against the database to verify connectivity.
 func (a *PostgreSQLAdapter) Health(ctx context.Context) error {
 	if a.pool == nil {
-		return tryve.ConnectionError(postgresqlAdapterName, "pool is not initialised; call Connect first", nil)
+		return core.ConnectionError(postgresqlAdapterName, "pool is not initialised; call Connect first", nil)
 	}
 	if err := a.pool.Ping(ctx); err != nil {
-		return tryve.ConnectionError(postgresqlAdapterName, "ping failed", err)
+		return core.ConnectionError(postgresqlAdapterName, "ping failed", err)
 	}
 	return nil
 }
@@ -125,7 +125,7 @@ func (a *PostgreSQLAdapter) Health(ctx context.Context) error {
 //   - "query"    — run a SELECT; returns {"rows": []map[string]any, "rowCount": float64}.
 //   - "queryOne" — run a SELECT, return the first row; returns {"row": map[string]any}.
 //   - "count"    — run a SELECT, return only the row count; returns {"count": float64}.
-func (a *PostgreSQLAdapter) Execute(ctx context.Context, action string, params map[string]any) (*tryve.StepResult, error) {
+func (a *PostgreSQLAdapter) Execute(ctx context.Context, action string, params map[string]any) (*core.StepResult, error) {
 	switch action {
 	case "execute":
 		return a.executeAction(ctx, params)
@@ -136,16 +136,16 @@ func (a *PostgreSQLAdapter) Execute(ctx context.Context, action string, params m
 	case "count":
 		return a.countAction(ctx, params)
 	default:
-		return nil, tryve.AdapterError(postgresqlAdapterName, action,
+		return nil, core.AdapterError(postgresqlAdapterName, action,
 			fmt.Sprintf("unsupported action %q; valid actions are: execute, query, queryOne, count", action), nil)
 	}
 }
 
 // executeAction runs a non-SELECT SQL statement and returns the number of rows affected.
-func (a *PostgreSQLAdapter) executeAction(ctx context.Context, params map[string]any) (*tryve.StepResult, error) {
+func (a *PostgreSQLAdapter) executeAction(ctx context.Context, params map[string]any) (*core.StepResult, error) {
 	sql, queryParams, err := extractSQLParams(params)
 	if err != nil {
-		return nil, tryve.AdapterError(postgresqlAdapterName, "execute", err.Error(), err)
+		return nil, core.AdapterError(postgresqlAdapterName, "execute", err.Error(), err)
 	}
 
 	var tag interface{ RowsAffected() int64 }
@@ -157,7 +157,7 @@ func (a *PostgreSQLAdapter) executeAction(ctx context.Context, params map[string
 		return e
 	})
 	if execErr != nil {
-		return nil, tryve.AdapterError(postgresqlAdapterName, "execute", "statement execution failed", execErr)
+		return nil, core.AdapterError(postgresqlAdapterName, "execute", "statement execution failed", execErr)
 	}
 
 	data := map[string]any{
@@ -167,10 +167,10 @@ func (a *PostgreSQLAdapter) executeAction(ctx context.Context, params map[string
 }
 
 // queryAction runs a SELECT statement and returns all rows as a slice of maps.
-func (a *PostgreSQLAdapter) queryAction(ctx context.Context, params map[string]any) (*tryve.StepResult, error) {
+func (a *PostgreSQLAdapter) queryAction(ctx context.Context, params map[string]any) (*core.StepResult, error) {
 	sql, queryParams, err := extractSQLParams(params)
 	if err != nil {
-		return nil, tryve.AdapterError(postgresqlAdapterName, "query", err.Error(), err)
+		return nil, core.AdapterError(postgresqlAdapterName, "query", err.Error(), err)
 	}
 
 	var rows []map[string]any
@@ -180,7 +180,7 @@ func (a *PostgreSQLAdapter) queryAction(ctx context.Context, params map[string]a
 		return e
 	})
 	if execErr != nil {
-		return nil, tryve.AdapterError(postgresqlAdapterName, "query", "query execution failed", execErr)
+		return nil, core.AdapterError(postgresqlAdapterName, "query", "query execution failed", execErr)
 	}
 
 	data := map[string]any{
@@ -192,10 +192,10 @@ func (a *PostgreSQLAdapter) queryAction(ctx context.Context, params map[string]a
 
 // queryOneAction runs a SELECT and returns the first row. Returns an error when
 // the result set is empty.
-func (a *PostgreSQLAdapter) queryOneAction(ctx context.Context, params map[string]any) (*tryve.StepResult, error) {
+func (a *PostgreSQLAdapter) queryOneAction(ctx context.Context, params map[string]any) (*core.StepResult, error) {
 	sql, queryParams, err := extractSQLParams(params)
 	if err != nil {
-		return nil, tryve.AdapterError(postgresqlAdapterName, "queryOne", err.Error(), err)
+		return nil, core.AdapterError(postgresqlAdapterName, "queryOne", err.Error(), err)
 	}
 
 	var rows []map[string]any
@@ -205,10 +205,10 @@ func (a *PostgreSQLAdapter) queryOneAction(ctx context.Context, params map[strin
 		return e
 	})
 	if execErr != nil {
-		return nil, tryve.AdapterError(postgresqlAdapterName, "queryOne", "query execution failed", execErr)
+		return nil, core.AdapterError(postgresqlAdapterName, "queryOne", "query execution failed", execErr)
 	}
 	if len(rows) == 0 {
-		return nil, tryve.AdapterError(postgresqlAdapterName, "queryOne", "query returned no rows", nil)
+		return nil, core.AdapterError(postgresqlAdapterName, "queryOne", "query returned no rows", nil)
 	}
 
 	// Return the row columns at top level (matching TS behavior).
@@ -218,10 +218,10 @@ func (a *PostgreSQLAdapter) queryOneAction(ctx context.Context, params map[strin
 }
 
 // countAction runs a SELECT and returns only the number of rows produced.
-func (a *PostgreSQLAdapter) countAction(ctx context.Context, params map[string]any) (*tryve.StepResult, error) {
+func (a *PostgreSQLAdapter) countAction(ctx context.Context, params map[string]any) (*core.StepResult, error) {
 	sql, queryParams, err := extractSQLParams(params)
 	if err != nil {
-		return nil, tryve.AdapterError(postgresqlAdapterName, "count", err.Error(), err)
+		return nil, core.AdapterError(postgresqlAdapterName, "count", err.Error(), err)
 	}
 
 	var rows []map[string]any
@@ -231,7 +231,7 @@ func (a *PostgreSQLAdapter) countAction(ctx context.Context, params map[string]a
 		return e
 	})
 	if execErr != nil {
-		return nil, tryve.AdapterError(postgresqlAdapterName, "count", "query execution failed", execErr)
+		return nil, core.AdapterError(postgresqlAdapterName, "count", "query execution failed", execErr)
 	}
 
 	data := map[string]any{

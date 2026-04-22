@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/liemle3893/go-tryve/internal/cli"
+	"github.com/liemle3893/autoflow/internal/cli"
 )
 
 var version = "dev"

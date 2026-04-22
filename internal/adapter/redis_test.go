@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/liemle3893/go-tryve/internal/adapter"
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/adapter"
+	"github.com/liemle3893/autoflow/internal/core"
 )
 
 // TestNewRedisAdapter_ParsesConfig verifies that NewRedisAdapter correctly
@@ -100,7 +100,7 @@ func TestRedisAdapter_PrefixedKey_WithoutPrefix(t *testing.T) {
 // --- Invalid action test -----------------------------------------------------
 
 // TestRedisAdapter_InvalidAction_ReturnsAdapterError verifies that Execute
-// returns a *tryve.TryveError with code ADAPTER_ERROR for an unknown action.
+// returns a *core.Error with code ADAPTER_ERROR for an unknown action.
 // This test does not require a live Redis connection because the action
 // dispatch check runs before any network I/O.
 func TestRedisAdapter_InvalidAction_ReturnsAdapterError(t *testing.T) {
@@ -116,11 +116,11 @@ func TestRedisAdapter_InvalidAction_ReturnsAdapterError(t *testing.T) {
 		t.Fatal("expected error for unsupported action, got nil")
 	}
 
-	var tryveErr *tryve.TryveError
-	if !errors.As(err, &tryveErr) {
-		t.Fatalf("expected *tryve.TryveError, got %T: %v", err, err)
+	var coreErr *core.Error
+	if !errors.As(err, &coreErr) {
+		t.Fatalf("expected *core.Error, got %T: %v", err, err)
 	}
-	if tryveErr.Code != "ADAPTER_ERROR" {
-		t.Fatalf("expected code ADAPTER_ERROR, got %s", tryveErr.Code)
+	if coreErr.Code != "ADAPTER_ERROR" {
+		t.Fatalf("expected code ADAPTER_ERROR, got %s", coreErr.Code)
 	}
 }

@@ -11,21 +11,21 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/liemle3893/go-tryve/internal/autoflow/state"
-	"github.com/liemle3893/go-tryve/internal/autoflow/worktree"
+	"github.com/liemle3893/autoflow/internal/autoflow/state"
+	"github.com/liemle3893/autoflow/internal/autoflow/worktree"
 )
 
-// tryveCmd returns the best available invocation of the tryve binary
+// autoflowCmd returns the best available invocation of the autoflow binary
 // for use inside emitted bash commands. Prefers os.Executable (the
-// in-process binary path) so agents do not need `tryve` on PATH to run
+// in-process binary path) so agents do not need `autoflow` on PATH to run
 // the command. Falls back to the bare name if the binary can't be
 // located — e.g. under some CI wrappers.
-var tryveCmd = sync.OnceValue(func() string {
+var autoflowCmd = sync.OnceValue(func() string {
 	exe, err := os.Executable()
 	if err != nil || exe == "" {
-		return "tryve"
+		return "autoflow"
 	}
-	// Resolve symlinks so a `/usr/local/bin/tryve -> /opt/...` install
+	// Resolve symlinks so a `/usr/local/bin/autoflow -> /opt/...` install
 	// emits the canonical path.
 	if resolved, err := filepath.EvalSymlinks(exe); err == nil {
 		return resolved
@@ -79,7 +79,7 @@ func (c *Controller) step01(key string) *Instruction {
 	// Dispatch the fetcher. The prompt carries the cloud ID discovered
 	// from the Jira cache so the agent doesn't repeat the MCP lookup.
 	// Instead of spawning a bash pre-step we embed a literal placeholder
-	// and tell the agent to run `tryve autoflow jira config get --field
+	// and tell the agent to run `autoflow jira config get --field
 	// cloudId` to fill it in — matches the skill's instructions.
 	prompt := strings.Join([]string{
 		"TICKET_KEY: " + key,
@@ -87,7 +87,7 @@ func (c *Controller) step01(key string) *Instruction {
 		"OUTPUT_PATH: " + filepath.Join(tdir, "task-brief.md"),
 		"ATTACHMENTS_DIR: " + filepath.Join(tdir, "attachments") + "/",
 		"",
-		`CLOUD_ID: <run "tryve autoflow jira config get --field cloudId" in REPO_ROOT>`,
+		`CLOUD_ID: <run "autoflow jira config get --field cloudId" in REPO_ROOT>`,
 		"",
 		"Follow your role definition. Produce a verbatim task brief — no rephrasing of AC/DoD. No worktree exists yet.",
 	}, "\n")
@@ -277,7 +277,7 @@ func (c *Controller) step03(key string, progress *state.Progress) *Instruction {
 			"WORKTREE_DIR: " + wt,
 			"TASK_BRIEF_PATH: " + brief,
 			"",
-			`Follow your role definition. Run "tryve autoflow scaffold-e2e --ticket ` + key + ` --area <AREA> --count <N>" from WORKTREE_DIR.`,
+			`Follow your role definition. Run "autoflow scaffold-e2e --ticket ` + key + ` --area <AREA> --count <N>" from WORKTREE_DIR.`,
 			`Write tests under ${WORKTREE_DIR}/tests/e2e/. Tests must fail (no implementation yet).`,
 			`Every file MUST include tags: [<area>, ` + key + `].`,
 		}, "\n"),
@@ -302,8 +302,8 @@ func (c *Controller) step04(key string, progress *state.Progress) *Instruction {
 			Commands: []string{
 				fmt.Sprintf(`cd "%s"`, c.Root),
 				fmt.Sprintf(
-					`%s autoflow loop-state init ".autoflow/ticket/%s/state/coverage-review-state.json" --loop coverage-review --ticket %s --max-rounds 3`,
-					tryveCmd(), key, shellQuote(key),
+					`%s loop-state init ".autoflow/ticket/%s/state/coverage-review-state.json" --loop coverage-review --ticket %s --max-rounds 3`,
+					autoflowCmd(), key, shellQuote(key),
 				),
 			},
 			OnFailure: "escalate",
@@ -511,8 +511,8 @@ func (c *Controller) buildExecutorDispatch(key, wt, br, planPath string, t Task)
 	files := strings.Join(t.Files, ",")
 	commitMsg := fmt.Sprintf("%s: %s (%s)", t.ID, t.Name, key)
 	commitCmd := fmt.Sprintf(
-		"%s autoflow _commit-task --ticket %s --task-id %s --worktree %s --message %s --files %s",
-		tryveCmd(), key, t.ID, shellQuote(wt), shellQuote(commitMsg), shellQuote(files))
+		"%s _commit-task --ticket %s --task-id %s --worktree %s --message %s --files %s",
+		autoflowCmd(), key, t.ID, shellQuote(wt), shellQuote(commitMsg), shellQuote(files))
 
 	prompt := strings.Join([]string{
 		"TICKET_KEY: " + key,
@@ -640,10 +640,10 @@ func (c *Controller) step06(key string, progress *state.Progress) *Instruction {
 	logFile := filepath.Join(stateDir, fmt.Sprintf("build-gate-log-%d.log", nextAttempt))
 
 	cmd := fmt.Sprintf(
-		`GATE_RC_FILE=$(mktemp); ( set -o pipefail; (%s); echo $? > "$GATE_RC_FILE") 2>&1 | tee %s; GATE_RC=$(cat "$GATE_RC_FILE"); rm -f "$GATE_RC_FILE"; %s autoflow deliver _gate-result --ticket %s --attempt %d --exit-code $GATE_RC --log-file %s`,
+		`GATE_RC_FILE=$(mktemp); ( set -o pipefail; (%s); echo $? > "$GATE_RC_FILE") 2>&1 | tee %s; GATE_RC=$(cat "$GATE_RC_FILE"); rm -f "$GATE_RC_FILE"; %s deliver _gate-result --ticket %s --attempt %d --exit-code $GATE_RC --log-file %s`,
 		strings.Join(gateChain, " && "),
 		shellQuote(logFile),
-		tryveCmd(),
+		autoflowCmd(),
 		shellQuote(key),
 		nextAttempt,
 		shellQuote(logFile),
@@ -747,8 +747,8 @@ func (c *Controller) step07(key string, progress *state.Progress) *Instruction {
 	qBranch := shellQuote(br)
 	qWT := shellQuote(wt)
 	cmd := fmt.Sprintf(
-		`cd "%s" && git push origin %s && %s autoflow deliver _e2e-round --ticket %s --worktree %s --branch %s --max-rounds 5`,
-		c.Root, qBranch, tryveCmd(), qKey, qWT, qBranch,
+		`cd "%s" && git push origin %s && %s deliver _e2e-round --ticket %s --worktree %s --branch %s --max-rounds 5`,
+		c.Root, qBranch, autoflowCmd(), qKey, qWT, qBranch,
 	)
 	// Increment the counter after the command runs.
 	cmd += fmt.Sprintf(
@@ -1064,9 +1064,9 @@ func (c *Controller) step12(key string, progress *state.Progress) *Instruction {
 
 	commands := []string{
 		fmt.Sprintf(`cd "%s"`, c.Root),
-		fmt.Sprintf(`%s autoflow deliver _verify-gates --ticket %s`, tryveCmd(), qKey),
-		fmt.Sprintf(`%s autoflow deliver _report --ticket %s --branch %s --pr-url %s`,
-			tryveCmd(), qKey, qBranch, qPR),
+		fmt.Sprintf(`%s deliver _verify-gates --ticket %s`, autoflowCmd(), qKey),
+		fmt.Sprintf(`%s deliver _report --ticket %s --branch %s --pr-url %s`,
+			autoflowCmd(), qKey, qBranch, qPR),
 		fmt.Sprintf(
 			`PR_NUMBER=$(gh pr view "%s" --json number -q .number 2>/dev/null || echo "")`,
 			br,
@@ -1095,8 +1095,8 @@ func (c *Controller) step13(key string, progress *state.Progress) *Instruction {
 		Description: "Update Jira for " + key,
 		Commands: []string{
 			fmt.Sprintf(`cd "%s"`, c.Root),
-			fmt.Sprintf(`%s autoflow jira upload %s ".autoflow/ticket/%s/EXECUTION-REPORT.md"`,
-				tryveCmd(), shellQuote(key), key),
+			fmt.Sprintf(`%s jira upload %s ".autoflow/ticket/%s/EXECUTION-REPORT.md"`,
+				autoflowCmd(), shellQuote(key), key),
 			`echo "Jira updated. Transition to In Code Review manually or via MCP."`,
 		},
 		OnFailure: "escalate",

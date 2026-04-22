@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/liemle3893/go-tryve/internal/reporter"
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/reporter"
+	"github.com/liemle3893/autoflow/internal/core"
 )
 
 // parseJUnitSuites reads and decodes the JUnit XML written to path.
@@ -77,10 +77,10 @@ func TestJUnit_PassedTest(t *testing.T) {
 	path := tmpFile(t)
 	j := reporter.NewJUnit(path)
 
-	test := &tryve.TestDefinition{Name: "login-flow"}
-	result := &tryve.TestResult{
+	test := &core.TestDefinition{Name: "login-flow"}
+	result := &core.TestResult{
 		Test:     test,
-		Status:   tryve.StatusPassed,
+		Status:   core.StatusPassed,
 		Duration: 250 * time.Millisecond,
 	}
 
@@ -104,8 +104,8 @@ func TestJUnit_PassedTest(t *testing.T) {
 	}
 
 	suite := suites.Suites[0]
-	if suite.Name != "tryve" {
-		t.Errorf("testsuite name=%q, want %q", suite.Name, "tryve")
+	if suite.Name != "autoflow" {
+		t.Errorf("testsuite name=%q, want %q", suite.Name, "autoflow")
 	}
 	if suite.Tests != 1 {
 		t.Errorf("testsuite tests=%d, want 1", suite.Tests)
@@ -135,17 +135,17 @@ func TestJUnit_FailedTest(t *testing.T) {
 	path := tmpFile(t)
 	j := reporter.NewJUnit(path)
 
-	stepDef := &tryve.StepDefinition{ID: "execute-0", Action: "http.request"}
-	test := &tryve.TestDefinition{Name: "checkout-flow"}
-	result := &tryve.TestResult{
+	stepDef := &core.StepDefinition{ID: "execute-0", Action: "http.request"}
+	test := &core.TestDefinition{Name: "checkout-flow"}
+	result := &core.TestResult{
 		Test:     test,
-		Status:   tryve.StatusFailed,
+		Status:   core.StatusFailed,
 		Duration: 300 * time.Millisecond,
-		Steps: []tryve.StepOutcome{
+		Steps: []core.StepOutcome{
 			{
 				Step:   stepDef,
-				Status: tryve.StatusFailed,
-				Assertions: []tryve.AssertionOutcome{
+				Status: core.StatusFailed,
+				Assertions: []core.AssertionOutcome{
 					{
 						Path:    "$.status",
 						Passed:  false,
@@ -193,10 +193,10 @@ func TestJUnit_SkippedTest(t *testing.T) {
 	path := tmpFile(t)
 	j := reporter.NewJUnit(path)
 
-	test := &tryve.TestDefinition{Name: "payment-flow", SkipReason: "payment gateway offline"}
-	result := &tryve.TestResult{
+	test := &core.TestDefinition{Name: "payment-flow", SkipReason: "payment gateway offline"}
+	result := &core.TestResult{
 		Test:   test,
-		Status: tryve.StatusSkipped,
+		Status: core.StatusSkipped,
 	}
 
 	if err := j.OnTestComplete(context.Background(), test, result); err != nil {
@@ -233,27 +233,27 @@ func TestJUnit_MultipleMixedTests(t *testing.T) {
 	ctx := context.Background()
 
 	tests := []struct {
-		def    *tryve.TestDefinition
-		result *tryve.TestResult
+		def    *core.TestDefinition
+		result *core.TestResult
 	}{
 		{
-			def: &tryve.TestDefinition{Name: "test-pass"},
-			result: &tryve.TestResult{
-				Status:   tryve.StatusPassed,
+			def: &core.TestDefinition{Name: "test-pass"},
+			result: &core.TestResult{
+				Status:   core.StatusPassed,
 				Duration: 100 * time.Millisecond,
 			},
 		},
 		{
-			def: &tryve.TestDefinition{Name: "test-fail"},
-			result: &tryve.TestResult{
-				Status:   tryve.StatusFailed,
+			def: &core.TestDefinition{Name: "test-fail"},
+			result: &core.TestResult{
+				Status:   core.StatusFailed,
 				Duration: 200 * time.Millisecond,
 				Error:    errors.New("unexpected error"),
 			},
 		},
 		{
-			def:    &tryve.TestDefinition{Name: "test-skip", SkipReason: "not ready"},
-			result: &tryve.TestResult{Status: tryve.StatusSkipped},
+			def:    &core.TestDefinition{Name: "test-skip", SkipReason: "not ready"},
+			result: &core.TestResult{Status: core.StatusSkipped},
 		},
 	}
 
@@ -309,8 +309,8 @@ func TestJUnit_XMLHeader(t *testing.T) {
 	path := tmpFile(t)
 	j := reporter.NewJUnit(path)
 
-	test := &tryve.TestDefinition{Name: "minimal"}
-	result := &tryve.TestResult{Test: test, Status: tryve.StatusPassed}
+	test := &core.TestDefinition{Name: "minimal"}
+	result := &core.TestResult{Test: test, Status: core.StatusPassed}
 	_ = j.OnTestComplete(context.Background(), test, result)
 
 	if err := j.Flush(); err != nil {

@@ -1,4 +1,4 @@
-// Package runner provides the public Go API for programmatic use of the tryve
+// Package runner provides the public Go API for programmatic use of the autoflow
 // test runner. It mirrors the CLI command surface (run, validate, list, health)
 // and returns structured results that callers can inspect without parsing text output.
 package runner
@@ -7,12 +7,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/liemle3893/go-tryve/internal/adapter"
-	"github.com/liemle3893/go-tryve/internal/config"
-	"github.com/liemle3893/go-tryve/internal/executor"
-	"github.com/liemle3893/go-tryve/internal/loader"
-	"github.com/liemle3893/go-tryve/internal/reporter"
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/adapter"
+	"github.com/liemle3893/autoflow/internal/config"
+	"github.com/liemle3893/autoflow/internal/executor"
+	"github.com/liemle3893/autoflow/internal/loader"
+	"github.com/liemle3893/autoflow/internal/reporter"
+	"github.com/liemle3893/autoflow/internal/core"
 )
 
 // Options configures a test run. Zero values are intentional defaults:
@@ -132,13 +132,13 @@ func buildReporter(opts Options) reporter.Reporter {
 // discoverAndLoad discovers test files under dir, parses every file, skips files
 // with parse or validation errors (printing a warning to stderr is handled by the
 // caller if needed), and returns the successfully loaded definitions.
-func discoverAndLoad(dir string) ([]*tryve.TestDefinition, map[string][]string, error) {
+func discoverAndLoad(dir string) ([]*core.TestDefinition, map[string][]string, error) {
 	paths, err := loader.Discover(dir)
 	if err != nil {
 		return nil, nil, fmt.Errorf("discovering tests in %q: %w", dir, err)
 	}
 
-	var tests []*tryve.TestDefinition
+	var tests []*core.TestDefinition
 	fileErrors := make(map[string][]string)
 
 	for _, p := range paths {
@@ -186,7 +186,7 @@ func applyConfigOverrides(cfg *config.LoadedConfig, opts Options) {
 //
 // When opts.DryRun is true the tests are discovered and filtered but not
 // executed; a SuiteResult with zero counts is returned.
-func RunTests(ctx context.Context, opts Options) (*tryve.SuiteResult, error) {
+func RunTests(ctx context.Context, opts Options) (*core.SuiteResult, error) {
 	cfg, err := config.Load(opts.ConfigPath, opts.Environment)
 	if err != nil {
 		return nil, fmt.Errorf("loading config: %w", err)
@@ -207,7 +207,7 @@ func RunTests(ctx context.Context, opts Options) (*tryve.SuiteResult, error) {
 	})
 
 	if opts.DryRun {
-		return &tryve.SuiteResult{Total: len(filtered)}, nil
+		return &core.SuiteResult{Total: len(filtered)}, nil
 	}
 
 	reg := buildRegistry(cfg)
@@ -266,7 +266,7 @@ func ValidateTests(opts Options) ([]ValidationResult, error) {
 // ListTests discovers, parses, and filters test files under opts.TestDir.
 // It returns the definitions that survived all filter criteria. Files with
 // parse or validation errors are silently skipped.
-func ListTests(opts Options) ([]*tryve.TestDefinition, error) {
+func ListTests(opts Options) ([]*core.TestDefinition, error) {
 	testDir := testDirOrDefault(opts)
 
 	tests, _, err := discoverAndLoad(testDir)

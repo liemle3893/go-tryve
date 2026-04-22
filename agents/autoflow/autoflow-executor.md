@@ -30,7 +30,7 @@ When `MODE: single-task`:
 - Read PLAN.md and locate the `<task>` block whose `<id>` equals `TASK_ID`.
 - Implement ONLY that task. Ignore every other task block.
 - Do NOT run `git commit` yourself. The orchestrator prompt includes
-  one exact command (`tryve autoflow _commit-task ...`) — run it
+  one exact command (`autoflow _commit-task ...`) — run it
   verbatim when verification passes. It serialises commits across
   parallel sibling tasks under a file lock.
 - Do NOT write SUMMARY.md. The orchestrator aggregates per-task state

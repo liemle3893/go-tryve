@@ -8,7 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	assets "github.com/liemle3893/go-tryve"
+	assets "github.com/liemle3893/autoflow"
 )
 
 // newInstallCmd constructs the `install` sub-command which copies bundled
@@ -40,7 +40,7 @@ func installCmdHandler(cmd *cobra.Command, _ []string) error {
 	autoflow, _ := cmd.Flags().GetBool("autoflow")
 	if !skills && !autoflow {
 		out := cmd.OutOrStdout()
-		fmt.Fprintln(out, "Usage: tryve install [--skills] [--autoflow]")
+		fmt.Fprintln(out, "Usage: autoflow install [--skills] [--autoflow]")
 		fmt.Fprintln(out)
 		fmt.Fprintln(out, "Options:")
 		fmt.Fprintln(out, "  --skills     install e2e-runner skill to .claude/skills/e2e-runner/")
@@ -111,7 +111,7 @@ func installAutoflow(cmd *cobra.Command, cwd string) error {
 		if err := os.RemoveAll(legacy); err != nil {
 			return fmt.Errorf("install: removing legacy %s: %w", legacy, err)
 		}
-		fmt.Fprintf(cmd.OutOrStdout(), "Removed legacy %s (replaced by tryve autoflow subcommands)\n", legacy)
+		fmt.Fprintf(cmd.OutOrStdout(), "Removed legacy %s (replaced by autoflow subcommands)\n", legacy)
 	}
 
 	fmt.Fprintf(cmd.OutOrStdout(), "Autoflow skills installed under %s\n", skillsDst)

@@ -1,15 +1,15 @@
-// Package cli provides the top-level cobra command tree for the tryve binary.
+// Package cli provides the top-level cobra command tree for the autoflow binary.
 package cli
 
 import "github.com/spf13/cobra"
 
-// NewRoot builds and returns the root cobra command for the tryve binary.
-// It registers persistent flags shared by all sub-commands and wires all
-// sub-commands into the tree.
+// NewRoot builds and returns the root cobra command for the autoflow binary.
+// Delivery-workflow commands sit at top level; the e2e test-runner surface
+// lives under the `e2e` subtree.
 func NewRoot(version string) *cobra.Command {
 	root := &cobra.Command{
-		Use:          "tryve",
-		Short:        "tryve — YAML-driven multi-protocol test runner",
+		Use:          "autoflow",
+		Short:        "autoflow — Jira-to-PR delivery workflow + YAML-driven E2E test runner",
 		SilenceUsage: true,
 	}
 
@@ -17,16 +17,18 @@ func NewRoot(version string) *cobra.Command {
 	root.PersistentFlags().StringP("env", "e", "local", "environment name")
 
 	root.AddCommand(
-		newRunCmd(),
-		newValidateCmd(),
-		newListCmd(),
-		newHealthCmd(),
-		newInitCmd(),
-		newVersionCmd(version),
-		newTestCmd(),
-		newDocCmd(),
+		// Delivery workflow (top-level peers)
+		newAutoflowJiraCmd(),
+		newAutoflowWorktreeCmd(),
+		newAutoflowDeliverCmd(),
+		newAutoflowLoopStateCmd(),
+		newAutoflowScaffoldCmd(),
+		newAutoflowDoctorCmd(),
+		// E2E test-runner subtree
+		newE2ECmd(),
+		// Cross-cutting
 		newInstallCmd(),
-		newAutoflowCmd(),
+		newVersionCmd(version),
 	)
 
 	return root

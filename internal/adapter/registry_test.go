@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/liemle3893/go-tryve/internal/adapter"
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/adapter"
+	"github.com/liemle3893/autoflow/internal/core"
 )
 
 // mockAdapter is a test double that tracks Connect/Close call counts.
@@ -38,8 +38,8 @@ func (m *mockAdapter) Close(_ context.Context) error {
 func (m *mockAdapter) Health(_ context.Context) error { return nil }
 
 // Execute returns a zero StepResult for the mock.
-func (m *mockAdapter) Execute(_ context.Context, _ string, _ map[string]any) (*tryve.StepResult, error) {
-	return &tryve.StepResult{
+func (m *mockAdapter) Execute(_ context.Context, _ string, _ map[string]any) (*core.StepResult, error) {
+	return &core.StepResult{
 		Data:     map[string]any{},
 		Duration: 0,
 		Metadata: map[string]any{},
@@ -89,12 +89,12 @@ func TestRegistry_GetUnknown(t *testing.T) {
 		t.Fatal("expected error for unregistered adapter, got nil")
 	}
 
-	var tryveErr *tryve.TryveError
-	if !errors.As(err, &tryveErr) {
-		t.Fatalf("expected *tryve.TryveError, got %T", err)
+	var coreErr *core.Error
+	if !errors.As(err, &coreErr) {
+		t.Fatalf("expected *core.Error, got %T", err)
 	}
-	if tryveErr.Code != "CONFIG_ERROR" {
-		t.Fatalf("expected code CONFIG_ERROR, got %s", tryveErr.Code)
+	if coreErr.Code != "CONFIG_ERROR" {
+		t.Fatalf("expected code CONFIG_ERROR, got %s", coreErr.Code)
 	}
 }
 
@@ -113,12 +113,12 @@ func TestRegistry_GetConnectionFailure(t *testing.T) {
 		t.Fatal("expected connection error, got nil")
 	}
 
-	var tryveErr *tryve.TryveError
-	if !errors.As(err, &tryveErr) {
-		t.Fatalf("expected *tryve.TryveError, got %T", err)
+	var coreErr *core.Error
+	if !errors.As(err, &coreErr) {
+		t.Fatalf("expected *core.Error, got %T", err)
 	}
-	if tryveErr.Code != "CONNECTION_ERROR" {
-		t.Fatalf("expected code CONNECTION_ERROR, got %s", tryveErr.Code)
+	if coreErr.Code != "CONNECTION_ERROR" {
+		t.Fatalf("expected code CONNECTION_ERROR, got %s", coreErr.Code)
 	}
 }
 

@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/core"
 	"gopkg.in/yaml.v3"
 )
 
@@ -30,7 +30,7 @@ func Load(path, envName string) (*LoadedConfig, error) {
 
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, tryve.ConfigError(
+		return nil, core.ConfigError(
 			fmt.Sprintf("cannot read config file %q", path),
 			"verify the file exists and is readable",
 			err,
@@ -39,7 +39,7 @@ func Load(path, envName string) (*LoadedConfig, error) {
 
 	var raw RawConfig
 	if err := yaml.Unmarshal(data, &raw); err != nil {
-		return nil, tryve.ConfigError(
+		return nil, core.ConfigError(
 			fmt.Sprintf("cannot parse config file %q", path),
 			"verify the YAML syntax is valid",
 			err,
@@ -47,7 +47,7 @@ func Load(path, envName string) (*LoadedConfig, error) {
 	}
 
 	if raw.Version != "1.0" {
-		return nil, tryve.ConfigError(
+		return nil, core.ConfigError(
 			fmt.Sprintf("unsupported config version %q", raw.Version),
 			`only version "1.0" is supported`,
 			nil,
@@ -57,7 +57,7 @@ func Load(path, envName string) (*LoadedConfig, error) {
 	env, ok := raw.Environments[envName]
 	if !ok {
 		hint := buildMissingEnvHint(envName, raw.Environments)
-		return nil, tryve.ConfigError(
+		return nil, core.ConfigError(
 			fmt.Sprintf("environment %q not found in config", envName),
 			hint,
 			nil,
@@ -66,7 +66,7 @@ func Load(path, envName string) (*LoadedConfig, error) {
 
 	resolvedBaseURL, err := resolveStrict(env.BaseURL)
 	if err != nil {
-		return nil, tryve.ConfigError(
+		return nil, core.ConfigError(
 			fmt.Sprintf("cannot resolve baseUrl for environment %q: %s", envName, err.Error()),
 			"set the required environment variable before running e2e-runner",
 			nil,

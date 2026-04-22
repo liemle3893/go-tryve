@@ -7,7 +7,7 @@ import (
 
 	goredis "github.com/redis/go-redis/v9"
 
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/core"
 )
 
 // RedisAdapter executes Redis commands against a target Redis server.
@@ -55,12 +55,12 @@ func (a *RedisAdapter) Name() string { return "redis" }
 // configured, and establishes the underlying Redis client.
 func (a *RedisAdapter) Connect(_ context.Context) error {
 	if a.connStr == "" {
-		return tryve.ConnectionError("redis", "connect: connectionString is required", nil)
+		return core.ConnectionError("redis", "connect: connectionString is required", nil)
 	}
 
 	opts, err := goredis.ParseURL(a.connStr)
 	if err != nil {
-		return tryve.ConnectionError("redis", fmt.Sprintf("connect: invalid connectionString: %v", err), err)
+		return core.ConnectionError("redis", fmt.Sprintf("connect: invalid connectionString: %v", err), err)
 	}
 
 	// Override the DB from explicit config when non-zero, or when the URL does
@@ -84,10 +84,10 @@ func (a *RedisAdapter) Close(_ context.Context) error {
 // Health performs a lightweight PING to verify Redis connectivity.
 func (a *RedisAdapter) Health(ctx context.Context) error {
 	if a.client == nil {
-		return tryve.ConnectionError("redis", "health: not connected", nil)
+		return core.ConnectionError("redis", "health: not connected", nil)
 	}
 	if err := a.client.Ping(ctx).Err(); err != nil {
-		return tryve.ConnectionError("redis", fmt.Sprintf("health: ping failed: %v", err), err)
+		return core.ConnectionError("redis", fmt.Sprintf("health: ping failed: %v", err), err)
 	}
 	return nil
 }
@@ -96,7 +96,7 @@ func (a *RedisAdapter) Health(ctx context.Context) error {
 // All key parameters have the configured keyPrefix prepended before use.
 //
 // Supported actions: get, set, del, exists, incr, hget, hset, hgetall, keys, flushPattern.
-func (a *RedisAdapter) Execute(ctx context.Context, action string, params map[string]any) (*tryve.StepResult, error) {
+func (a *RedisAdapter) Execute(ctx context.Context, action string, params map[string]any) (*core.StepResult, error) {
 	switch action {
 	case "get":
 		return a.actionGet(ctx, params)
@@ -119,7 +119,7 @@ func (a *RedisAdapter) Execute(ctx context.Context, action string, params map[st
 	case "flushPattern":
 		return a.actionFlushPattern(ctx, params)
 	default:
-		return nil, tryve.AdapterError("redis", action,
+		return nil, core.AdapterError("redis", action,
 			fmt.Sprintf("unsupported action %q", action), nil)
 	}
 }
@@ -134,10 +134,10 @@ func (a *RedisAdapter) prefixedKey(key string) string {
 }
 
 // actionGet executes a Redis GET and returns {"value": string}.
-func (a *RedisAdapter) actionGet(ctx context.Context, params map[string]any) (*tryve.StepResult, error) {
+func (a *RedisAdapter) actionGet(ctx context.Context, params map[string]any) (*core.StepResult, error) {
 	key, err := getStr(params, "key")
 	if err != nil {
-		return nil, tryve.AdapterError("redis", "get", err.Error(), err)
+		return nil, core.AdapterError("redis", "get", err.Error(), err)
 	}
 
 	var val string
@@ -147,7 +147,7 @@ func (a *RedisAdapter) actionGet(ctx context.Context, params map[string]any) (*t
 		return cmdErr
 	})
 	if execErr != nil {
-		return nil, tryve.AdapterError("redis", "get", execErr.Error(), execErr)
+		return nil, core.AdapterError("redis", "get", execErr.Error(), execErr)
 	}
 
 	return SuccessResult(map[string]any{"value": val}, duration, nil), nil
@@ -155,15 +155,15 @@ func (a *RedisAdapter) actionGet(ctx context.Context, params map[string]any) (*t
 
 // actionSet executes a Redis SET and returns {"ok": true}.
 // The optional "ttl" param specifies expiry in seconds (0 = no expiry).
-func (a *RedisAdapter) actionSet(ctx context.Context, params map[string]any) (*tryve.StepResult, error) {
+func (a *RedisAdapter) actionSet(ctx context.Context, params map[string]any) (*core.StepResult, error) {
 	key, err := getStr(params, "key")
 	if err != nil {
-		return nil, tryve.AdapterError("redis", "set", err.Error(), err)
+		return nil, core.AdapterError("redis", "set", err.Error(), err)
 	}
 
 	value, ok := params["value"]
 	if !ok {
-		return nil, tryve.AdapterError("redis", "set", "required parameter \"value\" is missing", nil)
+		return nil, core.AdapterError("redis", "set", "required parameter \"value\" is missing", nil)
 	}
 
 	ttl := parseTTL(params)
@@ -172,17 +172,17 @@ func (a *RedisAdapter) actionSet(ctx context.Context, params map[string]any) (*t
 		return a.client.Set(ctx, a.prefixedKey(key), value, ttl).Err()
 	})
 	if execErr != nil {
-		return nil, tryve.AdapterError("redis", "set", execErr.Error(), execErr)
+		return nil, core.AdapterError("redis", "set", execErr.Error(), execErr)
 	}
 
 	return SuccessResult(map[string]any{"ok": true}, duration, nil), nil
 }
 
 // actionDel executes a Redis DEL and returns {"deleted": float64(n)}.
-func (a *RedisAdapter) actionDel(ctx context.Context, params map[string]any) (*tryve.StepResult, error) {
+func (a *RedisAdapter) actionDel(ctx context.Context, params map[string]any) (*core.StepResult, error) {
 	key, err := getStr(params, "key")
 	if err != nil {
-		return nil, tryve.AdapterError("redis", "del", err.Error(), err)
+		return nil, core.AdapterError("redis", "del", err.Error(), err)
 	}
 
 	var n int64
@@ -192,17 +192,17 @@ func (a *RedisAdapter) actionDel(ctx context.Context, params map[string]any) (*t
 		return cmdErr
 	})
 	if execErr != nil {
-		return nil, tryve.AdapterError("redis", "del", execErr.Error(), execErr)
+		return nil, core.AdapterError("redis", "del", execErr.Error(), execErr)
 	}
 
 	return SuccessResult(map[string]any{"deleted": float64(n)}, duration, nil), nil
 }
 
 // actionExists executes a Redis EXISTS and returns {"exists": bool}.
-func (a *RedisAdapter) actionExists(ctx context.Context, params map[string]any) (*tryve.StepResult, error) {
+func (a *RedisAdapter) actionExists(ctx context.Context, params map[string]any) (*core.StepResult, error) {
 	key, err := getStr(params, "key")
 	if err != nil {
-		return nil, tryve.AdapterError("redis", "exists", err.Error(), err)
+		return nil, core.AdapterError("redis", "exists", err.Error(), err)
 	}
 
 	var n int64
@@ -212,17 +212,17 @@ func (a *RedisAdapter) actionExists(ctx context.Context, params map[string]any) 
 		return cmdErr
 	})
 	if execErr != nil {
-		return nil, tryve.AdapterError("redis", "exists", execErr.Error(), execErr)
+		return nil, core.AdapterError("redis", "exists", execErr.Error(), execErr)
 	}
 
 	return SuccessResult(map[string]any{"exists": n > 0}, duration, nil), nil
 }
 
 // actionIncr executes a Redis INCR and returns {"value": float64(n)}.
-func (a *RedisAdapter) actionIncr(ctx context.Context, params map[string]any) (*tryve.StepResult, error) {
+func (a *RedisAdapter) actionIncr(ctx context.Context, params map[string]any) (*core.StepResult, error) {
 	key, err := getStr(params, "key")
 	if err != nil {
-		return nil, tryve.AdapterError("redis", "incr", err.Error(), err)
+		return nil, core.AdapterError("redis", "incr", err.Error(), err)
 	}
 
 	var n int64
@@ -232,21 +232,21 @@ func (a *RedisAdapter) actionIncr(ctx context.Context, params map[string]any) (*
 		return cmdErr
 	})
 	if execErr != nil {
-		return nil, tryve.AdapterError("redis", "incr", execErr.Error(), execErr)
+		return nil, core.AdapterError("redis", "incr", execErr.Error(), execErr)
 	}
 
 	return SuccessResult(map[string]any{"value": float64(n)}, duration, nil), nil
 }
 
 // actionHGet executes a Redis HGET and returns {"value": string}.
-func (a *RedisAdapter) actionHGet(ctx context.Context, params map[string]any) (*tryve.StepResult, error) {
+func (a *RedisAdapter) actionHGet(ctx context.Context, params map[string]any) (*core.StepResult, error) {
 	key, err := getStr(params, "key")
 	if err != nil {
-		return nil, tryve.AdapterError("redis", "hget", err.Error(), err)
+		return nil, core.AdapterError("redis", "hget", err.Error(), err)
 	}
 	field, err := getStr(params, "field")
 	if err != nil {
-		return nil, tryve.AdapterError("redis", "hget", err.Error(), err)
+		return nil, core.AdapterError("redis", "hget", err.Error(), err)
 	}
 
 	var val string
@@ -256,42 +256,42 @@ func (a *RedisAdapter) actionHGet(ctx context.Context, params map[string]any) (*
 		return cmdErr
 	})
 	if execErr != nil {
-		return nil, tryve.AdapterError("redis", "hget", execErr.Error(), execErr)
+		return nil, core.AdapterError("redis", "hget", execErr.Error(), execErr)
 	}
 
 	return SuccessResult(map[string]any{"value": val}, duration, nil), nil
 }
 
 // actionHSet executes a Redis HSET and returns {"ok": true}.
-func (a *RedisAdapter) actionHSet(ctx context.Context, params map[string]any) (*tryve.StepResult, error) {
+func (a *RedisAdapter) actionHSet(ctx context.Context, params map[string]any) (*core.StepResult, error) {
 	key, err := getStr(params, "key")
 	if err != nil {
-		return nil, tryve.AdapterError("redis", "hset", err.Error(), err)
+		return nil, core.AdapterError("redis", "hset", err.Error(), err)
 	}
 	field, err := getStr(params, "field")
 	if err != nil {
-		return nil, tryve.AdapterError("redis", "hset", err.Error(), err)
+		return nil, core.AdapterError("redis", "hset", err.Error(), err)
 	}
 	value, ok := params["value"]
 	if !ok {
-		return nil, tryve.AdapterError("redis", "hset", "required parameter \"value\" is missing", nil)
+		return nil, core.AdapterError("redis", "hset", "required parameter \"value\" is missing", nil)
 	}
 
 	duration, execErr := MeasureDuration(func() error {
 		return a.client.HSet(ctx, a.prefixedKey(key), field, value).Err()
 	})
 	if execErr != nil {
-		return nil, tryve.AdapterError("redis", "hset", execErr.Error(), execErr)
+		return nil, core.AdapterError("redis", "hset", execErr.Error(), execErr)
 	}
 
 	return SuccessResult(map[string]any{"ok": true}, duration, nil), nil
 }
 
 // actionHGetAll executes a Redis HGETALL and returns {"value": map[string]any}.
-func (a *RedisAdapter) actionHGetAll(ctx context.Context, params map[string]any) (*tryve.StepResult, error) {
+func (a *RedisAdapter) actionHGetAll(ctx context.Context, params map[string]any) (*core.StepResult, error) {
 	key, err := getStr(params, "key")
 	if err != nil {
-		return nil, tryve.AdapterError("redis", "hgetall", err.Error(), err)
+		return nil, core.AdapterError("redis", "hgetall", err.Error(), err)
 	}
 
 	var m map[string]string
@@ -301,7 +301,7 @@ func (a *RedisAdapter) actionHGetAll(ctx context.Context, params map[string]any)
 		return cmdErr
 	})
 	if execErr != nil {
-		return nil, tryve.AdapterError("redis", "hgetall", execErr.Error(), execErr)
+		return nil, core.AdapterError("redis", "hgetall", execErr.Error(), execErr)
 	}
 
 	// Convert map[string]string → map[string]any for uniform result typing.
@@ -315,10 +315,10 @@ func (a *RedisAdapter) actionHGetAll(ctx context.Context, params map[string]any)
 
 // actionKeys executes a Redis KEYS and returns {"keys": []string}.
 // The pattern param is NOT prefixed; callers must include the prefix if required.
-func (a *RedisAdapter) actionKeys(ctx context.Context, params map[string]any) (*tryve.StepResult, error) {
+func (a *RedisAdapter) actionKeys(ctx context.Context, params map[string]any) (*core.StepResult, error) {
 	pattern, err := getStr(params, "pattern")
 	if err != nil {
-		return nil, tryve.AdapterError("redis", "keys", err.Error(), err)
+		return nil, core.AdapterError("redis", "keys", err.Error(), err)
 	}
 
 	var keys []string
@@ -328,7 +328,7 @@ func (a *RedisAdapter) actionKeys(ctx context.Context, params map[string]any) (*
 		return cmdErr
 	})
 	if execErr != nil {
-		return nil, tryve.AdapterError("redis", "keys", execErr.Error(), execErr)
+		return nil, core.AdapterError("redis", "keys", execErr.Error(), execErr)
 	}
 
 	return SuccessResult(map[string]any{"keys": keys}, duration, nil), nil
@@ -337,10 +337,10 @@ func (a *RedisAdapter) actionKeys(ctx context.Context, params map[string]any) (*
 // actionFlushPattern scans for all keys matching pattern, deletes them, and
 // returns {"deleted": float64(n)}.
 // Like actionKeys, the pattern is used verbatim and is NOT prefixed.
-func (a *RedisAdapter) actionFlushPattern(ctx context.Context, params map[string]any) (*tryve.StepResult, error) {
+func (a *RedisAdapter) actionFlushPattern(ctx context.Context, params map[string]any) (*core.StepResult, error) {
 	pattern, err := getStr(params, "pattern")
 	if err != nil {
-		return nil, tryve.AdapterError("redis", "flushPattern", err.Error(), err)
+		return nil, core.AdapterError("redis", "flushPattern", err.Error(), err)
 	}
 
 	var totalDeleted int64
@@ -367,7 +367,7 @@ func (a *RedisAdapter) actionFlushPattern(ctx context.Context, params map[string
 		return nil
 	})
 	if execErr != nil {
-		return nil, tryve.AdapterError("redis", "flushPattern", execErr.Error(), execErr)
+		return nil, core.AdapterError("redis", "flushPattern", execErr.Error(), execErr)
 	}
 
 	return SuccessResult(map[string]any{"deleted": float64(totalDeleted)}, duration, nil), nil

@@ -13,12 +13,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/liemle3893/go-tryve/internal/adapter"
-	"github.com/liemle3893/go-tryve/internal/config"
-	"github.com/liemle3893/go-tryve/internal/executor"
-	"github.com/liemle3893/go-tryve/internal/loader"
-	"github.com/liemle3893/go-tryve/internal/reporter"
-	"github.com/liemle3893/go-tryve/internal/tryve"
+	"github.com/liemle3893/autoflow/internal/adapter"
+	"github.com/liemle3893/autoflow/internal/config"
+	"github.com/liemle3893/autoflow/internal/executor"
+	"github.com/liemle3893/autoflow/internal/loader"
+	"github.com/liemle3893/autoflow/internal/reporter"
+	"github.com/liemle3893/autoflow/internal/core"
 )
 
 // newIntegrationServer starts a local HTTP server with the routes required by
@@ -166,12 +166,12 @@ execute:
 // printFailureDetails logs step and assertion details when the integration test
 // fails, making it easier to diagnose assertion mismatches without re-running
 // the whole test under a debugger.
-func printFailureDetails(t *testing.T, result *tryve.SuiteResult) {
+func printFailureDetails(t *testing.T, result *core.SuiteResult) {
 	t.Helper()
 
 	for i := range result.Tests {
 		tr := &result.Tests[i]
-		if tr.Status != tryve.StatusFailed {
+		if tr.Status != core.StatusFailed {
 			continue
 		}
 		testName := "<unknown>"
@@ -228,7 +228,7 @@ func TestIntegration_FullHTTPFlow(t *testing.T) {
 	}
 
 	// 6. Parse all discovered test files.
-	tests := make([]*tryve.TestDefinition, 0, len(paths))
+	tests := make([]*core.TestDefinition, 0, len(paths))
 	for _, p := range paths {
 		td, parseErr := loader.ParseFile(p)
 		if parseErr != nil {
