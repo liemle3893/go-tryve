@@ -19,6 +19,7 @@ const (
 	OK   Status = "OK"
 	Fail Status = "FAIL"
 	Warn Status = "WARN"
+	Skip Status = "SKIP"
 )
 
 // Result is one row of the doctor report.
@@ -79,7 +80,8 @@ func Format(w io.Writer, results []Result) {
 }
 
 func worstOf(a, b Status) Status {
-	rank := map[Status]int{OK: 0, Warn: 1, Fail: 2}
+	// Skip ranks below OK — it never promotes the worst-so-far.
+	rank := map[Status]int{Skip: -1, OK: 0, Warn: 1, Fail: 2}
 	if rank[b] > rank[a] {
 		return b
 	}
@@ -100,6 +102,13 @@ func StandardChecks(opts Opts) []Checker {
 		checkSkillsInstalled(opts.Root),
 		checkAgentsInstalled(opts.Root),
 		checkNoLegacyScripts(opts.Root),
+		checkCodingAgent(opts.Root),
+		checkSbxInstalled(opts.Root),
+		checkSbxVersion(opts.Root),
+		checkSbxDocker(opts.Root),
+		checkSbxAuth(opts.Root),
+		checkSbxAgentCreds(opts.Root),
+		checkSbxAutoflow(opts.Root),
 	}
 }
 

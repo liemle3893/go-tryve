@@ -181,11 +181,13 @@ func TestCheckJIRAReachable_MissingCreds(t *testing.T) {
 	}
 }
 
-// Sanity ensure the standard battery returns the expected nine checks.
+// Sanity ensure the standard battery returns the expected check count.
+// 9 original + 1 coding_agent + 6 sbx additions = 16. Bump deliberately
+// whenever a new standard check is added.
 func TestStandardChecks_Count(t *testing.T) {
 	chk := StandardChecks(Opts{Root: "/tmp"})
-	if len(chk) != 9 {
-		t.Errorf("want 9 standard checks, got %d", len(chk))
+	if len(chk) != 16 {
+		t.Errorf("want 16 standard checks, got %d", len(chk))
 	}
 }
 

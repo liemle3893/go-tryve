@@ -24,6 +24,8 @@ func NewRoot(version string) *cobra.Command {
 		newAutoflowLoopStateCmd(),
 		newAutoflowScaffoldCmd(),
 		newAutoflowDoctorCmd(),
+		newAutoflowConfigCmd(),
+		newAutoflowSandboxCmd(),
 		// E2E test-runner subtree
 		newE2ECmd(),
 		// Cross-cutting

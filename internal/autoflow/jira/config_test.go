@@ -29,8 +29,9 @@ func TestSetRead_RoundTrip(t *testing.T) {
 
 func TestSet_Required(t *testing.T) {
 	root := t.TempDir()
-	if _, err := Set(root, "", "url", "p", ""); err == nil {
-		t.Errorf("empty cloudId should fail")
+	// cloudId is optional now — empty should succeed.
+	if _, err := Set(root, "", "url", "p", ""); err != nil {
+		t.Errorf("empty cloudId should be allowed, got %v", err)
 	}
 	if _, err := Set(root, "c", "", "p", ""); err == nil {
 		t.Errorf("empty siteUrl should fail")
