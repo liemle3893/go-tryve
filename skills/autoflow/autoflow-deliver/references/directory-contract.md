@@ -48,7 +48,7 @@ Per-ticket artifacts live under `.autoflow/ticket/<TICKET-KEY>/`:
     |-- coverage-review-state.json      # Step 4: AC coverage loop state
     |-- build-gate-state.json           # Step 6: build gate attempt/result
     |-- build-gate-log-N.log            # Step 6: build error output per attempt
-    |-- e2e-fix-state.json              # Step 7: E2E fix loop (written by `autoflow deliver _e2e-round`)
+    |-- e2e-fix-state.json              # Step 7: E2E fix loop (written by `autoflow deliver _e2e-round`, run from worktree)
     |-- e2e-run-counter.txt             # Step 7: stale-state guard counter
     |-- e2e-fix-dispatched-round-N.marker  # Step 7: fixer dispatch tracking
     |-- REVIEW-code.md                  # Step 9: code reviewer findings
