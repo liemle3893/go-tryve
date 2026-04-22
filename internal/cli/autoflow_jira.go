@@ -2,8 +2,11 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -14,11 +17,190 @@ import (
 func newAutoflowJiraCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "jira",
-		Short: "Jira config and attachment helpers",
+		Short: "Jira config, attachments, and REST helpers",
 	}
-	cmd.AddCommand(newAutoflowJiraConfigCmd(), newAutoflowJiraUploadCmd(), newAutoflowJiraDownloadCmd())
+	cmd.AddCommand(
+		newAutoflowJiraConfigCmd(),
+		newAutoflowJiraUploadCmd(),
+		newAutoflowJiraDownloadCmd(),
+		newAutoflowJiraFetchCmd(),
+		newAutoflowJiraSearchCmd(),
+		newAutoflowJiraTransitionsCmd(),
+		newAutoflowJiraTransitionCmd(),
+	)
 	return cmd
 }
+
+// jiraClient constructs a Jira REST client from the cached config + env.
+func jiraClient() (*jira.Client, error) {
+	root, err := state.RepoRoot()
+	if err != nil {
+		return nil, err
+	}
+	creds, err := jira.ResolveCredentials(root)
+	if err != nil {
+		return nil, err
+	}
+	return jira.NewClient(creds), nil
+}
+
+// writeJSON renders v as pretty JSON to --out file (when set) or to stdout.
+func writeJSON(cmd *cobra.Command, v any) error {
+	data, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal json: %w", err)
+	}
+	data = append(data, '\n')
+	out, _ := cmd.Flags().GetString("out")
+	if out == "" {
+		_, err := cmd.OutOrStdout().Write(data)
+		return err
+	}
+	if err := os.WriteFile(out, data, 0o644); err != nil {
+		return fmt.Errorf("write %s: %w", out, err)
+	}
+	fmt.Fprintf(cmd.OutOrStdout(), "Wrote %s (%d bytes)\n", out, len(data))
+	return nil
+}
+
+// parseCSV splits a comma-separated flag into a trimmed slice, dropping empty entries.
+func parseCSV(s string) []string {
+	if s == "" {
+		return nil
+	}
+	var out []string
+	for _, p := range strings.Split(s, ",") {
+		if t := strings.TrimSpace(p); t != "" {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+func newAutoflowJiraFetchCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "fetch <KEY>",
+		Short: "Fetch a Jira issue as JSON (GET /rest/api/3/issue/{key})",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, err := jiraClient()
+			if err != nil {
+				return err
+			}
+			fields, _ := cmd.Flags().GetString("fields")
+			expand, _ := cmd.Flags().GetString("expand")
+			issue, err := c.GetIssue(context.Background(), args[0], parseCSV(fields), parseCSV(expand))
+			if err != nil {
+				return err
+			}
+			return writeJSON(cmd, issue)
+		},
+	}
+	cmd.Flags().String("fields", "", "comma-separated list of fields to include")
+	cmd.Flags().String("expand", "", "comma-separated expand selectors (e.g. renderedFields)")
+	cmd.Flags().String("out", "", "write JSON to FILE instead of stdout")
+	return cmd
+}
+
+func newAutoflowJiraSearchCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "search --jql '<JQL>'",
+		Short: "Run a JQL search against /rest/api/3/search/jql",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			jql, _ := cmd.Flags().GetString("jql")
+			if strings.TrimSpace(jql) == "" {
+				return errors.New("--jql is required")
+			}
+			c, err := jiraClient()
+			if err != nil {
+				return err
+			}
+			fields, _ := cmd.Flags().GetString("fields")
+			token, _ := cmd.Flags().GetString("page-token")
+			page, err := c.SearchJQL(context.Background(), jql, parseCSV(fields), token)
+			if err != nil {
+				return err
+			}
+			return writeJSON(cmd, page)
+		},
+	}
+	cmd.Flags().String("jql", "", "JQL query (required)")
+	cmd.Flags().String("fields", "", "comma-separated list of fields to include")
+	cmd.Flags().String("page-token", "", "nextPageToken returned by a previous search")
+	cmd.Flags().String("out", "", "write JSON to FILE instead of stdout")
+	return cmd
+}
+
+func newAutoflowJiraTransitionsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "transitions <KEY>",
+		Short: "List transitions available on the issue (JSON)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, err := jiraClient()
+			if err != nil {
+				return err
+			}
+			ts, err := c.GetTransitions(context.Background(), args[0])
+			if err != nil {
+				return err
+			}
+			return writeJSON(cmd, ts)
+		},
+	}
+	cmd.Flags().String("out", "", "write JSON to FILE instead of stdout")
+	return cmd
+}
+
+func newAutoflowJiraTransitionCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "transition <KEY> (--name NAME | --id ID)",
+		Short: "Transition an issue by transition name (case-insensitive) or id",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			name, _ := cmd.Flags().GetString("name")
+			id, _ := cmd.Flags().GetString("id")
+			if name == "" && id == "" {
+				return errors.New("one of --name or --id is required")
+			}
+			if name != "" && id != "" {
+				return errors.New("--name and --id are mutually exclusive")
+			}
+			c, err := jiraClient()
+			if err != nil {
+				return err
+			}
+			key := args[0]
+			if name != "" {
+				ts, err := c.GetTransitions(context.Background(), key)
+				if err != nil {
+					return err
+				}
+				tr, err := jira.FindTransitionByName(ts, name)
+				if err != nil {
+					// The error already includes available names; re-emit to stderr.
+					fmt.Fprintln(cmd.ErrOrStderr(), err.Error())
+					return fmt.Errorf("transition %q not found for %s", name, key)
+				}
+				id = tr.ID
+			}
+			if err := c.DoTransition(context.Background(), key, id); err != nil {
+				return err
+			}
+			w := cmd.OutOrStdout()
+			if name != "" {
+				fmt.Fprintf(w, "Transitioned %s via %q (id=%s)\n", key, name, id)
+			} else {
+				fmt.Fprintf(w, "Transitioned %s via id=%s\n", key, id)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().String("name", "", "transition name (case-insensitive, e.g. 'Start Dev')")
+	cmd.Flags().String("id", "", "transition id (bypass name lookup)")
+	return cmd
+}
+
 
 func newAutoflowJiraConfigCmd() *cobra.Command {
 	cmd := &cobra.Command{
