@@ -77,10 +77,11 @@ func (c *Controller) step01(key string) *Instruction {
 	}
 
 	// Dispatch the fetcher. The prompt carries the cloud ID discovered
-	// from the Jira cache so the agent doesn't repeat the MCP lookup.
-	// Instead of spawning a bash pre-step we embed a literal placeholder
-	// and tell the agent to run `autoflow jira config get --field
-	// cloudId` to fill it in — matches the skill's instructions.
+	// from the Jira cache so the agent can wire it into the REST calls
+	// without a second lookup. Instead of spawning a bash pre-step we
+	// embed a literal placeholder and tell the agent to run
+	// `autoflow jira config get --field cloudId` to fill it in — matches
+	// the skill's instructions.
 	prompt := strings.Join([]string{
 		"TICKET_KEY: " + key,
 		"REPO_ROOT: " + c.Root,
@@ -1097,7 +1098,7 @@ func (c *Controller) step13(key string, progress *state.Progress) *Instruction {
 			fmt.Sprintf(`cd "%s"`, c.Root),
 			fmt.Sprintf(`%s jira upload %s ".autoflow/ticket/%s/EXECUTION-REPORT.md"`,
 				autoflowCmd(), shellQuote(key), key),
-			`echo "Jira updated. Transition to In Code Review manually or via MCP."`,
+			`echo "Jira updated. Transitioned via REST (see jira-transitions reference)."`,
 		},
 		OnFailure: "escalate",
 		PostActions: []PostAction{{

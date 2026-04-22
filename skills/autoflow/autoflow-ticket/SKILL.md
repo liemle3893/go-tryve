@@ -7,6 +7,8 @@ metadata:
   model: opus
 ---
 
+> NOTE: This skill still uses Atlassian MCP for edit/create/link. Read-path migration to REST is in autoflow-deliver; full migration is tracked separately.
+
 # Write Jira Ticket
 
 $ARGUMENTS

@@ -10,8 +10,6 @@ allowed-tools:
   - TodoRead
   - TaskCreate
   - TaskUpdate
-  - mcp__claude_ai_Atlassian__getTransitionsForJiraIssue
-  - mcp__claude_ai_Atlassian__transitionJiraIssue
 ---
 
 $ARGUMENTS

@@ -1,7 +1,7 @@
 ---
 name: autoflow-jira-fetcher
 description: Fetches a Jira ticket with parent + siblings + subtasks + attachments and writes a verbatim task-brief.md. Spawned by autoflow-deliver Step 1. Never rephrases AC/DoD.
-tools: Read, Write, Bash, Grep, Glob, mcp__atlassian__getJiraIssue, mcp__atlassian__searchJiraIssuesUsingJql, mcp__atlassian__getTransitionsForJiraIssue
+tools: Read, Write, Bash, Grep, Glob
 color: blue
 ---
 
@@ -25,16 +25,30 @@ The orchestrator provides:
 </working_directory>
 
 <process>
-1. `mcp__atlassian__getJiraIssue` with `responseContentFormat: "markdown"` for `TICKET_KEY`.
-2. If the ticket has a parent, fetch it the same way.
-3. `mcp__atlassian__searchJiraIssuesUsingJql` with `parent = <PARENT-KEY>` for siblings.
-4. `mcp__atlassian__searchJiraIssuesUsingJql` with `parent = <TICKET-KEY>` for subtasks.
+1. Fetch the ticket as JSON. Include rendered fields so description/AC/DoD come back pre-rendered:
+   ```bash
+   autoflow jira fetch <TICKET-KEY> --expand=renderedFields \
+     --out "${REPO_ROOT}/.autoflow/ticket/<TICKET-KEY>/ticket.json"
+   ```
+2. If the ticket has a parent (look up `fields.parent.key`), fetch it the same way to a `parent.json` file.
+3. Siblings — search via JQL:
+   ```bash
+   autoflow jira search --jql 'parent = <PARENT-KEY>' --fields=summary,status \
+     --out "${REPO_ROOT}/.autoflow/ticket/<TICKET-KEY>/siblings.json"
+   ```
+4. Subtasks — same shape:
+   ```bash
+   autoflow jira search --jql 'parent = <TICKET-KEY>' --fields=summary,status \
+     --out "${REPO_ROOT}/.autoflow/ticket/<TICKET-KEY>/subtasks.json"
+   ```
 5. Download attachments:
    ```bash
    autoflow jira download <TICKET-KEY> <ATTACHMENTS_DIR>
    ```
 6. Read each downloaded image with the Read tool so your brief can describe them accurately.
 7. Fill the Task Brief template (below) and Write it to `OUTPUT_PATH`.
+
+All ticket/parent/siblings/subtasks JSON must be parsed with `jq` (or Read + in-agent JSON parsing) — the Jira REST v3 `fields.description` comes back as ADF JSON; `renderedFields.description` is the HTML you want to quote verbatim.
 </process>
 
 <task_brief_template>
