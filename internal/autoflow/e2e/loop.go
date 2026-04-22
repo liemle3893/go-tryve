@@ -72,7 +72,7 @@ func RunLoop(ctx context.Context, opts LoopOptions) (*LoopResult, error) {
 	}
 	if opts.StateFile == "" {
 		opts.StateFile = filepath.Join(
-			state.TicketStateDir(opts.Local.MainDir, opts.Ticket),
+			state.TicketStateDir(opts.Local.WorkDir, opts.Ticket),
 			"e2e-fix-state.json",
 		)
 	}
@@ -106,7 +106,7 @@ func RunLoop(ctx context.Context, opts LoopOptions) (*LoopResult, error) {
 	outFile := opts.Local.OutputFile
 	if outFile == "" {
 		outFile = filepath.Join(os.TempDir(),
-			"e2e-results-"+safeBranch(opts.Local.Branch)+".txt")
+			"e2e-results-"+opts.Ticket+".txt")
 		opts.Local.OutputFile = outFile
 	}
 
