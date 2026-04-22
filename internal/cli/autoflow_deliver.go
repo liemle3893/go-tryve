@@ -225,26 +225,33 @@ func newDeliverE2ERoundCmd() *cobra.Command {
 				return err
 			}
 			key, _ := cmd.Flags().GetString("ticket")
-			wt, _ := cmd.Flags().GetString("worktree")
-			br, _ := cmd.Flags().GetString("branch")
 			maxRounds, _ := cmd.Flags().GetInt("max-rounds")
 			cfgPath, _ := cmd.Flags().GetString("config")
 			env, _ := cmd.Flags().GetString("env")
+			useLock, _ := cmd.Flags().GetBool("lock")
+
+			progress, err := state.ReadProgress(root, key)
+			if err != nil {
+				return fmt.Errorf("read workflow-progress.json for %s: %w", key, err)
+			}
+			if progress == nil || progress.Worktree == "" {
+				return fmt.Errorf("no workflow-progress.json with worktree set for %s (run `autoflow deliver init` first)", key)
+			}
 
 			local := e2e.LocalOptions{
-				MainDir:       root,
-				Branch:        br,
-				WorktreeDir:   wt,
+				WorkDir:       progress.Worktree,
 				TestSelection: "--tag " + key,
 				ConfigPath:    cfgPath,
 				Environment:   env,
-				UseLock:       true,
+				UseLock:       useLock,
 				Stdout:        cmd.OutOrStdout(),
 				Stderr:        cmd.ErrOrStderr(),
 			}
+			stateFile := filepath.Join(state.TicketStateDir(root, key), "e2e-fix-state.json")
 			result, err := e2e.RunLoop(context.Background(), e2e.LoopOptions{
 				Local:        local,
 				Ticket:       key,
+				StateFile:    stateFile,
 				MaxRounds:    maxRounds,
 				SkipDiagnose: true,
 			})
@@ -257,11 +264,10 @@ func newDeliverE2ERoundCmd() *cobra.Command {
 		},
 	}
 	c.Flags().String("ticket", "", "")
-	c.Flags().String("worktree", "", "")
-	c.Flags().String("branch", "", "")
 	c.Flags().Int("max-rounds", 5, "")
 	c.Flags().String("config", "e2e.config.yaml", "")
 	c.Flags().String("env", "local", "")
+	c.Flags().Bool("lock", false, "serialise runs via flock on <worktree>/.e2e-lock")
 	_ = c.MarkFlagRequired("ticket")
 	return c
 }

@@ -741,14 +741,13 @@ func (c *Controller) step07(key string, progress *state.Progress) *Instruction {
 		}
 	}
 
-	// Run one E2E round via the Go CLI. The runner writes state at the
-	// expected path so subsequent next() calls pick it up.
+	// Run one E2E round via the Go CLI. Tests execute directly in the
+	// worktree (no merge onto base branch). The runner writes state at
+	// the expected path so subsequent next() calls pick it up.
 	qKey := shellQuote(key)
-	qBranch := shellQuote(br)
-	qWT := shellQuote(wt)
 	cmd := fmt.Sprintf(
-		`cd "%s" && git push origin %s && %s deliver _e2e-round --ticket %s --worktree %s --branch %s --max-rounds 5`,
-		c.Root, qBranch, autoflowCmd(), qKey, qWT, qBranch,
+		`cd "%s" && %s deliver _e2e-round --ticket %s --max-rounds 5`,
+		wt, autoflowCmd(), qKey,
 	)
 	// Increment the counter after the command runs.
 	cmd += fmt.Sprintf(
