@@ -97,6 +97,14 @@ func installAutoflow(cmd *cobra.Command, cwd string) error {
 		return err
 	}
 
+	// Purge any previously installed autoflow skills/agents before
+	// re-copying. Stale copies can carry obsolete references (e.g. old
+	// mcp__atlassian__* calls) and would otherwise silently survive an
+	// upgrade because individual files aren't overwritten by name here.
+	if err := purgeAutoflowInstall(cmd, skillsDst, agentsDst); err != nil {
+		return err
+	}
+
 	if err := copyEmbedDir(assets.AutoflowSkillsFS, "skills/autoflow", skillsDst, nil); err != nil {
 		return fmt.Errorf("install: copying autoflow skills: %w", err)
 	}
@@ -117,6 +125,54 @@ func installAutoflow(cmd *cobra.Command, cwd string) error {
 	fmt.Fprintf(cmd.OutOrStdout(), "Autoflow skills installed under %s\n", skillsDst)
 	fmt.Fprintf(cmd.OutOrStdout(), "Autoflow agents installed under %s\n", agentsDst)
 	return nil
+}
+
+// purgeAutoflowInstall removes every `.claude/skills/autoflow-*` directory
+// and every `.claude/agents/autoflow-*.md` file that the embed FS would
+// install, so stale copies (e.g. referencing old MCP tools) don't survive
+// an upgrade. Unrelated skills/agents under those roots are left alone.
+func purgeAutoflowInstall(cmd *cobra.Command, skillsDst, agentsDst string) error {
+	skillNames, err := listEmbedChildren(assets.AutoflowSkillsFS, "skills/autoflow")
+	if err != nil {
+		return fmt.Errorf("install: listing bundled autoflow skills: %w", err)
+	}
+	for _, name := range skillNames {
+		target := filepath.Join(skillsDst, name)
+		if _, err := os.Stat(target); err == nil {
+			if err := os.RemoveAll(target); err != nil {
+				return fmt.Errorf("install: removing %s: %w", target, err)
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Removed stale %s\n", target)
+		}
+	}
+	agentNames, err := listEmbedChildren(assets.AutoflowAgentsFS, "agents/autoflow")
+	if err != nil {
+		return fmt.Errorf("install: listing bundled autoflow agents: %w", err)
+	}
+	for _, name := range agentNames {
+		target := filepath.Join(agentsDst, name)
+		if _, err := os.Stat(target); err == nil {
+			if err := os.Remove(target); err != nil {
+				return fmt.Errorf("install: removing %s: %w", target, err)
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Removed stale %s\n", target)
+		}
+	}
+	return nil
+}
+
+// listEmbedChildren returns the immediate child names (files or directories)
+// of `root` inside `src`. It does NOT recurse.
+func listEmbedChildren(src fs.FS, root string) ([]string, error) {
+	entries, err := fs.ReadDir(src, root)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]string, 0, len(entries))
+	for _, e := range entries {
+		out = append(out, e.Name())
+	}
+	return out, nil
 }
 
 // copyEmbedDir recursively copies an embedded directory tree rooted at root
