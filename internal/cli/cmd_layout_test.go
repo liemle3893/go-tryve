@@ -11,8 +11,8 @@ import (
 // renames, removals, or additions surface immediately in review.
 func TestRootTopLevelCommands(t *testing.T) {
 	want := []string{
-		"deliver", "doctor", "e2e",
-		"install", "jira", "loop-state", "scaffold-e2e", "version", "worktree",
+		"config", "deliver", "doctor", "e2e",
+		"install", "jira", "loop-state", "sandbox", "scaffold-e2e", "version", "worktree",
 	}
 	sort.Strings(want)
 

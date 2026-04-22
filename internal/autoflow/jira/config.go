@@ -64,8 +64,8 @@ func Read(root string) (*Config, error) {
 // optional but strongly recommended — upload/download require it for
 // Basic auth. CachedAt is set to the current UTC instant.
 func Set(root, cloudID, siteURL, projectKey, email string) (*Config, error) {
-	if cloudID == "" || siteURL == "" || projectKey == "" {
-		return nil, fmt.Errorf("cloudId, siteUrl, and projectKey are required")
+	if siteURL == "" || projectKey == "" {
+		return nil, fmt.Errorf("siteUrl and projectKey are required")
 	}
 	c := &Config{
 		CloudID:    cloudID,

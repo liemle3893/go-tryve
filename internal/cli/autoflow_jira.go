@@ -45,11 +45,10 @@ func newAutoflowJiraConfigCmd() *cobra.Command {
 			return nil
 		},
 	}
-	setCmd.Flags().String("cloud-id", "", "Atlassian cloud id (required)")
+	setCmd.Flags().String("cloud-id", "", "Atlassian cloud id (optional; filled in by myself round-trip later)")
 	setCmd.Flags().String("site-url", "", "Jira site URL, e.g. your-org.atlassian.net (required)")
 	setCmd.Flags().String("project-key", "", "Default Jira project key (required)")
 	setCmd.Flags().String("email", "", "Jira account email (strongly recommended)")
-	_ = setCmd.MarkFlagRequired("cloud-id")
 	_ = setCmd.MarkFlagRequired("site-url")
 	_ = setCmd.MarkFlagRequired("project-key")
 

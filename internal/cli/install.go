@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
 
 	assets "github.com/liemle3893/autoflow"
+	"github.com/liemle3893/autoflow/internal/autoflow/config"
 )
 
 // newInstallCmd constructs the `install` sub-command which copies bundled
@@ -116,6 +118,23 @@ func installAutoflow(cmd *cobra.Command, cwd string) error {
 
 	fmt.Fprintf(cmd.OutOrStdout(), "Autoflow skills installed under %s\n", skillsDst)
 	fmt.Fprintf(cmd.OutOrStdout(), "Autoflow agents installed under %s\n", agentsDst)
+
+	// Non-interactive next-step guidance (idempotent — printed on every
+	// install so the user sees it even after adjusting config manually).
+	out := cmd.OutOrStdout()
+	cfgPath := config.Path(cwd)
+	if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
+		fmt.Fprintln(out, "Next: autoflow config set coding_agent claude|copilot")
+	}
+	c, _ := config.Read(cwd)
+	if c != nil && c.CodingAgent != "" {
+		if _, err := exec.LookPath("sbx"); err == nil {
+			slug := filepath.Base(cwd)
+			fmt.Fprintf(out,
+				"Suggested: sbx run %s --name %s . && autoflow sandbox bootstrap --name %s\n",
+				c.CodingAgent, slug, slug)
+		}
+	}
 	return nil
 }
 
