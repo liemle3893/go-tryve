@@ -126,7 +126,16 @@ func ExecuteStep(
 		}
 		for varName, path := range step.Capture {
 			val, _ := assertion.EvalJSONPath(captureData, path)
-			interpCtx.Captured[varName] = val
+			if step.Name != "" {
+				nested, _ := interpCtx.Captured[step.Name].(map[string]any)
+				if nested == nil {
+					nested = make(map[string]any)
+				}
+				nested[varName] = val
+				interpCtx.Captured[step.Name] = nested
+			} else {
+				interpCtx.Captured[varName] = val
+			}
 		}
 	}
 
