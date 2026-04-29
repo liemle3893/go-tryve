@@ -267,6 +267,34 @@ variables:
 
 ---
 
+## Network Functions
+
+### `$freePort()`
+
+Allocate an available TCP port from the OS. Each call returns a different port.
+
+```yaml
+variables:
+  server_port: "{{$freePort()}}"
+  # → "49152" (varies)
+```
+
+Useful for starting services on dynamic ports to avoid conflicts:
+
+```yaml
+variables:
+  port: "{{$freePort()}}"
+
+setup:
+  - adapter: shell
+    action: exec
+    command: "start-server --port={{port}}"
+```
+
+> **Note:** When using the `process` adapter, free port allocation is handled automatically via the `{{free_port}}` token — you don't need `$freePort()` in that case. Use `$freePort()` for ad-hoc port allocation outside process steps.
+
+---
+
 ## TOTP Function
 
 ### `$totp(secret)`
@@ -459,3 +487,4 @@ execute:
 | `$trim(value)` | string | Trimmed | `hello` |
 | `$jsonStringify(value)` | any | JSON string | `{"key":"value"}` |
 | `$totp(secret)` | base32 string | TOTP 6-digit code (RFC 6238) | `482931` |
+| `$freePort()` | none | Available TCP port | `49152` |

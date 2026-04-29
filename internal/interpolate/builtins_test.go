@@ -307,3 +307,27 @@ func TestBuiltin_JSONStringify(t *testing.T) {
 		t.Error("expected escaped double-quote in output")
 	}
 }
+
+// TestBuiltin_FreePort verifies that $freePort() returns a valid port number.
+func TestBuiltin_FreePort(t *testing.T) {
+	got, err := interpolate.CallBuiltin("freePort")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	port, err := strconv.Atoi(got)
+	if err != nil {
+		t.Fatalf("expected numeric port, got %q: %v", got, err)
+	}
+	if port < 1024 || port > 65535 {
+		t.Fatalf("port %d outside expected range [1024, 65535]", port)
+	}
+}
+
+// TestBuiltin_FreePort_Unique verifies that two calls return different ports.
+func TestBuiltin_FreePort_Unique(t *testing.T) {
+	a, _ := interpolate.CallBuiltin("freePort")
+	b, _ := interpolate.CallBuiltin("freePort")
+	if a == b {
+		t.Fatalf("expected different ports, both got %s", a)
+	}
+}

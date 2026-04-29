@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"math/rand"
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -43,6 +44,7 @@ var builtins = map[string]BuiltinFunc{
 	"lower":         builtinLower,
 	"upper":         builtinUpper,
 	"trim":          builtinTrim,
+	"freePort":      builtinFreePort,
 }
 
 // CallBuiltin calls a named built-in function with the given arguments.
@@ -314,4 +316,15 @@ func builtinTrim(args ...string) (string, error) {
 		return "", fmt.Errorf("trim: expected 1 argument")
 	}
 	return strings.TrimSpace(args[0]), nil
+}
+
+// builtinFreePort allocates an available TCP port from the OS and returns it as a string.
+func builtinFreePort(_ ...string) (string, error) {
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return "", fmt.Errorf("freePort: %w", err)
+	}
+	port := l.Addr().(*net.TCPAddr).Port
+	l.Close()
+	return strconv.Itoa(port), nil
 }
